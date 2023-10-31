@@ -1,0 +1,23 @@
+:root{
+  --global-ok: #69d29a;
+  --global-alert: #ffde5a;
+  --global-danger: #ff5858;
+}
+
+:root.dark{
+  --global-ok: #3e805b;
+  --global-alert: rgba(180, 154, 54, 1);
+  --global-danger: rgba(194, 55, 55, 1);
+}
+
+* {
+  font-family:  "Noto Sans SC", sans-serif, Charter, Arial, "Noto Sans JP";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body{
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
