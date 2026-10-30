@@ -1,0 +1,274 @@
+/*
+ * 单线列车位置。线路中心在 --line-x；左列卡片右缘、右列卡片左缘都离线路中心 --gap。
+ * 车站名在最左一列，宽度不超过左列卡片的左缘。
+ */
+.view {
+  --line-x: 60%;
+  --line-w: 14px;
+  --gap: 24px;
+  --card-w: 84px;
+  padding-bottom: 16px;
+}
+
+.directions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.direction {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 8px 0 6px;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.direction svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.updated {
+  margin: 0 0 12px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.diagram {
+  position: relative;
+}
+
+/* 不设 z-index：车站圆点（z 2）要画在线身（z 1）之上，本站底色（z -1）在两者之下。 */
+.stops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 每站一行占满宽度；右侧内边距留给左列卡片和线路，站名不会被卡片盖住。 */
+.stop {
+  position: relative;
+  height: var(--row);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding-left: 4px;
+  padding-right: calc(100% - var(--line-x) + var(--gap) + var(--card-w) + 6px);
+}
+
+/* 本站一整行浅底，延伸到面板左右边缘。 */
+.current::before {
+  content: "";
+  position: absolute;
+  inset: 4px -16px;
+  background: color-mix(in srgb, var(--line) 12%, transparent);
+  z-index: -1;
+}
+
+.stopName {
+  font-size: 16px;
+  font-weight: 700;
+  word-break: keep-all;
+  line-height: 1.2;
+}
+
+.current .stopName {
+  font-weight: 900;
+}
+
+.stopMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.code {
+  padding: 0 4px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-info);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.here {
+  padding: 0 4px;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* 线身 + 两侧 3 px 深色描边，从第一站中心到最后一站中心。 */
+.line {
+  position: absolute;
+  left: calc(var(--line-x) - var(--line-w) / 2);
+  top: calc(var(--row) / 2);
+  bottom: calc(var(--row) / 2);
+  width: var(--line-w);
+  background: var(--line);
+  border-inline: var(--casing) solid var(--text);
+  z-index: 1;
+}
+
+/* 车站圆点画在线身之上。 */
+.dot {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--line-x) - 11px);
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 4px solid var(--text);
+  z-index: 2;
+}
+
+.current .dot {
+  left: calc(var(--line-x) - 14px);
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  background: var(--text);
+  box-shadow: inset 0 0 0 5px var(--text);
+}
+
+.current .dot::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+/* ---------- 列车卡片 ---------- */
+
+.train {
+  position: absolute;
+  z-index: 3;
+  width: var(--card-w);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-info);
+  background: var(--paper);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent),
+    var(--control-shadow);
+}
+
+.left {
+  right: calc(100% - var(--line-x) + var(--gap));
+}
+
+.right {
+  left: calc(var(--line-x) + var(--gap));
+}
+
+/* 引线：卡片边缘到线路边缘，指向列车的真实位置。 */
+.leader {
+  position: absolute;
+  width: calc(var(--gap) - var(--line-w) / 2);
+  height: 3px;
+  background: var(--text);
+}
+
+.left .leader {
+  left: 100%;
+}
+
+.right .leader {
+  right: 100%;
+}
+
+.delay {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 5px;
+  border-radius: var(--radius-info);
+  background: var(--status-caution);
+  color: var(--status-text);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 4px;
+  border-radius: var(--radius-info) var(--radius-info) 0 0;
+  background: var(--line);
+  color: var(--on-line);
+  line-height: 1.15;
+}
+
+.cardTitle {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cars {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cardBody {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+}
+
+.cardBody svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--text);
+}
+
+.crowding {
+  display: flex;
+  gap: 2px;
+}
+
+.crowding span {
+  width: 6px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.ok .filled {
+  background: var(--status-ok);
+}
+
+.caution .filled {
+  background: var(--status-caution);
+}
+
+.error .filled {
+  background: var(--status-error);
+}

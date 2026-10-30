@@ -2,12 +2,19 @@ import { unzipSync, strFromU8 } from "fflate";
 import { railApiBase } from "./railApi.ts";
 
 /**
- * 从 GTFS 静态包推出每条线路的站序。catalog 没有站序，GTFS 的 stop_times 有。
+ * 从 GTFS 静态包推出每条线路的站序与交路终点。catalog 没有站序，GTFS 的 stop_times 有。
  * 整个包约 170 KB，API 缓存 5 分钟；这里只读 trips、stops、stop_times 三个文件。
  */
 
 /** 键为「运营商:线路」（例如 SURC:MT），值为按站序排列的站码（例如 PTK）。 */
 export type LineOrders = Map<string, string[]>;
+
+/** 从 GTFS 推出的索引：线路站序，以及每个交路的终点（trip_headsign）。 */
+export interface GtfsIndex {
+  lineOrders: LineOrders;
+  /** 键为交路代码（与在线列车的 routeCode 相同，例如 SURC:MT:MT-2F_Short），值为终点站名。 */
+  headsigns: Map<string, string>;
+}
 
 export function lineKey(operatorCode: string, lineCode: string): string {
   return `${operatorCode}:${lineCode}`;
@@ -65,17 +72,26 @@ function stationCodeOf(stopId: string, parentOf: Map<string, string>): string | 
 }
 
 /**
- * 每条线路取停站最多的一个车次作为全线站序。
+ * 线路站序：每条线路取停站最多的一个车次作为全线站序。
  * 交路有长有短，最长的那一班覆盖全线；两个方向的站序相反，这里不区分方向。
+ * 交路终点：trip_short_name 形如 MT-2F_Short-001，去掉末尾班次号就是交路名，
+ * 与 route_id 的「运营商:线路」拼起来即在线列车的 routeCode。
  */
-export function buildLineOrders(files: {
+export function buildGtfsIndex(files: {
   trips: string;
   stops: string;
   stopTimes: string;
-}): LineOrders {
-  const routeOfTrip = new Map(
-    parseCsv(files.trips).map((t) => [t.trip_id ?? "", t.route_id ?? ""] as const),
-  );
+}): GtfsIndex {
+  const trips = parseCsv(files.trips);
+  const routeOfTrip = new Map(trips.map((t) => [t.trip_id ?? "", t.route_id ?? ""] as const));
+  const headsigns = new Map<string, string>();
+  for (const trip of trips) {
+    const [, operatorCode, lineCode] = (trip.route_id ?? "").split(":");
+    const pattern = trip.trip_short_name?.replace(/-\d+$/, "");
+    if (operatorCode && lineCode && pattern && trip.trip_headsign) {
+      headsigns.set(`${operatorCode}:${lineCode}:${pattern}`, trip.trip_headsign);
+    }
+  }
   const parentOf = new Map(
     parseCsv(files.stops).map((s) => [s.stop_id ?? "", s.parent_station ?? ""] as const),
   );
@@ -101,11 +117,11 @@ export function buildLineOrders(files: {
       .filter((code): code is string => Boolean(code));
     if (codes.length > (longest.get(key)?.length ?? 0)) longest.set(key, codes);
   }
-  return longest;
+  return { lineOrders: longest, headsigns };
 }
 
 /** 下载并解析某个服务器的 GTFS 静态包。 */
-export async function fetchLineOrders(serverId: string, signal?: AbortSignal): Promise<LineOrders> {
+export async function fetchGtfsIndex(serverId: string, signal?: AbortSignal): Promise<GtfsIndex> {
   const response = await fetch(
     `${railApiBase}/v1/rail/servers/${encodeURIComponent(serverId)}/gtfs.zip`,
     { signal },
@@ -119,7 +135,7 @@ export async function fetchLineOrders(serverId: string, signal?: AbortSignal): P
     if (!file) throw new Error(`GTFS 包缺少 ${name}`);
     return strFromU8(file);
   };
-  return buildLineOrders({
+  return buildGtfsIndex({
     trips: read("trips.txt"),
     stops: read("stops.txt"),
     stopTimes: read("stop_times.txt"),

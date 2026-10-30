@@ -56,8 +56,8 @@ export interface BoardContext {
  * 推断种别。API 目前没有单独的种别字段，暂按交路 ID 判断：带 Exp 的为快速，其余为普通。
  * 等 FTCA 下发种别后改为直接读取。
  */
-export function serviceTypeOf(departure: RailDeparture): string {
-  return /exp/i.test(departure.routeId) ? "快速" : "普通";
+export function serviceTypeOf(route: { routeId: string }): string {
+  return /exp/i.test(route.routeId) ? "快速" : "普通";
 }
 
 /** 运营商代码（例如 SURC）对应的 catalog 运营商 ID。 */

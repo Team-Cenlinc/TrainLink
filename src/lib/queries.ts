@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { fetchLineOrders } from "./gtfs.ts";
-import { fetchBoard, fetchCatalog } from "./railApi.ts";
+import { fetchGtfsIndex } from "./gtfs.ts";
+import { fetchBoard, fetchCatalog, fetchTrains } from "./railApi.ts";
 import type { HomeStation } from "./homeStation.ts";
 
 /**
@@ -33,12 +33,26 @@ export function useBoard(station: HomeStation) {
   });
 }
 
-/** 各线路站序（来自 GTFS 静态包），5 分钟内视为新鲜。 */
-export function useLineOrders(serverId: string) {
+/** GTFS 索引（线路站序与交路终点），5 分钟内视为新鲜。 */
+export function useGtfs(serverId: string) {
   return useQuery({
-    queryKey: ["lineOrders", serverId],
-    queryFn: ({ signal }) => fetchLineOrders(serverId, signal),
+    queryKey: ["gtfs", serverId],
+    queryFn: ({ signal }) => fetchGtfsIndex(serverId, signal),
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * 在线列车，每 5 秒刷新（与 API 缓存一致）。
+ * enabled 为 false 时不请求：只有打开「线路」视图才需要列车位置。
+ */
+export function useTrains(enabled: boolean) {
+  return useQuery({
+    queryKey: ["trains"],
+    queryFn: ({ signal }) => fetchTrains(signal),
+    refetchInterval: 5_000,
+    staleTime: 2_000,
+    enabled,
   });
 }
 

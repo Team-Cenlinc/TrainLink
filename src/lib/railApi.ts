@@ -125,6 +125,29 @@ export interface RailBoard extends RailEnvelope {
   departures: RailDeparture[];
 }
 
+/**
+ * 一列在线列车。节点形如 SURC:S:WSD:3（运营商:S:站码:站台）；
+ * currentNode 是最近经过或正停靠的节点，nextNode 是下一个节点（到终点后可能没有）。
+ */
+export interface RailTrain {
+  serverId: string;
+  /** 列车名，例如 SURC-MT-LP-8538；同一服务器内唯一。 */
+  name: string;
+  operatorCode: string;
+  lineCode: string;
+  /** 交路，例如 SURC:MT:MT-2F_Short；用它在 GTFS 里查终点。 */
+  routeCode?: string;
+  inService: boolean;
+  currentNode?: string;
+  nextNode?: string;
+  speedBlocksPerSecond: number;
+  updatedAt: string;
+}
+
+export interface RailTrains extends RailEnvelope {
+  trains: RailTrain[];
+}
+
 /** 请求失败时抛出，带上 HTTP 状态码，方便界面区分「暂时不可用」(503) 与其他错误。 */
 export class RailApiError extends Error {
   constructor(
@@ -183,6 +206,11 @@ export function fetchBoard(
   const query = options.horizonSeconds ? `?horizon=${options.horizonSeconds}` : "";
   const path = `/v1/rail/servers/${encodeURIComponent(serverId)}/stations/${encodeURIComponent(operatorCode)}/${encodeURIComponent(stationCode)}/board${query}`;
   return getEnvelope<RailBoard>(path, ["departures"], options.signal);
+}
+
+/** 所有在线列车；API 缓存 5 秒。 */
+export function fetchTrains(signal?: AbortSignal): Promise<RailTrains> {
+  return getEnvelope<RailTrains>("/v1/rail/trains", ["trains"], signal);
 }
 
 /** 来源服务器的时区；缺省时用 Fetarute 服务器所在的 Asia/Shanghai。 */

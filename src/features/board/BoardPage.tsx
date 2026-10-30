@@ -11,8 +11,9 @@ import { motion, useTransform } from "motion/react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { Segmented } from "@/components/Segmented.tsx";
 import { readHomeStation } from "@/lib/homeStation.ts";
-import { useBoard, useCatalog, useLineOrders, useNow } from "@/lib/queries.ts";
+import { useBoard, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
+import { lineKey } from "@/lib/gtfs.ts";
 import {
   blueMapUrl,
   findStation,
@@ -24,6 +25,8 @@ import {
 import { formatClock } from "@/lib/time.ts";
 import { CompactBar } from "./CompactBar.tsx";
 import { DepartureGroup } from "./DepartureGroup.tsx";
+import { buildLineLayout } from "./linePositions.ts";
+import { LineView } from "./LineView.tsx";
 import { groupByPlatform } from "./departures.ts";
 import { StationHeader } from "./StationHeader.tsx";
 import { StationInfoSheet } from "./StationInfoSheet.tsx";
@@ -62,19 +65,21 @@ export function BoardPage() {
   const now = useNow();
   const catalog = useCatalog();
   const board = useBoard(home);
-  const lineOrders = useLineOrders(home.serverId);
+  const gtfs = useGtfs(home.serverId);
+  // 列车位置只在「线路」视图打开时读取。
+  const trains = useTrains(view === "line");
 
   const station = findStation(catalog.data, home.serverId, home.operatorCode, home.stationCode);
   const lines = station ? servingLines(station) : [];
   const primaryLine = lines[0];
   const strip =
     station && primaryLine
-      ? neighbourStops(catalog.data, lineOrders.data, station, primaryLine)
+      ? neighbourStops(catalog.data, gtfs.data?.lineOrders, station, primaryLine)
       : [];
   const transfers = station ? transferLines(station) : [];
   const nearest =
     station && primaryLine && transfers.length === 0
-      ? nearestTransfer(catalog.data, lineOrders.data, station, primaryLine)
+      ? nearestTransfer(catalog.data, gtfs.data?.lineOrders, station, primaryLine)
       : undefined;
   const mapUrl = station ? blueMapUrl(station) : undefined;
   const timeZone = sourceTimeZone(board.data, home.serverId);
@@ -86,6 +91,23 @@ export function BoardPage() {
         catalog: catalog.data,
       })
     : [];
+
+  const lineOrder = primaryLine
+    ? gtfs.data?.lineOrders.get(lineKey(primaryLine.operatorCode, primaryLine.lineCode))
+    : undefined;
+  const lineLayout =
+    view === "line" && primaryLine && lineOrder && trains.data
+      ? buildLineLayout({
+          order: lineOrder,
+          line: primaryLine,
+          serverId: home.serverId,
+          stationCode: home.stationCode,
+          trains: trains.data.trains,
+          headsigns: gtfs.data?.headsigns ?? new Map(),
+          departures: board.data?.departures ?? [],
+          catalog: catalog.data,
+        })
+      : undefined;
 
   // ---------- 面板三档：量出各档位置 ----------
   const titleRef = useRef<HTMLDivElement>(null);
@@ -223,11 +245,46 @@ export function BoardPage() {
             <SearchIcon aria-hidden />从{station?.name ?? "本站"}去哪里？
           </button>
           <div className={styles.controls}>
-            <Segmented label="看板视图" options={viewOptions} value={view} onChange={setView} />
+            <Segmented
+              label="看板视图"
+              options={viewOptions}
+              value={view}
+              onChange={(next) => {
+                setView(next);
+                // 整条线需要更多空间，切到「线路」时把面板推上。
+                if (next === "line") goTo("expanded");
+              }}
+            />
           </div>
 
           {view === "line" ? (
-            <p className={styles.message}>单线列车位置正在制作中。</p>
+            lineLayout ? (
+              <LineView
+                layout={lineLayout}
+                lineColor={primaryLine?.color}
+                updated={
+                  trains.dataUpdatedAt ? formatClock(trains.dataUpdatedAt, timeZone) : undefined
+                }
+              />
+            ) : trains.isError || gtfs.isError ? (
+              <div className={styles.message}>
+                <p>列车位置暂时无法读取。</p>
+                <button
+                  type="button"
+                  className={styles.retry}
+                  onClick={() => {
+                    void trains.refetch();
+                    void gtfs.refetch();
+                  }}
+                >
+                  重试
+                </button>
+              </div>
+            ) : gtfs.data && !lineOrder ? (
+              <p className={styles.message}>暂无这条线路的站序数据。</p>
+            ) : (
+              <p className={styles.message}>正在读取列车位置…</p>
+            )
           ) : board.isPending ? (
             <p className={styles.message}>正在读取站牌…</p>
           ) : board.isError ? (
