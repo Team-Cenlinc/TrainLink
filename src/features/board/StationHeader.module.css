@@ -61,6 +61,26 @@
   word-break: keep-all;
 }
 
+/* 编号标签与当前时刻同一行：标签靠左，时刻靠右，按基线对齐。 */
+.tagsRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.clock {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.clock :global(.num) {
+  font-size: 17px;
+  font-weight: 800;
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;

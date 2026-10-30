@@ -93,21 +93,6 @@
   margin-bottom: 20px;
 }
 
-.now {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.now svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
-}
-
 .message {
   margin: 48px 0;
   text-align: center;

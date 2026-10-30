@@ -17,6 +17,8 @@ interface StationHeaderProps {
   /** 下拉后显示的前后站；没有站序数据时为空。 */
   strip: StripStop[];
   mapUrl?: string;
+  /** 服务器当前时刻，例如 22:18；和发车行的时刻同一时区。 */
+  clock: string;
   onInfo: () => void;
   /** 在色块上按下即开始拖动面板（下拉）。 */
   onDragStart: (event: PointerEvent) => void;
@@ -56,6 +58,7 @@ export function StationHeader({
   lines,
   strip,
   mapUrl,
+  clock,
   onInfo,
   onDragStart,
   up,
@@ -97,7 +100,12 @@ export function StationHeader({
         <h1 className={styles.name}>
           <StationName name={station?.name ?? stationCode} />
         </h1>
-        <StationTags lines={lines} stationCode={stationCode} />
+        <div className={styles.tagsRow}>
+          <StationTags lines={lines} stationCode={stationCode} />
+          <span className={styles.clock}>
+            现在 <span className="num">{clock}</span>
+          </span>
+        </div>
         {isTransfer && (
           <div className={styles.band} aria-hidden>
             {lines.map((line) => (

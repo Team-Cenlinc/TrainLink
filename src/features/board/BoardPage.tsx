@@ -8,7 +8,6 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 import { motion, useTransform } from "motion/react";
-import ScheduleIcon from "@material-symbols/svg-400/outlined/schedule.svg?react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { Segmented } from "@/components/Segmented.tsx";
 import { readHomeStation } from "@/lib/homeStation.ts";
@@ -166,6 +165,7 @@ export function BoardPage() {
         lines={lines}
         strip={strip}
         mapUrl={mapUrl}
+        clock={formatClock(now, timeZone)}
         onInfo={() => setInfoOpen(true)}
         onDragStart={startDrag}
         up={up}
@@ -224,10 +224,6 @@ export function BoardPage() {
           </button>
           <div className={styles.controls}>
             <Segmented label="看板视图" options={viewOptions} value={view} onChange={setView} />
-            <span className={styles.now}>
-              <ScheduleIcon aria-hidden />
-              <span className="num">{formatClock(now, timeZone)}</span>
-            </span>
           </div>
 
           {view === "line" ? (
