@@ -44,12 +44,17 @@ VITE_RAIL_API_BASE= npm run build && npm run preview
 src/
   main.tsx              入口：路由与数据缓存
   App.tsx               外壳：当前页面 + 浮动标签栏
-  components/           跨页面复用的组件（线路色牌、标签栏、分段控制）
-  features/board/       看板：本站标题、三档面板、按站台的发车列表、车站信息
+  components/           跨页面复用的组件（线路色牌、标签栏、侧边栏、分段控制）
+  features/board/       看板：手机三档面板（CompactBoard）、平板与桌面多栏（WideBoard）、
+                        按站台的发车列表、单线列车位置、车站信息
   features/placeholder/ 尚未实现的标签页
   lib/                  API 类型与读取、数据 Hook、本站、线路色工具
   styles/               设计 token 与全局样式
 ```
+
+## 布局
+
+按可用宽度切换（`src/lib/useLayout.ts`）：小于 600 为手机单栏加可拖动面板；600–1099 为两栏（本站发车 / 列车位置）；1100 以上为侧边栏加三栏（两个方向的发车与列车位置）。车站信息在手机上是底部面板，在大屏上是右上角的弹出卡片。
 
 ## 数据
 

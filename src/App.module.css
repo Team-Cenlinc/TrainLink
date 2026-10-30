@@ -1,0 +1,4 @@
+/* 桌面：内容区从侧边栏右侧开始。 */
+.withSidebar {
+  margin-left: var(--sidebar-w);
+}

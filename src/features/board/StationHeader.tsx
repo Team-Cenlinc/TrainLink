@@ -186,7 +186,7 @@ export function StationTags({
  * 前后站线路条：白色线身加深色描边（官网 404 换乘指引的线路几何），本站圆点加大。
  * 站序来自 GTFS；本站在线路端点时只画一侧。
  */
-function LineStrip({ stops }: { stops: StripStop[] }) {
+export function LineStrip({ stops }: { stops: StripStop[] }) {
   return (
     <ol className={styles.strip} aria-label="前后车站">
       {stops.map((stop) => (

@@ -1,11 +1,26 @@
 import { Outlet } from "react-router";
+import { Sidebar } from "@/components/Sidebar.tsx";
 import { TabBar } from "@/components/TabBar.tsx";
+import { useLayout } from "@/lib/useLayout.ts";
+import styles from "./App.module.css";
 
 /**
- * App 外壳：当前标签页的内容 + 浮动标签栏。
+ * App 外壳：当前标签页的内容 + 导航。
+ * 手机与平板用底部浮动标签栏；桌面（宽度 ≥ 1100）改用左侧边栏，内容区让出侧边栏的宽度。
  * Outlet 是 React Router 的占位符，路由匹配到哪一页就在这里渲染哪一页。
  */
 export function App() {
+  const layout = useLayout();
+  if (layout === "wide") {
+    return (
+      <>
+        <Sidebar />
+        <div className={styles.withSidebar}>
+          <Outlet />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <Outlet />

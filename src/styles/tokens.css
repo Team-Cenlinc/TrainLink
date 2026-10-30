@@ -43,6 +43,9 @@
   --font-sc: "Noto Sans SC", system-ui, sans-serif;
   --font-display: "Noto Sans Display", "Noto Sans SC", system-ui, sans-serif;
 
+  /* 桌面侧边栏宽度。 */
+  --sidebar-w: 248px;
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }

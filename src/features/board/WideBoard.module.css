@@ -1,0 +1,183 @@
+/* 大屏看板占满可用高度：顶部色块按内容高，下面的面板填满剩余高度，各栏在面板里独立滚动。 */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--line);
+}
+
+.hero {
+  flex: none;
+  padding: calc(var(--safe-top) + 16px) 32px 52px;
+  color: var(--on-line);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.textButton svg,
+.iconButton svg,
+.search svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+/* 搜索「去哪里」：标题栏中间的半透明输入样式，点开进入行程页。 */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  max-width: 480px;
+  height: 44px;
+  margin: 0 auto;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--on-line) 18%, transparent);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--on-line) 18%, transparent);
+}
+
+.textButton:active,
+.iconButton:active,
+.search:active {
+  transform: scale(0.98);
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-top: 24px;
+}
+
+.title {
+  min-width: 0;
+}
+
+.name {
+  margin: 0 0 10px;
+  font-size: clamp(44px, 6vw, 72px);
+  font-weight: 900;
+  line-height: 1.05;
+  word-break: keep-all;
+}
+
+.tagsRow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.clock {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.clock :global(.num) {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* 前后站线路条：右对齐，宽度有上限，避免在超宽窗口里拉得太散。 */
+.strip {
+  flex: 0 1 460px;
+  min-width: 300px;
+  padding: 0 20px 4px;
+}
+
+/* ---------- 面板与各栏 ---------- */
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 24px;
+  margin-top: -24px;
+  padding: 24px 32px 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--canvas);
+}
+
+.wide .panel {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(360px, 420px);
+}
+
+.medium .panel {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+}
+
+/* 只有一个站台（或读取中）时，发车栏横跨两栏。 */
+.wide .panel > .column:first-child:nth-last-child(2) {
+  grid-column: span 2;
+}
+
+.column {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 4px 4px 32px;
+}
+
+/* 平板仍有底部浮动标签栏，各栏底部留出它的位置。 */
+.medium .column {
+  padding-bottom: calc(var(--safe-bottom) + 110px);
+}
+
+.lineColumn {
+  padding: 0 16px 32px;
+  border-radius: var(--radius-group) var(--radius-group) 0 0;
+  background: var(--surface);
+}
+
+/* 线路栏标题与方向标题吸顶，滚动线路图时一直可见。 */
+.lineHead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 -16px;
+  padding: 16px 16px 8px;
+  background: var(--surface);
+}
+
+.lineTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.lineTitle span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}

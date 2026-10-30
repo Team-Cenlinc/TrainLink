@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import CloseIcon from "@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react";
+import CollapseIcon from "@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react";
+import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
@@ -25,6 +26,11 @@ interface StationInfoSheetProps {
   /** 本站不能换乘时，沿线最近的换乘站。 */
   nearest?: { stop: RailStation; lines: RailStationLine[]; distance: number };
   mapUrl?: string;
+  /**
+   * sheet：手机上从底部滑出的模态面板，背景压暗；
+   * popover：大屏上从右上角车站信息按钮处展开的卡片，不压暗，点卡片外任意处关闭。
+   */
+  variant?: "sheet" | "popover";
 }
 
 const transferTypeLabel: Record<string, string> = {
@@ -33,8 +39,10 @@ const transferTypeLabel: Record<string, string> = {
 };
 
 /**
- * 车站信息面板：停靠线路与站台去向、换乘、所在位置与地图。
- * 模态面板：背景压暗；点压暗区域、按 Esc、点收起按钮或向下甩动都会关闭，关闭后焦点回到打开它的按钮。
+ * 车站信息：停靠线路与站台去向、换乘、所在位置与地图。
+ * 手机上是模态面板：背景压暗；点压暗区域、按 Esc、点收起按钮或向下甩动都会关闭。
+ * 大屏上是弹出卡片：从右上角的按钮处展开（缩放原点在按钮一侧），点卡片外或按 Esc 关闭。
+ * 两种形态关闭后焦点都回到打开它的按钮。
  * 通过 portal 渲染到 body：看板页面是 position: fixed，会形成自己的层叠上下文，
  * 面板留在里面就盖不过浮动标签栏。
  */
@@ -43,6 +51,33 @@ export function StationInfoSheet(props: StationInfoSheetProps) {
   const transition = reduceMotion
     ? { duration: 0 }
     : ({ type: "spring", bounce: 0, duration: 0.4 } as const);
+
+  if (props.variant === "popover") {
+    return createPortal(
+      <AnimatePresence>
+        {props.open && (
+          <>
+            {/* 透明的点击层：点卡片外任意处关闭，不压暗背景。 */}
+            <div key="dismiss" className={styles.dismiss} onClick={props.onClose} />
+            <motion.section
+              key="popover"
+              className={styles.popover}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="station-info-title"
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.16, ease: [0.2, 0, 0, 1] }}
+            >
+              <SheetContent {...props} />
+            </motion.section>
+          </>
+        )}
+      </AnimatePresence>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <AnimatePresence>
@@ -92,6 +127,7 @@ function SheetContent({
   transfers,
   nearest,
   mapUrl,
+  variant,
 }: StationInfoSheetProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -123,10 +159,11 @@ function SheetContent({
           ref={closeRef}
           type="button"
           className={styles.close}
-          aria-label="收起"
+          aria-label={variant === "popover" ? "关闭" : "收起"}
           onClick={onClose}
         >
-          <CloseIcon aria-hidden />
+          {/* 底部面板向下收起；弹出卡片直接关闭。 */}
+          {variant === "popover" ? <CloseIcon aria-hidden /> : <CollapseIcon aria-hidden />}
         </button>
       </header>
 
