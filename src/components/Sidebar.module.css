@@ -23,21 +23,11 @@
   letter-spacing: -0.01em;
 }
 
+/* App 图标缩小后用圆角方形，与系统主屏图标一致。 */
 .mark {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
   width: 32px;
   height: 32px;
-  padding: 5px;
   border-radius: 8px;
-  background: var(--action);
-}
-
-.mark span {
-  height: 4px;
-  border-radius: 2px;
 }
 
 .nav {

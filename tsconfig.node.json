@@ -13,5 +13,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["vite.config.ts", "prettier.config.ts"]
+  "include": ["vite.config.ts", "prettier.config.ts", "scripts"]
 }

@@ -30,6 +30,7 @@ npm run dev
 npm run typecheck   # 类型检查
 npm run build       # 类型检查并构建到 dist/
 npm run format      # Prettier 格式化
+npm run icons       # 重新生成 public/icons/ 下的 App 图标（几何定义在 scripts/build-icons.ts）
 ```
 
 本地预览生产构建时，让 API 请求也走代理：
@@ -51,6 +52,12 @@ src/
   lib/                  API 类型与读取、数据 Hook、本站、线路色工具
   styles/               设计 token 与全局样式
 ```
+
+## 图标
+
+App 图标为「风车」：四条线路色矩形绕中心空方块旋转排列。SVG 与各尺寸 PNG 都由
+`scripts/build-icons.ts` 生成：标准图标（iOS、桌面、apple-touch-icon）、自适应图标（PWA
+maskable，内容在中心 80% 安全区内）、浏览器标签专用的 favicon（间隙加大、无圆角）。
 
 ## 布局
 

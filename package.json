@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "format": "NODE_OPTIONS=--experimental-strip-types prettier --write .",
-    "format:check": "NODE_OPTIONS=--experimental-strip-types prettier --check ."
+    "format:check": "NODE_OPTIONS=--experimental-strip-types prettier --check .",
+    "icons": "NODE_OPTIONS=--experimental-strip-types node scripts/build-icons.ts"
   },
   "dependencies": {
     "@material-symbols/svg-400": "^0.48.2",
@@ -30,6 +31,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vite-plugin-svgr": "^5.2.0"

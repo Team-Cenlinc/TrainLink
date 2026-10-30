@@ -19,12 +19,8 @@ export function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
-        {/* 临时品牌标：三条线路色带，正式图标设计完成后替换。 */}
-        <span className={styles.mark} aria-hidden>
-          <span style={{ background: "#D920D9" }} />
-          <span style={{ background: "#70DEEE" }} />
-          <span style={{ background: "#F6A000" }} />
-        </span>
+        {/* App 图标（H 风车），由 scripts/build-icons.ts 生成。 */}
+        <img className={styles.mark} src="/icons/icon.svg" alt="" width={32} height={32} />
         TrainLink
       </div>
 
