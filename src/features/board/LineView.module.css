@@ -1,45 +1,57 @@
 /*
  * 单线列车位置。线路中心在 --line-x；左列卡片右缘、右列卡片左缘都离线路中心 --gap。
- * 车站名在最左一列，宽度不超过左列卡片的左缘。
+ * 车站名在最左一列，宽度不超过左列卡片的左缘。方向标题与线路图共用这些变量，所以总是对齐。
  */
-.view {
-  --line-x: 60%;
+.view,
+.directions {
+  --line-x: 63%;
   --line-w: 14px;
-  --gap: 24px;
-  --card-w: 84px;
-  padding-bottom: 16px;
+  --gap: 20px;
+  --card-w: 92px;
 }
 
+.view {
+  padding: 4px 0 16px;
+}
+
+/* 方向标题：各自对齐到自己那一列；左侧空位写更新时刻。 */
 .directions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-bottom: 6px;
+  position: relative;
+  height: 32px;
 }
 
 .direction {
+  position: absolute;
+  top: 0;
   display: inline-flex;
   align-items: center;
   gap: 2px;
   height: 28px;
+  max-width: calc(var(--line-x) - var(--gap) - 60px);
   padding: 0 8px 0 6px;
   border-radius: var(--radius-info);
   background: var(--action);
   color: var(--action-text);
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .direction svg {
+  flex: none;
   width: 15px;
   height: 15px;
   fill: currentColor;
 }
 
 .updated {
-  margin: 0 0 12px;
-  text-align: right;
-  font-size: 12px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  line-height: 28px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -88,7 +100,7 @@
 
 .stopMeta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
 }
@@ -207,26 +219,33 @@
   white-space: nowrap;
 }
 
+/* 卡片标题：种别一行小字，终点一行粗体；终点放不下时省略，完整名称在读屏标签里。 */
 .cardHead {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 30px;
-  padding: 0 4px;
+  height: 36px;
+  padding: 0 6px;
   border-radius: var(--radius-info) var(--radius-info) 0 0;
   background: var(--line);
   color: var(--on-line);
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
-.cardTitle {
+.cardType {
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.cardDest {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .cars {
@@ -240,7 +259,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 30px;
+  height: 28px;
 }
 
 .cardBody svg {

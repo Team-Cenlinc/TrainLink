@@ -26,7 +26,7 @@ import { formatClock } from "@/lib/time.ts";
 import { CompactBar } from "./CompactBar.tsx";
 import { DepartureGroup } from "./DepartureGroup.tsx";
 import { buildLineLayout } from "./linePositions.ts";
-import { LineView } from "./LineView.tsx";
+import { LineDirections, LineView } from "./LineView.tsx";
 import { groupByPlatform } from "./departures.ts";
 import { StationHeader } from "./StationHeader.tsx";
 import { StationInfoSheet } from "./StationInfoSheet.tsx";
@@ -241,9 +241,12 @@ export function BoardPage() {
         </div>
 
         <div className={`${styles.scroll} ${detent === "expanded" ? styles.scrollable : ""}`}>
-          <button type="button" className={styles.tripEntry} onClick={() => navigate("/trip")}>
-            <SearchIcon aria-hidden />从{station?.name ?? "本站"}去哪里？
-          </button>
+          {view === "station" && (
+            <button type="button" className={styles.tripEntry} onClick={() => navigate("/trip")}>
+              <SearchIcon aria-hidden />从{station?.name ?? "本站"}去哪里？
+            </button>
+          )}
+          {/* 吸顶：滚动时分段控制（以及线路视图的方向标题）始终可见，随时能切回「车站」。 */}
           <div className={styles.controls}>
             <Segmented
               label="看板视图"
@@ -255,17 +258,21 @@ export function BoardPage() {
                 if (next === "line") goTo("expanded");
               }}
             />
-          </div>
-
-          {view === "line" ? (
-            lineLayout ? (
-              <LineView
-                layout={lineLayout}
+            {view === "line" && lineLayout && (
+              <LineDirections
+                first={lineLayout.stops[0]?.name}
+                last={lineLayout.stops[lineLayout.stops.length - 1]?.name}
                 lineColor={primaryLine?.color}
                 updated={
                   trains.dataUpdatedAt ? formatClock(trains.dataUpdatedAt, timeZone) : undefined
                 }
               />
+            )}
+          </div>
+
+          {view === "line" ? (
+            lineLayout ? (
+              <LineView layout={lineLayout} lineColor={primaryLine?.color} />
             ) : trains.isError || gtfs.isError ? (
               <div className={styles.message}>
                 <p>列车位置暂时无法读取。</p>
