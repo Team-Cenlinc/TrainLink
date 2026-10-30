@@ -4,12 +4,14 @@
   left: 0;
   right: 0;
   z-index: 5;
+  padding: calc(var(--safe-top) + 12px) 20px 10px;
+  color: var(--on-line);
+}
+
+.content {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: calc(var(--safe-top) + 12px) 20px 10px;
-  background: var(--line);
-  color: var(--on-line);
 }
 
 .title {

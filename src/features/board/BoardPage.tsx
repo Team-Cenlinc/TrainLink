@@ -28,7 +28,7 @@ import { DepartureGroup } from "./DepartureGroup.tsx";
 import { groupByPlatform } from "./departures.ts";
 import { StationHeader } from "./StationHeader.tsx";
 import { StationInfoSheet } from "./StationInfoSheet.tsx";
-import { useSheetDetents, type Detent, type Detents } from "./useSheetDetents.ts";
+import { useSheetDetents, type Detents } from "./useSheetDetents.ts";
 import styles from "./BoardPage.module.css";
 
 type BoardView = "station" | "line";
@@ -38,19 +38,19 @@ const viewOptions = [
   { value: "line", label: "线路" },
 ] as const;
 
-/** 各档显示的班次数：下拉只看下一班，默认 4 班，推上显示 1 小时内全部。 */
-const rowsByDetent: Record<Detent, number | undefined> = {
-  peek: 1,
-  normal: 4,
-  expanded: undefined,
-};
+/**
+ * 每个方向显示的班次数。三档都相同：面板只移动、不换内容，拖动中途不会出现布局跳动；
+ * 推上也不展开更远的班次，乘客关心的是接下来几班。
+ */
+const rowsShown = 4;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 /**
  * 看板：打开 App 首先看到的本站页。
  * 线路色块铺在后面，发车面板叠在上面，可以拖到三个位置：
- * 下拉露出车站周围信息，默认看大站名与最近几班，推上看 1 小时内的全部班次。
+ * 下拉露出车站周围信息；默认看大站名与最近几班；推上时大站名收进一行标题栏，面板占满屏幕。
+ * 所有过渡都由面板位置直接驱动（跟手），不是按时间播放的动画。
  */
 export function BoardPage() {
   // useState 的初始化函数只在第一次渲染时执行，避免每次渲染都读 localStorage。
@@ -95,10 +95,13 @@ export function BoardPage() {
   const [detents, setDetents] = useState<Detents | null>(null);
 
   useLayoutEffect(() => {
+    // 用 offsetTop/offsetHeight（布局位置）而不是 getBoundingClientRect：
+    // 标题会随拖动缩放、位移，那是视觉变换，不能影响各档位置。
+    const bottomOf = (el: HTMLElement | null) => (el ? el.offsetTop + el.offsetHeight : undefined);
     const measure = () => {
       const expanded = barRef.current?.offsetHeight ?? 64;
-      const titleBottom = titleRef.current?.getBoundingClientRect().bottom ?? 200;
-      const contextBottom = contextRef.current?.getBoundingClientRect().bottom ?? titleBottom;
+      const titleBottom = bottomOf(titleRef.current) ?? 200;
+      const contextBottom = bottomOf(contextRef.current) ?? titleBottom;
       const normal = Math.round(titleBottom + 24);
       // 下拉档至少比默认低 120，并给面板留出约 240 的可见高度。
       const peek = Math.round(
@@ -119,21 +122,23 @@ export function BoardPage() {
 
   const { y, detent, goTo, step, onDragEnd, dragControls } = useSheetDetents(detents);
 
-  // 标题栏与下拉内容的显隐跟着面板位置连续变化。转换函数读 ref，始终拿到最新的档位。
+  /*
+   * 两个进度值把面板位置换算成 0–1，标题、标题栏、下拉内容都只读这两个值：
+   * up：默认 → 推上（0 → 1）；down：默认 → 下拉（0 → 1）。
+   * 转换函数读 ref，始终拿到最新量出的档位。
+   */
   const detentsRef = useRef(detents);
   detentsRef.current = detents;
-  const barOpacity = useTransform(y, (v) => {
+  const up = useTransform(y, (v) => {
     const d = detentsRef.current;
-    return d ? clamp01((d.normal - v) / ((d.normal - d.expanded) * 0.6)) : 0;
+    return d ? clamp01((d.normal - v) / (d.normal - d.expanded)) : 0;
   });
-  const barPointerEvents = useTransform<number, string>(y, (v) => {
-    const d = detentsRef.current;
-    return d && v < d.expanded + 24 ? "auto" : "none";
-  });
-  const contextOpacity = useTransform(y, (v) => {
+  const down = useTransform(y, (v) => {
     const d = detentsRef.current;
     return d ? clamp01((v - d.normal) / (d.peek - d.normal)) : 0;
   });
+  // 面板升到色块上方时阴影加深，表达它在色块之上。
+  const sheetShadow = useTransform(up, (p) => `0 -10px 30px rgb(0 0 0 / ${(0.14 * p).toFixed(3)})`);
 
   // 拖动后浏览器仍会触发一次 click，用这个标记避免把拖动误当成点按拖动条。
   const dragged = useRef(false);
@@ -153,8 +158,6 @@ export function BoardPage() {
     event.preventDefault();
   };
 
-  const showControls = detent !== "peek";
-
   return (
     <div className={styles.page}>
       <StationHeader
@@ -165,7 +168,8 @@ export function BoardPage() {
         mapUrl={mapUrl}
         onInfo={() => setInfoOpen(true)}
         onDragStart={startDrag}
-        contextOpacity={contextOpacity}
+        up={up}
+        down={down}
         titleRef={titleRef}
         contextRef={contextRef}
       />
@@ -174,8 +178,7 @@ export function BoardPage() {
         name={station?.name ?? home.stationCode}
         stationCode={home.stationCode}
         lines={lines}
-        opacity={barOpacity}
-        pointerEvents={barPointerEvents}
+        up={up}
         onSearch={() => navigate("/trip")}
         onInfo={() => setInfoOpen(true)}
         barRef={barRef}
@@ -185,6 +188,7 @@ export function BoardPage() {
         className={styles.sheet}
         style={{
           y,
+          boxShadow: sheetShadow,
           height: detents ? `calc(100dvh - ${detents.expanded}px)` : undefined,
           visibility: detents ? "visible" : "hidden",
         }}
@@ -215,20 +219,16 @@ export function BoardPage() {
         </div>
 
         <div className={`${styles.scroll} ${detent === "expanded" ? styles.scrollable : ""}`}>
-          {showControls && (
-            <>
-              <button type="button" className={styles.tripEntry} onClick={() => navigate("/trip")}>
-                <SearchIcon aria-hidden />从{station?.name ?? "本站"}去哪里？
-              </button>
-              <div className={styles.controls}>
-                <Segmented label="看板视图" options={viewOptions} value={view} onChange={setView} />
-                <span className={styles.now}>
-                  <ScheduleIcon aria-hidden />
-                  <span className="num">{formatClock(now, timeZone)}</span>
-                </span>
-              </div>
-            </>
-          )}
+          <button type="button" className={styles.tripEntry} onClick={() => navigate("/trip")}>
+            <SearchIcon aria-hidden />从{station?.name ?? "本站"}去哪里？
+          </button>
+          <div className={styles.controls}>
+            <Segmented label="看板视图" options={viewOptions} value={view} onChange={setView} />
+            <span className={styles.now}>
+              <ScheduleIcon aria-hidden />
+              <span className="num">{formatClock(now, timeZone)}</span>
+            </span>
+          </div>
 
           {view === "line" ? (
             <p className={styles.message}>单线列车位置正在制作中。</p>
@@ -245,7 +245,7 @@ export function BoardPage() {
             <p className={styles.message}>接下来暂无列车。</p>
           ) : (
             groups.map((group) => (
-              <DepartureGroup key={group.platform} group={group} limit={rowsByDetent[detent]} />
+              <DepartureGroup key={group.platform} group={group} limit={rowsShown} />
             ))
           )}
 

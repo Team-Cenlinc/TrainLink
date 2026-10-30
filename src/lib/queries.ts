@@ -10,9 +10,6 @@ import type { HomeStation } from "./homeStation.ts";
  * 刷新间隔与 API 的 Cache-Control 对齐，比它更频繁没有意义。
  */
 
-/** 看板一次取 1 小时内的班次；默认只显示前几班，面板推上后显示全部。 */
-const boardHorizonSeconds = 3600;
-
 /** 线路与车站目录，60 秒内视为新鲜。 */
 export function useCatalog() {
   return useQuery({
@@ -22,18 +19,15 @@ export function useCatalog() {
   });
 }
 
-/** 车站站牌，每 10 秒刷新一次；页面在后台时 TanStack Query 会自动暂停刷新。 */
+/**
+ * 车站站牌，每 10 秒刷新一次；页面在后台时 TanStack Query 会自动暂停刷新。
+ * 用 API 默认的时间范围，看板每个方向只显示最近几班。
+ */
 export function useBoard(station: HomeStation) {
   return useQuery({
     queryKey: ["board", station.serverId, station.operatorCode, station.stationCode],
     queryFn: ({ signal }) =>
-      fetchBoard(
-        station.serverId,
-        station.operatorCode,
-        station.stationCode,
-        boardHorizonSeconds,
-        signal,
-      ),
+      fetchBoard(station.serverId, station.operatorCode, station.stationCode, { signal }),
     refetchInterval: 10_000,
     staleTime: 5_000,
   });

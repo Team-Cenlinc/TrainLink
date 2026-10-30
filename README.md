@@ -56,7 +56,7 @@ src/
 接口说明见 Fetarute-Minecraft-API 的 `docs/api/rail-api.md`。当前使用：
 
 - `GET /v1/rail/catalog`：线路、车站、换乘（线路色也来自这里）
-- `GET /v1/rail/servers/{serverId}/stations/{operator}/{station}/board?horizon=3600`：站牌（1 小时内）
+- `GET /v1/rail/servers/{serverId}/stations/{operator}/{station}/board`：站牌
 - `GET /v1/rail/servers/{serverId}/gtfs.zip`：GTFS 静态包，用来推出线路站序（catalog 没有站序）
 
 种别（普通 / 快速）暂按交路 ID 推断，等 API 提供种别字段后改为直接读取。

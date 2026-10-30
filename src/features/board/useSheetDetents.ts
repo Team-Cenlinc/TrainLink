@@ -57,11 +57,12 @@ export function useSheetDetents(detents: Detents | null) {
         y.set(detents[next]);
         return;
       }
-      // 带速度（甩动）时允许轻微回弹；点按切换时不回弹。
+      // 临界阻尼弹簧，不回弹：面板一旦过冲，就会在顶部露出色块、在底部露出标签栏。
+      // 仍把松手速度交给弹簧，甩得快就落得快，拖动与动画之间没有停顿。
       void animate(y, detents[next], {
         type: "spring",
-        bounce: velocity === 0 ? 0 : 0.15,
-        duration: 0.45,
+        bounce: 0,
+        duration: 0.38,
         velocity,
       });
     },

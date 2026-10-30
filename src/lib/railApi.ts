@@ -171,18 +171,18 @@ export function fetchCatalog(signal?: AbortSignal): Promise<RailCatalog> {
 
 /**
  * 某个车站的站牌；API 缓存 10 秒。
- * horizonSeconds 为向后看的时间范围，必须是 300 的整数倍，否则 API 会 308 重定向
- * （重定向到绝对地址会绕过本地代理而被 CORS 拦下）。
+ * horizonSeconds 为可选的向后看时间范围，必须是 300 的整数倍，否则 API 会 308 重定向
+ * （重定向到绝对地址会绕过本地代理而被 CORS 拦下）。省略时用 API 默认范围。
  */
 export function fetchBoard(
   serverId: string,
   operatorCode: string,
   stationCode: string,
-  horizonSeconds: number,
-  signal?: AbortSignal,
+  options: { horizonSeconds?: number; signal?: AbortSignal } = {},
 ): Promise<RailBoard> {
-  const path = `/v1/rail/servers/${encodeURIComponent(serverId)}/stations/${encodeURIComponent(operatorCode)}/${encodeURIComponent(stationCode)}/board?horizon=${horizonSeconds}`;
-  return getEnvelope<RailBoard>(path, ["departures"], signal);
+  const query = options.horizonSeconds ? `?horizon=${options.horizonSeconds}` : "";
+  const path = `/v1/rail/servers/${encodeURIComponent(serverId)}/stations/${encodeURIComponent(operatorCode)}/${encodeURIComponent(stationCode)}/board${query}`;
+  return getEnvelope<RailBoard>(path, ["departures"], options.signal);
 }
 
 /** 来源服务器的时区；缺省时用 Fetarute 服务器所在的 Asia/Shanghai。 */

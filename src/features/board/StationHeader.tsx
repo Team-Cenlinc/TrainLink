@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent, Ref } from "react";
-import { motion, type MotionValue } from "motion/react";
+import { motion, useTransform, type MotionValue } from "motion/react";
 import InfoIcon from "@material-symbols/svg-400/outlined/info.svg?react";
 import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
@@ -20,16 +20,35 @@ interface StationHeaderProps {
   onInfo: () => void;
   /** 在色块上按下即开始拖动面板（下拉）。 */
   onDragStart: (event: PointerEvent) => void;
-  /** 下拉内容的不透明度，随面板位置变化。 */
-  contextOpacity: MotionValue<number>;
+  /** 面板从默认推上的进度（0–1）。 */
+  up: MotionValue<number>;
+  /** 面板从默认下拉的进度（0–1）。 */
+  down: MotionValue<number>;
   titleRef: Ref<HTMLDivElement>;
   contextRef: Ref<HTMLDivElement>;
+}
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+/**
+ * 把进度的一段 [start, end] 换成「出现」：不透明度 0 → 1，同时从下方 rise 像素升到原位。
+ * 几个元素用错开的区间，就得到跟着手指走的依次出现，而不是按时间播放的 stagger。
+ */
+function useReveal(progress: MotionValue<number>, start: number, end: number, rise = 12) {
+  const opacity = useTransform(progress, (p) => clamp01((p - start) / (end - start)));
+  const y = useTransform(opacity, (o) => (1 - o) * rise);
+  return { opacity, y };
 }
 
 /**
  * 本站标题：整块线路色，铺满面板后方。默认只露出站名与编号（学 TrainTime，不加线路装饰）；
  * 面板下拉后，色块里平时隐藏的「车站周围」信息才露出来：线路名、前后站、换乘与地图。
  * 单线车站用线路色；换乘站用中性深色加等分色带，避免某条线的色牌在同色底上看不见。
+ *
+ * 动效（全部由面板位置驱动）：
+ * - 推上：大站名比面板慢地向上漂移、略微缩小，并在前 60% 行程内淡出；工具栏在前 45% 内淡出，
+ *   把位置让给收起的标题栏（见 CompactBar），两者不同时出现。
+ * - 下拉：线路名、线路条、地图行按顺序依次升起出现。
  */
 export function StationHeader({
   station,
@@ -39,7 +58,8 @@ export function StationHeader({
   mapUrl,
   onInfo,
   onDragStart,
-  contextOpacity,
+  up,
+  down,
   titleRef,
   contextRef,
 }: StationHeaderProps) {
@@ -48,9 +68,18 @@ export function StationHeader({
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
   const position = station?.position;
 
+  const titleOpacity = useTransform(up, (p) => 1 - clamp01(p / 0.6));
+  const titleY = useTransform(up, (p) => p * -28);
+  const titleScale = useTransform(up, (p) => 1 - 0.06 * p);
+  const toolbarOpacity = useTransform(up, (p) => 1 - clamp01(p / 0.45));
+  const toolbarY = useTransform(up, (p) => p * -8);
+  const lineNameReveal = useReveal(down, 0.05, 0.55);
+  const stripReveal = useReveal(down, 0.2, 0.75);
+  const mapReveal = useReveal(down, 0.35, 0.9);
+
   return (
     <header className={styles.header} style={style} onPointerDown={onDragStart}>
-      <div className={styles.toolbar}>
+      <motion.div className={styles.toolbar} style={{ opacity: toolbarOpacity, y: toolbarY }}>
         <button type="button" className={styles.textButton}>
           <StarIcon aria-hidden />
           常用车站
@@ -58,9 +87,13 @@ export function StationHeader({
         <button type="button" className={styles.iconButton} aria-label="车站信息" onClick={onInfo}>
           <InfoIcon aria-hidden />
         </button>
-      </div>
+      </motion.div>
 
-      <div ref={titleRef}>
+      <motion.div
+        ref={titleRef}
+        className={styles.title}
+        style={{ opacity: titleOpacity, y: titleY, scale: titleScale }}
+      >
         <h1 className={styles.name}>
           <StationName name={station?.name ?? stationCode} />
         </h1>
@@ -72,13 +105,21 @@ export function StationHeader({
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
-      <motion.div ref={contextRef} className={styles.context} style={{ opacity: contextOpacity }}>
-        {lines.length === 1 && lines[0] && <p className={styles.lineName}>{lines[0].lineName}</p>}
-        {strip.length > 0 && <LineStrip stops={strip} />}
+      <div ref={contextRef} className={styles.context}>
+        {lines.length === 1 && lines[0] && (
+          <motion.p className={styles.lineName} style={lineNameReveal}>
+            {lines[0].lineName}
+          </motion.p>
+        )}
+        {strip.length > 0 && (
+          <motion.div style={stripReveal}>
+            <LineStrip stops={strip} />
+          </motion.div>
+        )}
         {mapUrl && position && (
-          <div className={styles.mapRow}>
+          <motion.div className={styles.mapRow} style={mapReveal}>
             <a className={styles.mapButton} href={mapUrl} target="_blank" rel="noreferrer">
               在地图中查看
               <OpenIcon aria-hidden />
@@ -86,9 +127,9 @@ export function StationHeader({
             <span className={`${styles.coords} num`}>
               {station?.world} · X {Math.round(position.x)} Z {Math.round(position.z)}
             </span>
-          </div>
+          </motion.div>
         )}
-      </motion.div>
+      </div>
     </header>
   );
 }

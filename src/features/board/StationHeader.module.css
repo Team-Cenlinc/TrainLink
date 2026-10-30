@@ -47,6 +47,11 @@
   transform: scale(0.96);
 }
 
+/* 推上时以左上角为原点缩小，站名朝收起标题栏的位置收拢。 */
+.title {
+  transform-origin: left top;
+}
+
 .name {
   margin: 14px 0 8px;
   font-size: clamp(34px, 11vw, 48px);
