@@ -4,7 +4,7 @@
  */
 .view,
 .directions {
-  --line-x: 63%;
+  --line-x: 66%;
   --line-w: 14px;
   --gap: 20px;
   --card-w: 92px;
@@ -111,6 +111,13 @@
   flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
+}
+
+/* 编号与「本站」标签不换行、不被压缩。 */
+.code,
+.here {
+  flex: none;
+  white-space: nowrap;
 }
 
 .code {

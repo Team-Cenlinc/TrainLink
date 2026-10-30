@@ -9,15 +9,20 @@ import styles from "./BoardPanels.module.css";
  * 只处理读取中、出错、为空等状态，排版由外层布局决定。
  */
 
-/** 发车列表。groups 省略时显示全部站台；大屏每栏只传一个站台。 */
+/**
+ * 发车列表，每个站台一组。站台之间的间距由外层容器决定（className），
+ * 手机上竖排，大屏发车区够宽时排成两栏。
+ */
 export function DepartureList({
   data,
   limit,
   groups = data.groups,
+  className = styles.list,
 }: {
   data: BoardData;
   limit: number;
   groups?: PlatformGroup[];
+  className?: string;
 }) {
   const { board } = data;
   if (board.isPending) return <p className={styles.message}>正在读取站牌…</p>;
@@ -34,9 +39,11 @@ export function DepartureList({
   if (groups.length === 0) return <p className={styles.message}>接下来暂无列车。</p>;
   return (
     <>
-      {groups.map((group) => (
-        <DepartureGroup key={group.platform} group={group} limit={limit} />
-      ))}
+      <div className={className}>
+        {groups.map((group) => (
+          <DepartureGroup key={group.platform} group={group} limit={limit} />
+        ))}
+      </div>
       {board.data?.state === "partial" && (
         <p className={styles.note}>部分服务器暂时不可用，列表可能不完整。</p>
       )}

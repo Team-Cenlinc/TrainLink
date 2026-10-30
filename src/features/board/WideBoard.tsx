@@ -8,7 +8,7 @@ import type { Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { LineDirections } from "./LineView.tsx";
-import { LineStrip, StationName, StationTags } from "./StationHeader.tsx";
+import { StationName, StationTags } from "./StationHeader.tsx";
 import type { BoardData } from "./useBoardData.ts";
 import styles from "./WideBoard.module.css";
 
@@ -19,21 +19,18 @@ interface WideBoardProps {
 }
 
 /**
- * 大屏布局，把手机上要拖动才能看到的内容同时铺开，不再需要面板拖动：
- * - 顶部整块线路色：搜索「去哪里」、车站信息、大站名与当前时刻，右侧是前后站线路条；
- * - 平板（600–1099）：两栏，左本站发车，右列车位置；
- * - 桌面（≥ 1100）：三栏，两个方向的发车各一栏，再加列车位置。各栏独立滚动。
+ * 大屏布局（宽度 ≥ 768），把手机上要拖动才能看到的内容同时铺开，不再需要面板拖动：
+ * - 顶部整块线路色：常用车站、搜索「去哪里」、车站信息、大站名与当前时刻。
+ *   不再放前后站线路条：右侧的列车位置已经画出整条线。
+ * - 下面两块：左边本站发车，右边列车位置（固定宽度）。发车区够宽（≥ 700）时按方向分成两栏，
+ *   否则一栏；由实际可用宽度决定（容器查询），不按设备名猜，任何宽度都不挤。各块独立滚动。
  */
 export function WideBoard({ data, layout, onInfo }: WideBoardProps) {
   const navigate = useNavigate();
-  const { home, stationName, lines, primaryLine, groups, lineLayout, trains, timeZone } = data;
+  const { home, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
   const isTransfer = lines.length > 1;
   const color = isTransfer ? fallbackLineColor : (primaryLine?.color ?? fallbackLineColor);
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
-
-  // 桌面每个方向一栏；站台多于两个时，其余站台并入第二栏。
-  const directionColumns =
-    layout === "wide" && groups.length >= 2 ? [groups.slice(0, 1), groups.slice(1)] : [groups];
 
   return (
     <div className={`${styles.page} ${styles[layout]}`} style={style}>
@@ -56,32 +53,23 @@ export function WideBoard({ data, layout, onInfo }: WideBoardProps) {
           </button>
         </div>
 
-        <div className={styles.titleRow}>
-          <div className={styles.title}>
-            <h1 className={styles.name}>
-              <StationName name={stationName} />
-            </h1>
-            <div className={styles.tagsRow}>
-              <StationTags lines={lines} stationCode={home.stationCode} />
-              <span className={styles.clock}>
-                现在 <span className="num">{formatClock(data.now, timeZone)}</span>
-              </span>
-            </div>
+        <div className={styles.title}>
+          <h1 className={styles.name}>
+            <StationName name={stationName} />
+          </h1>
+          <div className={styles.tagsRow}>
+            <StationTags lines={lines} stationCode={home.stationCode} />
+            <span className={styles.clock}>
+              现在 <span className="num">{formatClock(data.now, timeZone)}</span>
+            </span>
           </div>
-          {data.strip.length > 0 && (
-            <div className={styles.strip}>
-              <LineStrip stops={data.strip} />
-            </div>
-          )}
         </div>
       </header>
 
       <main className={styles.panel}>
-        {directionColumns.map((columnGroups, i) => (
-          <section key={i} className={styles.column} aria-label="本站发车">
-            <DepartureList data={data} groups={columnGroups} limit={layout === "wide" ? 6 : 4} />
-          </section>
-        ))}
+        <section className={`${styles.column} ${styles.departures}`} aria-label="本站发车">
+          <DepartureList data={data} limit={layout === "wide" ? 6 : 4} className={styles.groups} />
+        </section>
 
         <section className={`${styles.column} ${styles.lineColumn}`} aria-label="列车位置">
           <div className={styles.lineHead}>

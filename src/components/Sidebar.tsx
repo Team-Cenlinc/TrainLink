@@ -8,7 +8,7 @@ import { ServiceBadge } from "./ServiceBadge.tsx";
 import styles from "./Sidebar.module.css";
 
 /**
- * 桌面侧边栏（宽度 ≥ 1100）：品牌、五个一级入口、常用车站。
+ * 桌面侧边栏（宽度 ≥ 1280）：品牌、五个一级入口、常用车站。
  * 取代手机与平板的浮动标签栏，选中项用圆角 14 的浅底。
  */
 export function Sidebar() {

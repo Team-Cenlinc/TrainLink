@@ -68,16 +68,9 @@
   transform: scale(0.98);
 }
 
-.titleRow {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-  margin-top: 24px;
-}
-
 .title {
   min-width: 0;
+  margin-top: 24px;
 }
 
 .name {
@@ -105,13 +98,6 @@
   font-weight: 800;
 }
 
-/* 前后站线路条：右对齐，宽度有上限，避免在超宽窗口里拉得太散。 */
-.strip {
-  flex: 0 1 460px;
-  min-width: 300px;
-  padding: 0 20px 4px;
-}
-
 /* ---------- 面板与各栏 ---------- */
 
 .panel {
@@ -123,19 +109,25 @@
   padding: 24px 32px 0;
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--canvas);
+  /* 左：发车区（占满剩余宽度）；右：列车位置，固定在 360–440 之间，线路图任何时候都不挤。 */
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 34%, 440px);
 }
 
-.wide .panel {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(360px, 420px);
+/* 发车区按自身宽度决定分栏：至少 700 才按方向分成两栏。 */
+.departures {
+  container-type: inline-size;
 }
 
-.medium .panel {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+.groups {
+  display: grid;
+  gap: 28px;
+  align-items: start;
 }
 
-/* 只有一个站台（或读取中）时，发车栏横跨两栏。 */
-.wide .panel > .column:first-child:nth-last-child(2) {
-  grid-column: span 2;
+@container (min-width: 700px) {
+  .groups {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }
 
 .column {

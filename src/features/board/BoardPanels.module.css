@@ -1,3 +1,10 @@
+/* 手机上各站台竖排，间距 28。 */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
 .message {
   margin: 48px 0;
   text-align: center;
