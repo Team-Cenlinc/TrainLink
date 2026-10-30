@@ -58,8 +58,8 @@ export function LineDirections({
 /**
  * 单线列车位置：一条粗线路（线身 + 两侧深色描边），车站为白底深环圆点，本站为深色实心。
  * 每站一条白色站行，站与站之间露出底色，分隔清楚。
- * 列车在线路上的真实位置用三角标出，三角指向行进方向；
- * 往第一站方向的列车卡片在左，往最后一站方向的在右，卡片保留列车图标，一眼就能认出是车。
+ * 往第一站方向的列车卡片在左，往最后一站方向的在右；卡片朝向线路的一侧有个小三角尾巴，
+ * 指向列车在线路上的真实位置。卡片保留列车图标，一眼就能认出是车。
  */
 export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?: string }) {
   const currentRef = useRef<HTMLLIElement>(null);
@@ -112,25 +112,8 @@ export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?
         </ol>
         <span className={styles.line} aria-hidden />
 
-        {placed.map(({ train, anchor }) => {
-          const up = train.direction === "toStart";
-          // 停在车站时三角放在站点圆外侧（行进方向一侧），不压住圆点；
-          // 在首末站时那一侧已经没有线路，就放到线路这一侧。
-          const atEnd = up ? train.slot === 0 : train.slot === stops.length - 1;
-          const side = up !== atEnd ? -1 : 1;
-          // 两站之间：上行三角略偏上、下行略偏下，同一区间相向的两列车不会叠成沙漏形。
-          const offset = Number.isInteger(train.slot) ? side * 18 : up ? -9 : 9;
-          return (
-            <span
-              key={`${train.name}-marker`}
-              className={`${styles.marker} ${up ? styles.up : styles.down}`}
-              style={{ top: anchor + offset }}
-              aria-hidden
-            />
-          );
-        })}
-        {placed.map(({ train, top }) => (
-          <TrainCard key={train.name} train={train} top={top} />
+        {placed.map(({ train, top, anchor }) => (
+          <TrainCard key={train.name} train={train} top={top} anchor={anchor} />
         ))}
       </div>
     </section>
@@ -173,13 +156,24 @@ function placeColumn(trains: LineTrain[], height: number) {
   );
 }
 
-function TrainCard({ train, top }: { train: LineTrain; top: number }) {
+/** 卡片尾巴离卡片上下边缘至少留这么多，避免压到圆角。 */
+const tailInset = 12;
+
+function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anchor: number }) {
   const side = train.direction === "toStart" ? styles.left : styles.right;
   const label = `${train.serviceType}，往${train.headsign ?? "未知终点"}${
     train.cars ? `，${train.cars.length} 节` : ""
   }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
   return (
     <div className={`${styles.train} ${side}`} style={{ top }} aria-label={label}>
+      {/* 尾巴：卡片朝向线路一侧的小三角，指向列车在线路上的真实位置。 */}
+      <span
+        className={styles.tail}
+        style={{
+          top: Math.min(Math.max(anchor - top, tailInset), cardHeight - tailInset),
+        }}
+        aria-hidden
+      />
       {train.delayMinutes !== undefined && (
         <span className={styles.delay}>+{train.delayMinutes} 分</span>
       )}

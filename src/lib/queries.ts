@@ -20,7 +20,7 @@ export function useCatalog() {
 }
 
 /**
- * 车站站牌，每 10 秒刷新一次；页面在后台时 TanStack Query 会自动暂停刷新。
+ * 车站站牌，每 15 秒刷新一次；页面在后台时 TanStack Query 会自动暂停刷新。
  * 用 API 默认的时间范围，看板每个方向只显示最近几班。
  */
 export function useBoard(station: HomeStation) {
@@ -28,8 +28,8 @@ export function useBoard(station: HomeStation) {
     queryKey: ["board", station.serverId, station.operatorCode, station.stationCode],
     queryFn: ({ signal }) =>
       fetchBoard(station.serverId, station.operatorCode, station.stationCode, { signal }),
-    refetchInterval: 10_000,
-    staleTime: 5_000,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
   });
 }
 
@@ -43,15 +43,15 @@ export function useGtfs(serverId: string) {
 }
 
 /**
- * 在线列车，每 5 秒刷新（与 API 缓存一致）。
+ * 在线列车，每 15 秒刷新一次（与站牌同步）。
  * enabled 为 false 时不请求：只有打开「线路」视图才需要列车位置。
  */
 export function useTrains(enabled: boolean) {
   return useQuery({
     queryKey: ["trains"],
     queryFn: ({ signal }) => fetchTrains(signal),
-    refetchInterval: 5_000,
-    staleTime: 2_000,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
     enabled,
   });
 }

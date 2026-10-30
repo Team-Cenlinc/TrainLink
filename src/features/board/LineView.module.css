@@ -78,16 +78,20 @@
   padding-right: calc(100% - var(--line-x) + var(--gap) + var(--card-w) + 6px);
 }
 
-/* 每站一条白色站行，延伸到面板左右边缘；站与站之间露出底色，分隔清楚。本站用线路色浅底。 */
+/* 站行首尾相接，白灰交替（同 Figma 列车位置），延伸到面板左右边缘；本站用线路色浅底。 */
 .stop::before {
   content: "";
   position: absolute;
-  inset: 10px -16px;
+  inset: 0 -16px;
   background: var(--paper);
   z-index: -1;
 }
 
-.current::before {
+.stop:nth-child(even)::before {
+  background: color-mix(in srgb, var(--text) 5%, var(--paper));
+}
+
+.stop.current::before {
   background: color-mix(in srgb, var(--line) 14%, var(--paper));
 }
 
@@ -193,40 +197,54 @@
   left: calc(var(--line-x) + var(--gap));
 }
 
-/* 列车位置：线路上的三角，指向行进方向；白色描边把它和线身、描边分开。 */
-.marker {
+/*
+ * 卡片尾巴：朝向线路的一侧伸出的三角，几乎碰到线路描边，像对话气泡一样指向列车位置。
+ * 两层三角：外层是卡片描边色，内层是卡片底色，和卡片边框连成一体。
+ */
+.tail {
   position: absolute;
-  left: calc(var(--line-x) - 9px);
-  width: 18px;
-  height: 16px;
-  margin-top: -8px;
-  z-index: 3;
+  width: calc(var(--gap) - var(--line-w) / 2 - 2px);
+  height: 18px;
+  margin-top: -9px;
 }
 
-.marker::before,
-.marker::after {
+.tail::before,
+.tail::after {
   content: "";
   position: absolute;
+  inset: 0;
 }
 
-.marker::before {
-  inset: 0;
+.tail::before {
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.tail::after {
   background: var(--paper);
 }
 
-.marker::after {
-  inset: 2.5px 3px;
-  background: var(--text);
+.right .tail {
+  right: calc(100% - 1px);
 }
 
-.up::before,
-.up::after {
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+.left .tail {
+  left: calc(100% - 1px);
 }
 
-.down::before,
-.down::after {
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
+.right .tail::before {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.right .tail::after {
+  clip-path: polygon(100% 1.5px, 1.6px 50%, 100% calc(100% - 1.5px));
+}
+
+.left .tail::before {
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.left .tail::after {
+  clip-path: polygon(0 1.5px, calc(100% - 1.6px) 50%, 0 calc(100% - 1.5px));
 }
 
 .delay {
