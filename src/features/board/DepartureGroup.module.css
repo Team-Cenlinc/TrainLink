@@ -1,0 +1,198 @@
+.group + .group {
+  margin-top: 28px;
+}
+
+/*
+ * 标题里字号不同（往 15 / 站名 22 / 站台 13 / 站台号 20），按基线对齐而不是居中：
+ * 居中时小字会浮在大字中线上，底边参差不齐。站台号方块里的数字也落在同一条基线上。
+ */
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.toward {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.destinations {
+  flex: 1;
+  min-width: 0;
+  word-break: keep-all;
+}
+
+.platformLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/*
+ * 站台号：深色方块反白，信息元素圆角 4。
+ * 用 inline-block + 上下等距内边距（而不是固定高度的 grid 居中），数字才有可参与对齐的基线；
+ * text-box 去掉字体自带的上下留白，让数字在方块里光学居中。
+ */
+.platform {
+  display: inline-block;
+  min-width: 34px;
+  padding: 7px 7px;
+  text-align: center;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+/* 站台未确定：空心方块显示候选站台，与已确定的实心方块区分。 */
+.pending {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--action);
+}
+
+.card {
+  margin: 0;
+  padding: 0 16px;
+  list-style: none;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+}
+
+/*
+ * 一行里的色牌、终点和分钟数共用一条基线（PIDS 行对齐），
+ * 状态标签和时刻挂在这条基线下方，不影响对齐。
+ */
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 16px 0 14px;
+}
+
+.row + .row {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/*
+ * 第一班是先到的车：终点与分钟数一起放大、一起加重（字号、字重、行距作为一组变化），
+ * 后续班次保持紧凑，只用粗体。
+ */
+.lead {
+  padding: 20px 0 18px;
+}
+
+.lead .destination {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.destination {
+  font-size: 17px;
+  font-weight: 700;
+  word-break: keep-all;
+}
+
+.struck {
+  text-decoration: line-through;
+  color: var(--status-error);
+}
+
+/* 时间列定宽右对齐，让「分」逐行对齐。 */
+.time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 76px;
+}
+
+.minutes {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.number {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.bigNumber {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+
+.unit {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.word {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+/* 第一班的「进站」「停靠中」与终点同级。 */
+.lead .word {
+  font-size: 26px;
+}
+
+.clock {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dimmed .destination,
+.dimmed .minutes {
+  color: var(--muted);
+}
+
+.plannedTag {
+  padding: 1px 5px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-info);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.chip {
+  padding: 1px 6px;
+  border-radius: var(--radius-info);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--status-text);
+}
+
+.caution {
+  background: var(--status-caution);
+}
+
+.severe {
+  background: var(--status-error);
+}

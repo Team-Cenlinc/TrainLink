@@ -1,0 +1,71 @@
+/*
+ * 设计 token：颜色取自 Fetarute-Website 的 interfacePalette，
+ * 几何与字体取自 Figma「TrainLink · v06」页面。组件只使用这里的语义名称。
+ * 线路色不在这里定义：它随 API catalog 下发，由组件写入 --line 与 --on-line。
+ */
+:root {
+  color-scheme: light dark;
+
+  --canvas: #f0f1f0;
+  --surface: #fafbfa;
+  --surface-raised: #fcfdfc;
+  --paper: #ffffff;
+  --text: #1b2022;
+  --muted: #626a6d;
+  --border: #c9ced0;
+  --action: #1b2022;
+  --action-text: #f4f6f5;
+  --status-ok: #0f7a4f;
+  --status-caution: #9a5d00;
+  --status-error: #b8443e;
+  --status-text: #f4f6f5;
+  --info: #0067b1;
+  --info-text: #f4f6f5;
+  --exit: #f3c742;
+  --exit-text: #171b1d;
+  --on-line-light: #f4f6f5;
+  --on-line-dark: #171b1d;
+  --scrim: rgb(0 0 0 / 0.4);
+  --floating-shadow: 0 0 42px -18px rgb(12 15 16 / 0.35);
+  --control-shadow: 0 5px 15px rgb(27 32 34 / 0.12);
+
+  /* 圆角体系：信息元素 4 / 控件 12（内嵌 8）/ 容器 20（导航选中项 14）/ 面板 28；圆形只用于车站。 */
+  --radius-info: 4px;
+  --radius-control: 12px;
+  --radius-control-inner: 8px;
+  --radius-group: 20px;
+  --radius-tab: 14px;
+  --radius-sheet: 28px;
+
+  /* 线路几何：线身 + 两侧 3 px 深色描边（官网 404 换乘指引）。 */
+  --casing: 3px;
+
+  --font-sc: "Noto Sans SC", system-ui, sans-serif;
+  --font-display: "Noto Sans Display", "Noto Sans SC", system-ui, sans-serif;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #111416;
+    --surface: #1a1e20;
+    --surface-raised: #24292b;
+    --paper: #1a1e20;
+    --text: #eef0ef;
+    --muted: #b2b8b9;
+    --border: #3d474a;
+    --action: #eef0ef;
+    --action-text: #1b2022;
+    --status-ok: #4fcb8a;
+    --status-caution: #f0b84a;
+    --status-error: #ff8c84;
+    --status-text: #1b2022;
+    --info: #155575;
+    --exit: #7a5a16;
+    --exit-text: #f4f6f5;
+    --floating-shadow: 0 0 58px -20px rgb(0 0 0 / 0.72);
+    --control-shadow: 0 5px 15px rgb(0 0 0 / 0.45);
+  }
+}

@@ -1,0 +1,59 @@
+.badge {
+  display: inline-flex;
+  align-items: stretch;
+  flex: none;
+  background: var(--line);
+  color: var(--on-line);
+  border-radius: var(--radius-info);
+  overflow: hidden;
+}
+
+/* text-box 去掉字体上下留白，线路码在色块里光学居中。 */
+.code {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-box: trim-both cap alphabetic;
+}
+
+/* 种别：两字竖排，左侧一条贯穿上下的分隔线。 */
+.type {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-left: 2px solid var(--on-line);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.m {
+  height: 32px;
+}
+
+.m .code {
+  padding: 0 7px;
+  font-size: 17px;
+}
+
+.m .type {
+  padding: 0 4px;
+  font-size: 10px;
+  gap: 1px;
+}
+
+.s {
+  height: 22px;
+}
+
+.s .code {
+  padding: 0 5px;
+  font-size: 12px;
+}
+
+.s .type {
+  padding: 0 3px;
+  font-size: 8px;
+}

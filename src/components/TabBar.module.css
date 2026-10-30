@@ -1,0 +1,57 @@
+.bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 10px);
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  gap: 2px;
+  width: min(calc(100% - 28px), 420px);
+  padding: 6px;
+  border-radius: var(--radius-group);
+  /* 半透明材料：内容从下面滚过时仍能看清标签。 */
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--floating-shadow);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bar {
+    background: var(--surface-raised);
+    backdrop-filter: none;
+  }
+}
+
+.item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0 5px;
+  border-radius: var(--radius-tab);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  transition:
+    background-color 150ms ease-out,
+    transform 100ms ease-out;
+}
+
+.item svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+/* 按下时立即给出反馈，不等松手。 */
+.item:active {
+  transform: scale(0.96);
+}
+
+.active {
+  color: var(--text);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}

@@ -1,0 +1,96 @@
+.header {
+  position: relative;
+  /* 色块延伸到状态栏下方；底部多留 24 px 给叠上来的面板圆角。 */
+  padding: calc(var(--safe-top) + 12px) 20px 48px;
+  background: var(--line);
+  color: var(--on-line);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.textButton svg,
+.iconButton svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--on-line) 18%, transparent);
+}
+
+.textButton:active,
+.iconButton:active {
+  transform: scale(0.96);
+}
+
+.name {
+  margin: 14px 0 8px;
+  font-size: clamp(34px, 11vw, 48px);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  /* 长站名只在「·」处换行（站名中的 · 后由组件插入换行机会）。 */
+  word-break: keep-all;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 编号标签：白底，线路码用线路色，站码用深色。 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: var(--radius-info);
+  background: var(--on-line-light);
+  color: var(--on-line-dark);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.tagLine {
+  color: var(--tag-line);
+}
+
+.band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  display: flex;
+  height: 8px;
+}
+
+.band span {
+  flex: 1;
+}

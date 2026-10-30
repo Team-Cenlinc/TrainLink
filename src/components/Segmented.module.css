@@ -1,0 +1,24 @@
+.track {
+  display: flex;
+  flex: 1;
+  padding: 4px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.option {
+  flex: 1;
+  height: 36px;
+  border-radius: var(--radius-control-inner);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  transition: background-color 150ms ease-out;
+}
+
+/* 选中项用抬高一层的表面：浅色下接近白，深色下比轨道更亮，不会显得凹陷。 */
+.selected {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--control-shadow);
+}

@@ -1,0 +1,45 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-sc);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  /* 已安装的 App 不需要点按高亮和长按菜单。 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 键盘焦点：3 px 信息蓝外框，只在键盘操作时出现。 */
+:focus-visible {
+  outline: 3px solid var(--info);
+  outline-offset: 2px;
+}
+
+/* 数字统一使用等宽数字，让分钟与时刻逐行对齐（PIDS 定宽盒）。 */
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
