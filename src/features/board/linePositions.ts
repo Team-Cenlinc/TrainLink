@@ -32,10 +32,8 @@ export interface LineTrain {
   direction: TrainDirection;
   serviceType: string;
   headsign?: string;
-  /** 编组节数；只有出现在本站站牌上的列车才知道。 */
-  cars?: number;
-  /** 拥挤度 1–4；同上。 */
-  crowding?: number;
+  /** 每节车厢的拥挤程度，顺序同编组；只有出现在本站站牌上的列车才知道。 */
+  cars?: CarLoad[];
   /** 晚点分钟数（≥ 1 才有）。 */
   delayMinutes?: number;
 }
@@ -51,12 +49,13 @@ export function stationOfNode(node: string | undefined): string | undefined {
   return parts?.[1] === "S" ? parts[2] : undefined;
 }
 
-/** 按在车人数与座位数的比例分 4 级（与列车卡片上的 4 个点对应）。 */
-export function crowdingLevel(cars: RailCar[]): number | undefined {
-  const seats = cars.reduce((sum, car) => sum + car.seats, 0);
-  if (seats <= 0) return undefined;
-  const ratio = cars.reduce((sum, car) => sum + car.occupied, 0) / seats;
-  return ratio < 0.25 ? 1 : ratio < 0.5 ? 2 : ratio < 0.75 ? 3 : 4;
+/** 一节车厢的拥挤程度，与车站信息、列车详情里的车厢色块一致（PIDS 状态色）。 */
+export type CarLoad = "low" | "medium" | "high";
+
+/** 按在车人数占座位数的比例分三级：不到 40% 宽松，不到 75% 较多，其余拥挤。 */
+export function carLoad(car: RailCar): CarLoad {
+  const ratio = car.seats > 0 ? car.occupied / car.seats : 0;
+  return ratio < 0.4 ? "low" : ratio < 0.75 ? "medium" : "high";
 }
 
 /** 停车判定：低于这个速度（方块/秒）且当前节点是车站，就画在车站上。 */
@@ -123,8 +122,7 @@ export function buildLineLayout(input: {
       direction,
       serviceType: serviceTypeOf({ routeId: train.routeCode ?? "" }),
       headsign,
-      cars: departure?.cars?.length,
-      crowding: departure?.cars ? crowdingLevel(departure.cars) : undefined,
+      cars: departure?.cars?.map(carLoad),
       delayMinutes: delayMinutes >= 1 ? delayMinutes : undefined,
     });
   }

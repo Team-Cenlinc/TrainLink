@@ -4,7 +4,7 @@ import ArrowUpIcon from "@material-symbols/svg-400/outlined/arrow_upward.svg?rea
 import TrainIcon from "@material-symbols/svg-400/outlined/train.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
-import type { LineLayout, LineTrain } from "./linePositions.ts";
+import type { CarLoad, LineLayout, LineTrain } from "./linePositions.ts";
 import styles from "./LineView.module.css";
 
 /** 每站一行的高度；列车位置按行换算成纵坐标。 */
@@ -57,8 +57,9 @@ export function LineDirections({
 
 /**
  * 单线列车位置：一条粗线路（线身 + 两侧深色描边），车站为白底深环圆点，本站为深色实心。
- * 往第一站方向的列车卡片在左，往最后一站方向的在右，由引线连到线路上的位置。
- * 列车卡片保留列车图标，一眼就能认出是车。
+ * 每站一条白色站行，站与站之间露出底色，分隔清楚。
+ * 列车在线路上的真实位置用三角标出，三角指向行进方向；
+ * 往第一站方向的列车卡片在左，往最后一站方向的在右，卡片保留列车图标，一眼就能认出是车。
  */
 export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?: string }) {
   const currentRef = useRef<HTMLLIElement>(null);
@@ -111,8 +112,25 @@ export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?
         </ol>
         <span className={styles.line} aria-hidden />
 
-        {placed.map(({ train, top, anchor }) => (
-          <TrainCard key={train.name} train={train} top={top} anchor={anchor} />
+        {placed.map(({ train, anchor }) => {
+          const up = train.direction === "toStart";
+          // 停在车站时三角放在站点圆外侧（行进方向一侧），不压住圆点；
+          // 在首末站时那一侧已经没有线路，就放到线路这一侧。
+          const atEnd = up ? train.slot === 0 : train.slot === stops.length - 1;
+          const side = up !== atEnd ? -1 : 1;
+          // 两站之间：上行三角略偏上、下行略偏下，同一区间相向的两列车不会叠成沙漏形。
+          const offset = Number.isInteger(train.slot) ? side * 18 : up ? -9 : 9;
+          return (
+            <span
+              key={`${train.name}-marker`}
+              className={`${styles.marker} ${up ? styles.up : styles.down}`}
+              style={{ top: anchor + offset }}
+              aria-hidden
+            />
+          );
+        })}
+        {placed.map(({ train, top }) => (
+          <TrainCard key={train.name} train={train} top={top} />
         ))}
       </div>
     </section>
@@ -155,14 +173,13 @@ function placeColumn(trains: LineTrain[], height: number) {
   );
 }
 
-function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anchor: number }) {
+function TrainCard({ train, top }: { train: LineTrain; top: number }) {
   const side = train.direction === "toStart" ? styles.left : styles.right;
   const label = `${train.serviceType}，往${train.headsign ?? "未知终点"}${
-    train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""
-  }`;
+    train.cars ? `，${train.cars.length} 节` : ""
+  }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
   return (
     <div className={`${styles.train} ${side}`} style={{ top }} aria-label={label}>
-      <span className={styles.leader} style={{ top: anchor - top - 1.5 }} aria-hidden />
       {train.delayMinutes !== undefined && (
         <span className={styles.delay}>+{train.delayMinutes} 分</span>
       )}
@@ -171,22 +188,25 @@ function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anch
         <span className={styles.cardDest}>{train.headsign ?? "—"}</span>
       </span>
       <span className={styles.cardBody}>
-        {train.cars !== undefined && <span className={styles.cars}>{train.cars} 节</span>}
-        {train.crowding !== undefined && <Crowding level={train.crowding} />}
+        {train.cars && <Cars loads={train.cars} />}
         <TrainIcon aria-hidden />
       </span>
     </div>
   );
 }
 
-/** 拥挤度 4 格；颜色按 PIDS 状态色：1–2 级绿，3 级琥珀，4 级红，并配文字给读屏。 */
-function Crowding({ level }: { level: number }) {
-  const tone = level <= 2 ? styles.ok : level === 3 ? styles.caution : styles.error;
-  const label = ["宽松", "较空", "较多", "拥挤"][level - 1];
+const loadLabel: Record<CarLoad, string> = { low: "宽松", medium: "较多", high: "拥挤" };
+
+/** 每节车厢一格，颜色按 PIDS 状态色（绿宽松、琥珀较多、红拥挤），格数就是编组节数。 */
+function Cars({ loads }: { loads: CarLoad[] }) {
   return (
-    <span className={`${styles.crowding} ${tone}`} role="img" aria-label={`拥挤度：${label}`}>
-      {[1, 2, 3, 4].map((i) => (
-        <span key={i} className={i <= level ? styles.filled : undefined} />
+    <span
+      className={styles.cars}
+      role="img"
+      aria-label={loads.map((load, i) => `${i + 1} 号车${loadLabel[load]}`).join("，")}
+    >
+      {loads.map((load, i) => (
+        <span key={i} className={styles[load]} />
       ))}
     </span>
   );

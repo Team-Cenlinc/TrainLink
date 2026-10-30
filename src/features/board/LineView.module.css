@@ -78,13 +78,17 @@
   padding-right: calc(100% - var(--line-x) + var(--gap) + var(--card-w) + 6px);
 }
 
-/* 本站一整行浅底，延伸到面板左右边缘。 */
-.current::before {
+/* 每站一条白色站行，延伸到面板左右边缘；站与站之间露出底色，分隔清楚。本站用线路色浅底。 */
+.stop::before {
   content: "";
   position: absolute;
-  inset: 4px -16px;
-  background: color-mix(in srgb, var(--line) 12%, transparent);
+  inset: 10px -16px;
+  background: var(--paper);
   z-index: -1;
+}
+
+.current::before {
+  background: color-mix(in srgb, var(--line) 14%, var(--paper));
 }
 
 .stopName {
@@ -189,20 +193,40 @@
   left: calc(var(--line-x) + var(--gap));
 }
 
-/* 引线：卡片边缘到线路边缘，指向列车的真实位置。 */
-.leader {
+/* 列车位置：线路上的三角，指向行进方向；白色描边把它和线身、描边分开。 */
+.marker {
   position: absolute;
-  width: calc(var(--gap) - var(--line-w) / 2);
-  height: 3px;
+  left: calc(var(--line-x) - 9px);
+  width: 18px;
+  height: 16px;
+  margin-top: -8px;
+  z-index: 3;
+}
+
+.marker::before,
+.marker::after {
+  content: "";
+  position: absolute;
+}
+
+.marker::before {
+  inset: 0;
+  background: var(--paper);
+}
+
+.marker::after {
+  inset: 2.5px 3px;
   background: var(--text);
 }
 
-.left .leader {
-  left: 100%;
+.up::before,
+.up::after {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
-.right .leader {
-  right: 100%;
+.down::before,
+.down::after {
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
 .delay {
@@ -248,12 +272,6 @@
   font-weight: 900;
 }
 
-.cars {
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 700;
-}
-
 .cardBody {
   display: flex;
   align-items: center;
@@ -268,26 +286,26 @@
   fill: var(--text);
 }
 
-.crowding {
+/* 每节车厢一格，格数即编组节数。 */
+.cars {
   display: flex;
   gap: 2px;
 }
 
-.crowding span {
-  width: 6px;
-  height: 10px;
+.cars span {
+  width: 8px;
+  height: 12px;
   border-radius: 2px;
-  background: var(--border);
 }
 
-.ok .filled {
+.low {
   background: var(--status-ok);
 }
 
-.caution .filled {
+.medium {
   background: var(--status-caution);
 }
 
-.error .filled {
+.high {
   background: var(--status-error);
 }
