@@ -1,0 +1,158 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.close svg,
+.search svg,
+.star svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+/* 搜索框：控件圆角 12，与看板的「去哪里」入口一致。 */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--muted);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.search:focus-within {
+  outline: 3px solid var(--info);
+  outline-offset: 2px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.list {
+  margin: 0;
+  padding: 0 4px 0 16px;
+  list-style: none;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row + .row {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* 整行可点：选为本站。 */
+.choose {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 0;
+  text-align: left;
+}
+
+.choose:active {
+  opacity: 0.7;
+}
+
+.name {
+  font-size: 17px;
+  font-weight: 700;
+  word-break: keep-all;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.code {
+  padding: 0 4px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-info);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.here {
+  padding: 0 5px;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.star {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+}
+
+.starred {
+  color: var(--status-caution);
+}
+
+.message {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--muted);
+}

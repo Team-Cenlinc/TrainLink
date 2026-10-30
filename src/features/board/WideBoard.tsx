@@ -7,15 +7,18 @@ import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
-import { LineDirections } from "./LineView.tsx";
+import { LineDirections, LineSwitcher } from "./LineView.tsx";
 import { StationName, StationTags } from "./StationHeader.tsx";
+import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
 import styles from "./WideBoard.module.css";
 
 interface WideBoardProps {
   data: BoardData;
   layout: Exclude<Layout, "compact">;
-  onInfo: () => void;
+  onInfo: PanelOpener;
+  onPickStation: PanelOpener;
+  onChooseLine: (lineCode: string) => void;
 }
 
 /**
@@ -25,7 +28,7 @@ interface WideBoardProps {
  * - 下面两块：左边本站发车，右边列车位置（固定宽度）。发车区够宽（≥ 700）时按方向分成两栏，
  *   否则一栏；由实际可用宽度决定（容器查询），不按设备名猜，任何宽度都不挤。各块独立滚动。
  */
-export function WideBoard({ data, layout, onInfo }: WideBoardProps) {
+export function WideBoard({ data, layout, onInfo, onPickStation, onChooseLine }: WideBoardProps) {
   const navigate = useNavigate();
   const { home, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
   const isTransfer = lines.length > 1;
@@ -36,7 +39,7 @@ export function WideBoard({ data, layout, onInfo }: WideBoardProps) {
     <div className={`${styles.page} ${styles[layout]}`} style={style}>
       <header className={styles.hero}>
         <div className={styles.topbar}>
-          <button type="button" className={styles.textButton}>
+          <button type="button" className={styles.textButton} onClick={onPickStation}>
             <StarIcon aria-hidden />
             常用车站
           </button>
@@ -76,6 +79,11 @@ export function WideBoard({ data, layout, onInfo }: WideBoardProps) {
             <h2 className={styles.lineTitle}>
               列车位置<span>{primaryLine?.lineName}</span>
             </h2>
+            <LineSwitcher
+              lines={data.orderedLines}
+              value={primaryLine?.lineCode}
+              onChange={onChooseLine}
+            />
             {lineLayout && (
               <LineDirections
                 first={lineLayout.stops[0]?.name}

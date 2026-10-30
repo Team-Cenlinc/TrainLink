@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { lineKey } from "@/lib/gtfs.ts";
-import { readHomeStation } from "@/lib/homeStation.ts";
+import { useHomeStation } from "@/lib/homeStation.ts";
 import { useBoard, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
 import {
@@ -19,10 +18,11 @@ import { buildLineLayout } from "./linePositions.ts";
  * 手机布局（CompactBoard）与大屏布局（WideBoard）共用它，两边只负责排版。
  *
  * @param trainsEnabled 是否读取列车位置。手机上只在打开「线路」视图时读取；大屏一直显示。
+ * @param preferredLine 换乘站上用户选中的线路码；省略或不可用时取第一条有站序数据的线路。
  */
-export function useBoardData(trainsEnabled: boolean) {
-  // useState 的初始化函数只在第一次渲染时执行，避免每次渲染都读 localStorage。
-  const [home] = useState(readHomeStation);
+export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
+  // 订阅本站：在车站选择器里切换后，这里拿到新的本站，所有查询随之换成新车站。
+  const home = useHomeStation();
   const now = useNow();
   const catalog = useCatalog();
   const board = useBoard(home);
@@ -31,8 +31,11 @@ export function useBoardData(trainsEnabled: boolean) {
 
   const station = findStation(catalog.data, home.serverId, home.operatorCode, home.stationCode);
   const lines = station ? servingLines(station) : [];
-  const primaryLine = lines[0];
   const lineOrders = gtfs.data?.lineOrders;
+  // 有站序数据（GTFS 里有车次）的线路才能画列车位置；停运检修的线路没有。
+  const orderedLines = lines.filter((l) => lineOrders?.has(lineKey(l.operatorCode, l.lineCode)));
+  const primaryLine =
+    orderedLines.find((l) => l.lineCode === preferredLine) ?? orderedLines[0] ?? lines[0];
   const strip =
     station && primaryLine ? neighbourStops(catalog.data, lineOrders, station, primaryLine) : [];
   const transfers = station ? transferLines(station) : [];
@@ -75,6 +78,7 @@ export function useBoardData(trainsEnabled: boolean) {
     stationName: station?.name ?? home.stationCode,
     lines,
     primaryLine,
+    orderedLines,
     strip,
     transfers,
     nearest,

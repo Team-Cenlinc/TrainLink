@@ -5,15 +5,22 @@ import styles from "./DepartureGroup.module.css";
 /**
  * 一个站台方向的发车列表：标题「往 ×× · 站台 N」，下面是一张卡片。
  * 第一班用大号（lead），后续班次紧凑显示，只写差异。
- * limit 为显示的班次数，随面板档位变化：下拉 1 班、默认 4 班、推上不限。
+ * limit 为每个方向显示的班次数：手机 4 班，桌面 6 班。
  */
 export function DepartureGroup({ group, limit }: { group: PlatformGroup; limit?: number }) {
   const [lead, ...rest] = limit ? group.departures.slice(0, limit) : group.departures;
   return (
     <section className={styles.group}>
       <h2 className={styles.heading}>
-        <span className={styles.toward}>往</span>
-        <span className={styles.destinations}>{group.destinations.slice(0, 2).join("、")}</span>
+        {group.destinations.length > 0 ? (
+          <>
+            <span className={styles.toward}>往</span>
+            <span className={styles.destinations}>{group.destinations.slice(0, 2).join("、")}</span>
+          </>
+        ) : (
+          // 这个站台只有终到列车。
+          <span className={styles.destinations}>本站终到</span>
+        )}
         <span className={styles.platformLabel}>{group.platformPending ? "站台待定" : "站台"}</span>
         <span className={`${styles.platform} ${group.platformPending ? styles.pending : ""} num`}>
           {group.platform}

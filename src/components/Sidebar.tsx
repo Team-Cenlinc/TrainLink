@@ -1,6 +1,10 @@
-import { useState } from "react";
-import { NavLink } from "react-router";
-import { readHomeStation } from "@/lib/homeStation.ts";
+import { NavLink, useNavigate } from "react-router";
+import {
+  sameStation,
+  setHomeStation,
+  useFavoriteStations,
+  useHomeStation,
+} from "@/lib/homeStation.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import { findStation, servingLines } from "@/lib/station.ts";
 import { navItems } from "./navItems.ts";
@@ -10,11 +14,13 @@ import styles from "./Sidebar.module.css";
 /**
  * 桌面侧边栏（宽度 ≥ 1280）：品牌、五个一级入口、常用车站。
  * 取代手机与平板的浮动标签栏，选中项用圆角 14 的浅底。
+ * 常用车站点一下就切换本站并回到看板。
  */
 export function Sidebar() {
-  const [home] = useState(readHomeStation);
+  const home = useHomeStation();
+  const favorites = useFavoriteStations();
   const catalog = useCatalog();
-  const station = findStation(catalog.data, home.serverId, home.operatorCode, home.stationCode);
+  const navigate = useNavigate();
 
   return (
     <aside className={styles.sidebar}>
@@ -44,20 +50,40 @@ export function Sidebar() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>常用车站</h2>
-        <NavLink to="/" className={styles.station}>
-          <span>{station?.name ?? home.stationCode}</span>
-          <span className={styles.badges}>
-            {station &&
-              servingLines(station).map((line) => (
-                <ServiceBadge
-                  key={line.lineId}
-                  lineCode={line.lineCode}
-                  lineColor={line.color}
-                  size="s"
-                />
-              ))}
-          </span>
-        </NavLink>
+        {favorites.map((favorite) => {
+          const station = findStation(
+            catalog.data,
+            favorite.serverId,
+            favorite.operatorCode,
+            favorite.stationCode,
+          );
+          const current = sameStation(favorite, home);
+          return (
+            <button
+              key={`${favorite.operatorCode}:${favorite.stationCode}`}
+              type="button"
+              className={`${styles.station} ${current ? styles.currentStation : ""}`}
+              aria-current={current || undefined}
+              onClick={() => {
+                setHomeStation(favorite);
+                navigate("/");
+              }}
+            >
+              <span>{station?.name ?? favorite.stationCode}</span>
+              <span className={styles.badges}>
+                {station &&
+                  servingLines(station).map((line) => (
+                    <ServiceBadge
+                      key={line.lineId}
+                      lineCode={line.lineCode}
+                      lineColor={line.color}
+                      size="s"
+                    />
+                  ))}
+              </span>
+            </button>
+          );
+        })}
       </section>
     </aside>
   );

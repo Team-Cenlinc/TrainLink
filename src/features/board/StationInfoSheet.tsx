@@ -1,9 +1,8 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import type { ReactNode } from "react";
 import CollapseIcon from "@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react";
 import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react";
+import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
 import { StationName } from "./StationHeader.tsx";
@@ -26,11 +25,10 @@ interface StationInfoSheetProps {
   /** 本站不能换乘时，沿线最近的换乘站。 */
   nearest?: { stop: RailStation; lines: RailStationLine[]; distance: number };
   mapUrl?: string;
-  /**
-   * sheet：手机上从底部滑出的模态面板，背景压暗；
-   * popover：大屏上从右上角车站信息按钮处展开的卡片，不压暗，点卡片外任意处关闭。
-   */
-  variant?: "sheet" | "popover";
+  /** 手机为底部面板，大屏为从按钮处展开的弹出卡片（见 Overlay）。 */
+  variant: "sheet" | "popover";
+  /** 弹出卡片的触发按钮位置。 */
+  anchor?: DOMRect;
 }
 
 const transferTypeLabel: Record<string, string> = {
@@ -38,83 +36,18 @@ const transferTypeLabel: Record<string, string> = {
   OUT_OF_STATION: "出站换乘",
 };
 
-/**
- * 车站信息：停靠线路与站台去向、换乘、所在位置与地图。
- * 手机上是模态面板：背景压暗；点压暗区域、按 Esc、点收起按钮或向下甩动都会关闭。
- * 大屏上是弹出卡片：从右上角的按钮处展开（缩放原点在按钮一侧），点卡片外或按 Esc 关闭。
- * 两种形态关闭后焦点都回到打开它的按钮。
- * 通过 portal 渲染到 body：看板页面是 position: fixed，会形成自己的层叠上下文，
- * 面板留在里面就盖不过浮动标签栏。
- */
+/** 车站信息：停靠线路与站台去向、换乘、所在位置与地图。 */
 export function StationInfoSheet(props: StationInfoSheetProps) {
-  const reduceMotion = useReducedMotion();
-  const transition = reduceMotion
-    ? { duration: 0 }
-    : ({ type: "spring", bounce: 0, duration: 0.4 } as const);
-
-  if (props.variant === "popover") {
-    return createPortal(
-      <AnimatePresence>
-        {props.open && (
-          <>
-            {/* 透明的点击层：点卡片外任意处关闭，不压暗背景。 */}
-            <div key="dismiss" className={styles.dismiss} onClick={props.onClose} />
-            <motion.section
-              key="popover"
-              className={styles.popover}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="station-info-title"
-              initial={{ opacity: 0, scale: 0.96, y: -6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: -6 }}
-              transition={reduceMotion ? { duration: 0 } : { duration: 0.16, ease: [0.2, 0, 0, 1] }}
-            >
-              <SheetContent {...props} />
-            </motion.section>
-          </>
-        )}
-      </AnimatePresence>,
-      document.body,
-    );
-  }
-
-  return createPortal(
-    <AnimatePresence>
-      {props.open && (
-        <>
-          <motion.div
-            key="scrim"
-            className={styles.scrim}
-            onClick={props.onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={transition}
-          />
-          <motion.section
-            key="sheet"
-            className={styles.sheet}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="station-info-title"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={transition}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_e, info) => {
-              if (info.offset.y > 120 || info.velocity.y > 600) props.onClose();
-            }}
-          >
-            <SheetContent {...props} />
-          </motion.section>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body,
+  return (
+    <Overlay
+      open={props.open}
+      onClose={props.onClose}
+      variant={props.variant}
+      anchor={props.anchor}
+      labelledBy="station-info-title"
+    >
+      <SheetContent {...props} />
+    </Overlay>
   );
 }
 
@@ -129,34 +62,17 @@ function SheetContent({
   mapUrl,
   variant,
 }: StationInfoSheetProps) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  // 打开时把焦点移到收起按钮，关闭时还给之前的元素；Esc 关闭。
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      previous?.focus();
-    };
-  }, [onClose]);
-
   const position = station?.position;
 
   return (
     <>
-      <div className={styles.grabber} aria-hidden />
       <header className={styles.header}>
         <h2 id="station-info-title" className={styles.title}>
           <StationName name={station?.name ?? stationCode} />
         </h2>
         <span className={styles.number}>{stationCode}</span>
         <button
-          ref={closeRef}
+          data-autofocus
           type="button"
           className={styles.close}
           aria-label={variant === "popover" ? "关闭" : "收起"}

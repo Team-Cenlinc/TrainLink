@@ -13,6 +13,8 @@ export interface DepartureView {
   /** 种别，按 FTCA PIDS 叠放在线路色牌里。 */
   serviceType: string;
   destinationName: string;
+  /** 在本站终到（不再往前开）。 */
+  terminating: boolean;
   /** 站台号；未确定时为候选站台，例如「1/2」。 */
   platform: string;
   platformPending: boolean;
@@ -39,7 +41,7 @@ export type DepartureStatus =
 export interface PlatformGroup {
   platform: string;
   platformPending: boolean;
-  /** 这一组出现过的终点名，按出现顺序去重。 */
+  /** 这一组出现过的终点名，按出现顺序去重；在本站终到的班次不计入。 */
   destinations: string[];
   departures: DepartureView[];
 }
@@ -124,7 +126,9 @@ export function toDepartureView(
     lineCode: departure.line,
     lineColor: lineColorOf(departure, context),
     serviceType: serviceTypeOf(departure),
-    destinationName: destinationNameOf(departure, context),
+    // PIDS：在本站终到的班次，终点列写「本站终到」而不是本站站名。
+    destinationName: departure.terminating ? "本站终到" : destinationNameOf(departure, context),
+    terminating: departure.terminating,
     platform: platformOf(departure),
     platformPending: departure.platformPending === true,
     minutes: eta === undefined ? null : Math.max(1, Math.ceil((eta - context.now) / 60_000)),
@@ -149,7 +153,7 @@ export function groupByPlatform(
         destinations: [],
         departures: [],
       };
-      if (!group.destinations.includes(view.destinationName)) {
+      if (!view.terminating && !group.destinations.includes(view.destinationName)) {
         group.destinations.push(view.destinationName);
       }
       group.departures.push(view);

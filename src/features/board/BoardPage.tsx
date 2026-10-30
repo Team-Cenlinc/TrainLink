@@ -1,9 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
+import { useHomeStation } from "@/lib/homeStation.ts";
 import { useLayout } from "@/lib/useLayout.ts";
+import { StationPicker } from "@/features/stations/StationPicker.tsx";
 import { CompactBoard, type BoardView } from "./CompactBoard.tsx";
 import { StationInfoSheet } from "./StationInfoSheet.tsx";
 import { useBoardData } from "./useBoardData.ts";
 import { WideBoard } from "./WideBoard.tsx";
+
+/** 当前打开的面板：车站信息或车站选择；anchor 是触发按钮的位置，大屏弹出卡片据此定位。 */
+type OpenPanel = { kind: "info" | "picker"; anchor?: DOMRect } | null;
+
+/** 头部按钮的点击回调：带上事件，以便取得按钮位置。 */
+export type PanelOpener = (event: MouseEvent<HTMLElement>) => void;
 
 /**
  * 看板：打开 App 首先看到的本站页。按可用宽度选择布局：
@@ -13,26 +21,58 @@ import { WideBoard } from "./WideBoard.tsx";
 export function BoardPage() {
   const layout = useLayout();
   const [view, setView] = useState<BoardView>("station");
-  const [infoOpen, setInfoOpen] = useState(false);
-  // 关闭函数保持同一个引用：车站信息的 effect 依赖它，否则每次刷新站牌都会重置焦点。
-  const closeInfo = useCallback(() => setInfoOpen(false), []);
-  const openInfo = useCallback(() => setInfoOpen(true), []);
+  const [panel, setPanel] = useState<OpenPanel>(null);
+  // 回调保持同一个引用：面板的 effect 依赖 onClose，否则每次刷新站牌都会重置焦点。
+  const closePanel = useCallback(() => setPanel(null), []);
+  const openInfo = useCallback<PanelOpener>(
+    (event) => setPanel({ kind: "info", anchor: event.currentTarget.getBoundingClientRect() }),
+    [],
+  );
+  const openPicker = useCallback<PanelOpener>(
+    (event) => setPanel({ kind: "picker", anchor: event.currentTarget.getBoundingClientRect() }),
+    [],
+  );
+
+  // 换乘站上选中的线路；记下是哪个车站选的，换了本站就自动回到默认线路。
+  const home = useHomeStation();
+  const homeKey = `${home.operatorCode}:${home.stationCode}`;
+  const [lineChoice, setLineChoice] = useState<{ station: string; line: string }>();
+  const chosenLine = lineChoice?.station === homeKey ? lineChoice.line : undefined;
+  const chooseLine = useCallback(
+    (line: string) => setLineChoice({ station: homeKey, line }),
+    [homeKey],
+  );
 
   // 大屏一直显示列车位置；手机只在「线路」视图读取。
-  const data = useBoardData(layout !== "compact" || view === "line");
+  const data = useBoardData(layout !== "compact" || view === "line", chosenLine);
+  const variant = layout === "compact" ? "sheet" : "popover";
 
   return (
     <>
       {layout === "compact" ? (
-        <CompactBoard data={data} view={view} onViewChange={setView} onInfo={openInfo} />
+        <CompactBoard
+          data={data}
+          view={view}
+          onViewChange={setView}
+          onInfo={openInfo}
+          onPickStation={openPicker}
+          onChooseLine={chooseLine}
+        />
       ) : (
-        <WideBoard data={data} layout={layout} onInfo={openInfo} />
+        <WideBoard
+          data={data}
+          layout={layout}
+          onInfo={openInfo}
+          onPickStation={openPicker}
+          onChooseLine={chooseLine}
+        />
       )}
 
       <StationInfoSheet
-        variant={layout === "compact" ? "sheet" : "popover"}
-        open={infoOpen}
-        onClose={closeInfo}
+        variant={variant}
+        open={panel?.kind === "info"}
+        anchor={panel?.anchor}
+        onClose={closePanel}
         station={data.station}
         stationCode={data.home.stationCode}
         lines={data.lines}
@@ -40,6 +80,12 @@ export function BoardPage() {
         transfers={data.transfers}
         nearest={data.nearest}
         mapUrl={data.mapUrl}
+      />
+      <StationPicker
+        variant={variant}
+        open={panel?.kind === "picker"}
+        anchor={panel?.anchor}
+        onClose={closePanel}
       />
     </>
   );

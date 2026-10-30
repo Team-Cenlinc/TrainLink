@@ -7,6 +7,7 @@ import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
 import type { StripStop } from "@/lib/station.ts";
+import type { PanelOpener } from "./BoardPage.tsx";
 import styles from "./StationHeader.module.css";
 
 interface StationHeaderProps {
@@ -19,7 +20,9 @@ interface StationHeaderProps {
   mapUrl?: string;
   /** 服务器当前时刻，例如 22:18；和发车行的时刻同一时区。 */
   clock: string;
-  onInfo: () => void;
+  onInfo: PanelOpener;
+  /** 「常用车站」：打开车站选择。 */
+  onPickStation: PanelOpener;
   /** 在色块上按下即开始拖动面板（下拉）。 */
   onDragStart: (event: PointerEvent) => void;
   /** 面板从默认推上的进度（0–1）。 */
@@ -60,6 +63,7 @@ export function StationHeader({
   mapUrl,
   clock,
   onInfo,
+  onPickStation,
   onDragStart,
   up,
   down,
@@ -83,7 +87,7 @@ export function StationHeader({
   return (
     <header className={styles.header} style={style} onPointerDown={onDragStart}>
       <motion.div className={styles.toolbar} style={{ opacity: toolbarOpacity, y: toolbarY }}>
-        <button type="button" className={styles.textButton}>
+        <button type="button" className={styles.textButton} onClick={onPickStation}>
           <StarIcon aria-hidden />
           常用车站
         </button>

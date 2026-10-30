@@ -1,0 +1,75 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--scrim);
+}
+
+/* 手机：底部面板，宽度最多 560，过高时内部滚动。 */
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  max-height: calc(100dvh - var(--safe-top) - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 auto;
+  max-width: 560px;
+  padding: 0 20px calc(var(--safe-bottom) + 24px);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--canvas);
+}
+
+/* 拖动条区域：按下即可向下拖动关闭；整条都可以按，不只是中间那一小段。 */
+.handle {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 28px;
+  margin: 0 -20px;
+  background: var(--canvas);
+  touch-action: none;
+  cursor: grab;
+}
+
+.handle::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+/* 大屏：透明点击层 + 弹出卡片，位置由触发按钮决定（见 Overlay.tsx 的 popoverPosition）。 */
+.dismiss {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.popover {
+  position: fixed;
+  z-index: 31;
+  width: min(400px, calc(100vw - 48px));
+  max-height: calc(100dvh - var(--safe-top) - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
+  border-radius: var(--radius-group);
+  background: var(--canvas);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent),
+    0 16px 40px rgb(0 0 0 / 0.18);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

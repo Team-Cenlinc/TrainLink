@@ -4,6 +4,7 @@ import ArrowUpIcon from "@material-symbols/svg-400/outlined/arrow_upward.svg?rea
 import TrainIcon from "@material-symbols/svg-400/outlined/train.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
+import type { RailStationLine } from "@/lib/railApi.ts";
 import type { CarLoad, LineLayout, LineTrain } from "./linePositions.ts";
 import styles from "./LineView.module.css";
 
@@ -51,6 +52,35 @@ export function LineDirections({
       <span className={`${styles.direction} ${styles.right}`}>
         <ArrowDownIcon aria-hidden />往{last}
       </span>
+    </div>
+  );
+}
+
+/** 换乘站上切换显示哪条线路的列车位置；只有一条线路时不显示。 */
+export function LineSwitcher({
+  lines,
+  value,
+  onChange,
+}: {
+  lines: RailStationLine[];
+  value?: string;
+  onChange: (lineCode: string) => void;
+}) {
+  if (lines.length < 2) return null;
+  return (
+    <div className={styles.switcher} role="group" aria-label="选择线路">
+      {lines.map((line) => (
+        <button
+          key={line.lineId}
+          type="button"
+          className={`${styles.lineChip} ${line.lineCode === value ? styles.selectedChip : ""}`}
+          aria-pressed={line.lineCode === value}
+          onClick={() => onChange(line.lineCode)}
+        >
+          <ServiceBadge lineCode={line.lineCode} lineColor={line.color} size="s" />
+          {line.lineName}
+        </button>
+      ))}
     </div>
   );
 }

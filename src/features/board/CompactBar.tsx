@@ -4,6 +4,7 @@ import InfoIcon from "@material-symbols/svg-400/outlined/info.svg?react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
+import type { PanelOpener } from "./BoardPage.tsx";
 import { StationTags } from "./StationHeader.tsx";
 import styles from "./CompactBar.module.css";
 
@@ -14,7 +15,7 @@ interface CompactBarProps {
   /** 面板从默认推上的进度（0–1）。 */
   up: MotionValue<number>;
   onSearch: () => void;
-  onInfo: () => void;
+  onInfo: PanelOpener;
   barRef: Ref<HTMLDivElement>;
 }
 

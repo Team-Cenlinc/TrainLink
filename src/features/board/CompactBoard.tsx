@@ -13,8 +13,9 @@ import { Segmented } from "@/components/Segmented.tsx";
 import { formatClock } from "@/lib/time.ts";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { CompactBar } from "./CompactBar.tsx";
-import { LineDirections } from "./LineView.tsx";
+import { LineDirections, LineSwitcher } from "./LineView.tsx";
 import { StationHeader } from "./StationHeader.tsx";
+import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
 import { useSheetDetents, type Detents } from "./useSheetDetents.ts";
 import styles from "./CompactBoard.module.css";
@@ -38,7 +39,9 @@ interface CompactBoardProps {
   data: BoardData;
   view: BoardView;
   onViewChange: (view: BoardView) => void;
-  onInfo: () => void;
+  onInfo: PanelOpener;
+  onPickStation: PanelOpener;
+  onChooseLine: (lineCode: string) => void;
 }
 
 /**
@@ -46,7 +49,14 @@ interface CompactBoardProps {
  * 下拉露出车站周围信息；默认看大站名与最近几班；推上时大站名收进一行标题栏，面板占满屏幕。
  * 所有过渡都由面板位置直接驱动（跟手），不是按时间播放的动画。
  */
-export function CompactBoard({ data, view, onViewChange, onInfo }: CompactBoardProps) {
+export function CompactBoard({
+  data,
+  view,
+  onViewChange,
+  onInfo,
+  onPickStation,
+  onChooseLine,
+}: CompactBoardProps) {
   const navigate = useNavigate();
   const { home, station, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
 
@@ -130,6 +140,7 @@ export function CompactBoard({ data, view, onViewChange, onInfo }: CompactBoardP
         mapUrl={data.mapUrl}
         clock={formatClock(data.now, timeZone)}
         onInfo={onInfo}
+        onPickStation={onPickStation}
         onDragStart={startDrag}
         up={up}
         down={down}
@@ -199,6 +210,13 @@ export function CompactBoard({ data, view, onViewChange, onInfo }: CompactBoardP
                 if (next === "line") goTo("expanded");
               }}
             />
+            {view === "line" && (
+              <LineSwitcher
+                lines={data.orderedLines}
+                value={primaryLine?.lineCode}
+                onChange={onChooseLine}
+              />
+            )}
             {view === "line" && lineLayout && (
               <LineDirections
                 first={lineLayout.stops[0]?.name}

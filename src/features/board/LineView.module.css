@@ -306,3 +306,30 @@
 .high {
   background: var(--status-error);
 }
+
+/* 换乘站的线路切换：小号控件，选中项用深色描边。 */
+.switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.lineChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  border-radius: var(--radius-control-inner);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.selectedChip {
+  color: var(--text);
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--text);
+}

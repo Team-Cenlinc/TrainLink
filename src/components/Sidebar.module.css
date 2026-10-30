@@ -79,6 +79,8 @@
 }
 
 .station {
+  width: 100%;
+  text-align: left;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -92,6 +94,11 @@
 
 .station:hover {
   background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+/* 当前本站：与导航选中项同样的浅底。 */
+.currentStation {
+  background: color-mix(in srgb, var(--text) 9%, transparent);
 }
 
 .badges {
