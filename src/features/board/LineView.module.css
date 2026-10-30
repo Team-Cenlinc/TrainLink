@@ -198,53 +198,25 @@
 }
 
 /*
- * 卡片尾巴：朝向线路的一侧伸出的三角，几乎碰到线路描边，像对话气泡一样指向列车位置。
- * 两层三角：外层是卡片描边色，内层是卡片底色，和卡片边框连成一体。
+ * 位置三角：在卡片外侧、与卡片留 3 px 间隔，实心深色（同线路描边），尖端指向列车在线路上的位置。
+ * 不与卡片相连，也不用卡片颜色，读起来是「标记」而不是卡片的一部分。
  */
 .tail {
   position: absolute;
-  width: calc(var(--gap) - var(--line-w) / 2 - 2px);
-  height: 18px;
-  margin-top: -9px;
-}
-
-.tail::before,
-.tail::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.tail::before {
-  background: color-mix(in srgb, var(--border) 80%, transparent);
-}
-
-.tail::after {
-  background: var(--paper);
+  width: calc(var(--gap) - var(--line-w) / 2 - 5px);
+  height: 14px;
+  margin-top: -7px;
+  background: var(--text);
 }
 
 .right .tail {
-  right: calc(100% - 1px);
-}
-
-.left .tail {
-  left: calc(100% - 1px);
-}
-
-.right .tail::before {
+  right: calc(100% + 3px);
   clip-path: polygon(100% 0, 0 50%, 100% 100%);
 }
 
-.right .tail::after {
-  clip-path: polygon(100% 1.5px, 1.6px 50%, 100% calc(100% - 1.5px));
-}
-
-.left .tail::before {
+.left .tail {
+  left: calc(100% + 3px);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
-}
-
-.left .tail::after {
-  clip-path: polygon(0 1.5px, calc(100% - 1.6px) 50%, 0 calc(100% - 1.5px));
 }
 
 .delay {

@@ -58,7 +58,7 @@ export function LineDirections({
 /**
  * 单线列车位置：一条粗线路（线身 + 两侧深色描边），车站为白底深环圆点，本站为深色实心。
  * 每站一条白色站行，站与站之间露出底色，分隔清楚。
- * 往第一站方向的列车卡片在左，往最后一站方向的在右；卡片朝向线路的一侧有个小三角尾巴，
+ * 往第一站方向的列车卡片在左，往最后一站方向的在右；卡片外侧有一个深色小三角，
  * 指向列车在线路上的真实位置。卡片保留列车图标，一眼就能认出是车。
  */
 export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?: string }) {
@@ -156,7 +156,7 @@ function placeColumn(trains: LineTrain[], height: number) {
   );
 }
 
-/** 卡片尾巴离卡片上下边缘至少留这么多，避免压到圆角。 */
+/** 位置三角离卡片上下边缘至少留这么多，卡片被挪开时也不会超出卡片范围。 */
 const tailInset = 12;
 
 function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anchor: number }) {
@@ -166,7 +166,7 @@ function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anch
   }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
   return (
     <div className={`${styles.train} ${side}`} style={{ top }} aria-label={label}>
-      {/* 尾巴：卡片朝向线路一侧的小三角，指向列车在线路上的真实位置。 */}
+      {/* 位置三角：在卡片外侧，指向列车在线路上的真实位置。 */}
       <span
         className={styles.tail}
         style={{
