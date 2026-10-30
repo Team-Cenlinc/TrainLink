@@ -5,9 +5,10 @@ import styles from "./DepartureGroup.module.css";
 /**
  * 一个站台方向的发车列表：标题「往 ×× · 站台 N」，下面是一张卡片。
  * 第一班用大号（lead），后续班次紧凑显示，只写差异。
+ * limit 为显示的班次数，随面板档位变化：下拉 1 班、默认 4 班、推上不限。
  */
-export function DepartureGroup({ group }: { group: PlatformGroup }) {
-  const [lead, ...rest] = group.departures;
+export function DepartureGroup({ group, limit }: { group: PlatformGroup; limit?: number }) {
+  const [lead, ...rest] = limit ? group.departures.slice(0, limit) : group.departures;
   return (
     <section className={styles.group}>
       <h2 className={styles.heading}>
@@ -20,7 +21,7 @@ export function DepartureGroup({ group }: { group: PlatformGroup }) {
       </h2>
       <ol className={styles.card}>
         {lead && <DepartureRow departure={lead} lead />}
-        {rest.slice(0, 3).map((departure) => (
+        {rest.map((departure) => (
           <DepartureRow key={departure.key} departure={departure} />
         ))}
       </ol>

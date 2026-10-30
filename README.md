@@ -45,7 +45,7 @@ src/
   main.tsx              入口：路由与数据缓存
   App.tsx               外壳：当前页面 + 浮动标签栏
   components/           跨页面复用的组件（线路色牌、标签栏、分段控制）
-  features/board/       看板：本站标题、按站台的发车列表
+  features/board/       看板：本站标题、三档面板、按站台的发车列表、车站信息
   features/placeholder/ 尚未实现的标签页
   lib/                  API 类型与读取、数据 Hook、本站、线路色工具
   styles/               设计 token 与全局样式
@@ -56,6 +56,9 @@ src/
 接口说明见 Fetarute-Minecraft-API 的 `docs/api/rail-api.md`。当前使用：
 
 - `GET /v1/rail/catalog`：线路、车站、换乘（线路色也来自这里）
-- `GET /v1/rail/servers/{serverId}/stations/{operator}/{station}/board`：站牌
+- `GET /v1/rail/servers/{serverId}/stations/{operator}/{station}/board?horizon=3600`：站牌（1 小时内）
+- `GET /v1/rail/servers/{serverId}/gtfs.zip`：GTFS 静态包，用来推出线路站序（catalog 没有站序）
 
 种别（普通 / 快速）暂按交路 ID 推断，等 API 提供种别字段后改为直接读取。
+
+车站在网页地图中的位置用 BlueMap 链接：`https://map.{serverId}.fetarute.org/#{世界}:{x}:{y}:{z}:…`。

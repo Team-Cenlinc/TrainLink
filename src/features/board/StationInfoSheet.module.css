@@ -1,0 +1,146 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--scrim);
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  max-height: calc(100dvh - var(--safe-top) - 40px);
+  overflow-y: auto;
+  margin: 0 auto;
+  max-width: 560px;
+  padding: 28px 20px calc(var(--safe-bottom) + 24px);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.grabber {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+
+.number {
+  padding: 1px 6px;
+  border: 2px solid var(--text);
+  border-radius: var(--radius-info);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.close svg,
+.mapButton svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.card {
+  padding: 0 16px;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 0;
+}
+
+.row + .row {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.primary {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.secondary {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.badges {
+  display: flex;
+  gap: 4px;
+}
+
+.mapButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mapButton:active,
+.close:active {
+  transform: scale(0.97);
+}

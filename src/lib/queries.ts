@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { fetchLineOrders } from "./gtfs.ts";
 import { fetchBoard, fetchCatalog } from "./railApi.ts";
 import type { HomeStation } from "./homeStation.ts";
 
@@ -8,6 +9,9 @@ import type { HomeStation } from "./homeStation.ts";
  * 组件只需要读 data / isPending / error，不用自己写 useEffect + fetch。
  * 刷新间隔与 API 的 Cache-Control 对齐，比它更频繁没有意义。
  */
+
+/** 看板一次取 1 小时内的班次；默认只显示前几班，面板推上后显示全部。 */
+const boardHorizonSeconds = 3600;
 
 /** 线路与车站目录，60 秒内视为新鲜。 */
 export function useCatalog() {
@@ -23,9 +27,24 @@ export function useBoard(station: HomeStation) {
   return useQuery({
     queryKey: ["board", station.serverId, station.operatorCode, station.stationCode],
     queryFn: ({ signal }) =>
-      fetchBoard(station.serverId, station.operatorCode, station.stationCode, signal),
+      fetchBoard(
+        station.serverId,
+        station.operatorCode,
+        station.stationCode,
+        boardHorizonSeconds,
+        signal,
+      ),
     refetchInterval: 10_000,
     staleTime: 5_000,
+  });
+}
+
+/** 各线路站序（来自 GTFS 静态包），5 分钟内视为新鲜。 */
+export function useLineOrders(serverId: string) {
+  return useQuery({
+    queryKey: ["lineOrders", serverId],
+    queryFn: ({ signal }) => fetchLineOrders(serverId, signal),
+    staleTime: 5 * 60_000,
   });
 }
 

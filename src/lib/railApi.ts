@@ -7,7 +7,7 @@
  * API 地址。生产环境直接请求公开域名；本地开发与 `npm run preview` 走 Vite 代理
  * （见 vite.config.ts），用同源相对路径。需要时可用环境变量 VITE_RAIL_API_BASE 覆盖。
  */
-const railApiBase =
+export const railApiBase: string =
   import.meta.env.VITE_RAIL_API_BASE ??
   (import.meta.env.DEV ? "" : "https://site-api.fetarute.info");
 
@@ -47,13 +47,20 @@ export interface RailLine {
   status: string;
 }
 
-/** 车站在 catalog 中列出的停靠线路。 */
+/**
+ * 车站在 catalog 中列出的线路。
+ * 本站停靠的线路没有 viaStationCode；经车站组换乘的线路带 viaStationCode（例如河滨道经浦汇换乘海岛线）。
+ */
 export interface RailStationLine {
   lineId: string;
   operatorCode: string;
   lineCode: string;
   lineName: string;
   color?: string;
+  viaStationCode?: string;
+  /** IN_STATION：站内换乘；OUT_OF_STATION：出站换乘。 */
+  transferType?: string;
+  walkSeconds?: number;
 }
 
 export interface RailStation {
@@ -63,6 +70,9 @@ export interface RailStation {
   code: string;
   name: string;
   secondaryName?: string;
+  /** 车站所在的 Minecraft 世界，例如 Towny。 */
+  world?: string;
+  position?: { x: number; y: number; z: number };
   lines: RailStationLine[];
 }
 
@@ -159,14 +169,19 @@ export function fetchCatalog(signal?: AbortSignal): Promise<RailCatalog> {
   return getEnvelope<RailCatalog>("/v1/rail/catalog", ["operators", "lines", "stations"], signal);
 }
 
-/** 某个车站的站牌；API 缓存 10 秒。 */
+/**
+ * 某个车站的站牌；API 缓存 10 秒。
+ * horizonSeconds 为向后看的时间范围，必须是 300 的整数倍，否则 API 会 308 重定向
+ * （重定向到绝对地址会绕过本地代理而被 CORS 拦下）。
+ */
 export function fetchBoard(
   serverId: string,
   operatorCode: string,
   stationCode: string,
+  horizonSeconds: number,
   signal?: AbortSignal,
 ): Promise<RailBoard> {
-  const path = `/v1/rail/servers/${encodeURIComponent(serverId)}/stations/${encodeURIComponent(operatorCode)}/${encodeURIComponent(stationCode)}/board`;
+  const path = `/v1/rail/servers/${encodeURIComponent(serverId)}/stations/${encodeURIComponent(operatorCode)}/${encodeURIComponent(stationCode)}/board?horizon=${horizonSeconds}`;
   return getEnvelope<RailBoard>(path, ["departures"], signal);
 }
 

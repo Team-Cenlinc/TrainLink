@@ -1,23 +1,89 @@
+/* 看板固定铺满视口：色块在后，面板在前；页面本身不滚动，只有推上后面板内部滚动。 */
 .page {
-  min-height: 100dvh;
-}
-
-/* 面板叠在线路色块下缘，圆角 28；底部留出浮动标签栏的位置。 */
-.sheet {
-  position: relative;
-  margin-top: -24px;
-  min-height: calc(100dvh - 160px);
-  padding: 8px 16px calc(var(--safe-bottom) + 110px);
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
   background: var(--canvas);
 }
 
+/* 面板：顶边位置由 y 控制（见 useSheetDetents），高度为推上时的可用高度。 */
+.sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--canvas);
+  will-change: transform;
+}
+
+/* 拖动区：面板顶部一条，按下即开始拖动。 */
+.handle {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 12px;
+  touch-action: none;
+}
+
+/* 拖动条本身也是按钮：点按在默认与推上之间切换，上下方向键逐档切换。 */
 .grabber {
+  width: 60px;
+  height: 20px;
+  border-radius: 10px;
+  position: relative;
+}
+
+.grabber::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 12px;
   width: 36px;
   height: 5px;
-  margin: 0 auto 12px;
   border-radius: 3px;
   background: var(--border);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 16px calc(var(--safe-bottom) + 110px);
+}
+
+.scrollable {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tripEntry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  margin-bottom: 16px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.tripEntry svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.tripEntry:active {
+  transform: scale(0.98);
 }
 
 .controls {
