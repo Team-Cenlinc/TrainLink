@@ -13,6 +13,11 @@ interface OverlayProps {
   variant: "sheet" | "popover";
   /** popover 的触发按钮位置：卡片出现在按钮下方，按钮在屏幕右半边时右对齐，否则左对齐。 */
   anchor?: DOMRect;
+  /**
+   * popover 相对按钮的位置：above-below 出现在按钮上方或下方（适合短内容）；
+   * side 出现在按钮旁边，在窗口里垂直居中（适合列车详情这类长内容）。
+   */
+  placement?: "above-below" | "side";
   /** 面板标题元素的 id，供读屏朗读。 */
   labelledBy: string;
   children: ReactNode;
@@ -25,7 +30,15 @@ interface OverlayProps {
  * 通过 portal 渲染到 body：看板页面是 position: fixed，会形成自己的层叠上下文，
  * 面板留在里面就盖不过浮动标签栏。
  */
-export function Overlay({ open, onClose, variant, anchor, labelledBy, children }: OverlayProps) {
+export function Overlay({
+  open,
+  onClose,
+  variant,
+  anchor,
+  placement = "above-below",
+  labelledBy,
+  children,
+}: OverlayProps) {
   const reduceMotion = useReducedMotion();
   const dragControls = useDragControls();
   const sheetTransition = reduceMotion
@@ -45,7 +58,9 @@ export function Overlay({ open, onClose, variant, anchor, labelledBy, children }
             <motion.section
               key="popover"
               className={styles.popover}
-              style={popoverPosition(anchor)}
+              style={
+                placement === "side" && anchor ? sidePosition(anchor) : popoverPosition(anchor)
+              }
               role="dialog"
               aria-modal="true"
               aria-labelledby={labelledBy}
@@ -102,14 +117,36 @@ export function Overlay({ open, onClose, variant, anchor, labelledBy, children }
   );
 }
 
-/** popover 定位：按钮下方 8 px；按钮在右半屏时右对齐（缩放原点在右上），否则左对齐。 */
+/**
+ * popover 定位：按钮在上半屏时出现在按钮下方，在下半屏时出现在按钮上方（向上展开）；
+ * 按钮在右半屏时右对齐，否则左对齐。缩放原点放在靠近按钮的那个角。
+ */
 function popoverPosition(anchor?: DOMRect): CSSProperties {
   if (!anchor) return { top: 72, right: 24, transformOrigin: "top right" };
-  const top = anchor.bottom + 8;
-  if (anchor.left + anchor.width / 2 > window.innerWidth / 2) {
-    return { top, right: window.innerWidth - anchor.right, transformOrigin: "top right" };
-  }
-  return { top, left: anchor.left, transformOrigin: "top left" };
+  const below = anchor.top + anchor.height / 2 < window.innerHeight / 2;
+  const right = anchor.left + anchor.width / 2 > window.innerWidth / 2;
+  // 高度不超过按钮这一侧剩下的空间（留 16 px 边距），内容多时在卡片里滚动。
+  const maxHeight = below ? window.innerHeight - anchor.bottom - 24 : anchor.top - 24;
+  return {
+    maxHeight,
+    ...(below ? { top: anchor.bottom + 8 } : { bottom: window.innerHeight - anchor.top + 8 }),
+    ...(right ? { right: window.innerWidth - anchor.right } : { left: anchor.left }),
+    transformOrigin: `${below ? "top" : "bottom"} ${right ? "right" : "left"}`,
+  };
+}
+
+/** 放在按钮旁边（按钮在右半边时放左侧），上下各留 16 px，内容不满一屏时垂直居中。 */
+function sidePosition(anchor: DOMRect): CSSProperties {
+  const right = anchor.left + anchor.width / 2 > window.innerWidth / 2;
+  return {
+    top: 16,
+    bottom: 16,
+    height: "fit-content",
+    maxHeight: "calc(100dvh - 32px)",
+    marginBlock: "auto",
+    ...(right ? { right: window.innerWidth - anchor.left + 12 } : { left: anchor.right + 12 }),
+    transformOrigin: `${right ? "right" : "left"} center`,
+  };
 }
 
 /** 只在面板打开期间存在：负责焦点进出与 Esc。 */

@@ -2,13 +2,22 @@ import { useCallback, useState, type MouseEvent } from "react";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useLayout } from "@/lib/useLayout.ts";
 import { StationPicker } from "@/features/stations/StationPicker.tsx";
+import { TrainSheet } from "@/features/train/TrainSheet.tsx";
+import { useTrainDetail } from "@/features/train/useTrainDetail.ts";
 import { CompactBoard, type BoardView } from "./CompactBoard.tsx";
+import type { TrainSelect } from "./LineView.tsx";
 import { StationInfoSheet } from "./StationInfoSheet.tsx";
 import { useBoardData } from "./useBoardData.ts";
 import { WideBoard } from "./WideBoard.tsx";
 
-/** 当前打开的面板：车站信息或车站选择；anchor 是触发按钮的位置，大屏弹出卡片据此定位。 */
-type OpenPanel = { kind: "info" | "picker"; anchor?: DOMRect } | null;
+/**
+ * 当前打开的面板：车站信息、车站选择或列车详情；
+ * anchor 是触发按钮（或列车卡片）的位置，大屏弹出卡片据此定位。
+ */
+type OpenPanel =
+  | { kind: "info" | "picker"; anchor?: DOMRect }
+  | { kind: "train"; trainName: string; anchor?: DOMRect }
+  | null;
 
 /** 头部按钮的点击回调：带上事件，以便取得按钮位置。 */
 export type PanelOpener = (event: MouseEvent<HTMLElement>) => void;
@@ -32,6 +41,10 @@ export function BoardPage() {
     (event) => setPanel({ kind: "picker", anchor: event.currentTarget.getBoundingClientRect() }),
     [],
   );
+  const openTrain = useCallback<TrainSelect>(
+    (trainName, anchor) => setPanel({ kind: "train", trainName, anchor }),
+    [],
+  );
 
   // 换乘站上选中的线路；记下是哪个车站选的，换了本站就自动回到默认线路。
   const home = useHomeStation();
@@ -46,6 +59,7 @@ export function BoardPage() {
   // 大屏一直显示列车位置；手机只在「线路」视图读取。
   const data = useBoardData(layout !== "compact" || view === "line", chosenLine);
   const variant = layout === "compact" ? "sheet" : "popover";
+  const train = useTrainDetail(data, panel?.kind === "train" ? panel.trainName : undefined);
 
   return (
     <>
@@ -57,6 +71,7 @@ export function BoardPage() {
           onInfo={openInfo}
           onPickStation={openPicker}
           onChooseLine={chooseLine}
+          onSelectTrain={openTrain}
         />
       ) : (
         <WideBoard
@@ -65,6 +80,7 @@ export function BoardPage() {
           onInfo={openInfo}
           onPickStation={openPicker}
           onChooseLine={chooseLine}
+          onSelectTrain={openTrain}
         />
       )}
 
@@ -80,6 +96,16 @@ export function BoardPage() {
         transfers={data.transfers}
         nearest={data.nearest}
         mapUrl={data.mapUrl}
+      />
+      <TrainSheet
+        variant={variant}
+        open={panel?.kind === "train"}
+        anchor={panel?.anchor}
+        onClose={closePanel}
+        detail={train.detail}
+        loading={train.loading}
+        now={data.now}
+        timeZone={data.timeZone}
       />
       <StationPicker
         variant={variant}

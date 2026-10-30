@@ -14,6 +14,8 @@ export interface GtfsIndex {
   lineOrders: LineOrders;
   /** 键为交路代码（与在线列车的 routeCode 相同，例如 SURC:MT:MT-2F_Short），值为终点站名。 */
   headsigns: Map<string, string>;
+  /** 键同上，值为这个交路按站序经过的站码（取该交路的一个车次，跨线直通时含两条线）。 */
+  routeStops: Map<string, string[]>;
 }
 
 export function lineKey(operatorCode: string, lineCode: string): string {
@@ -75,7 +77,10 @@ function stationCodeOf(stopId: string, parentOf: Map<string, string>): string | 
  * 线路站序：每条线路取停站最多的一个车次作为全线站序。
  * 交路有长有短，最长的那一班覆盖全线；两个方向的站序相反，这里不区分方向。
  * 交路终点：trip_short_name 形如 MT-2F_Short-001，去掉末尾班次号就是交路名，
- * 与 route_id 的「运营商:线路」拼起来即在线列车的 routeCode。
+ * 与 trip_id 里的「运营商:线路」拼起来即在线列车的 routeCode。
+ *
+ * 跨线直通的车次在 GTFS 里按线路拆成几段：trip_id 依次为 …-001、…-001~2，
+ * 各段 route_id 不同，但 trip_id 里的线路都是交路所属线路；相邻两段在换乘站首尾重叠。
  */
 export function buildGtfsIndex(files: {
   trips: string;
@@ -85,12 +90,20 @@ export function buildGtfsIndex(files: {
   const trips = parseCsv(files.trips);
   const routeOfTrip = new Map(trips.map((t) => [t.trip_id ?? "", t.route_id ?? ""] as const));
   const headsigns = new Map<string, string>();
+  // 每个交路取一个车次，记下它的各段 trip_id（按 ~2、~3 的段号排序），之后拼成整条站序。
+  const legsOfPattern = new Map<string, { base: string; legs: string[] }>();
   for (const trip of trips) {
-    const [, operatorCode, lineCode] = (trip.route_id ?? "").split(":");
+    const tripId = trip.trip_id ?? "";
+    // trip_id 形如 survival:SURC:MT:SURC_Temporary:MT-3O_DPExp-001~2。
+    const [, operatorCode, lineCode] = tripId.split(":");
     const pattern = trip.trip_short_name?.replace(/-\d+$/, "");
-    if (operatorCode && lineCode && pattern && trip.trip_headsign) {
-      headsigns.set(`${operatorCode}:${lineCode}:${pattern}`, trip.trip_headsign);
-    }
+    if (!operatorCode || !lineCode || !pattern) continue;
+    const key = `${operatorCode}:${lineCode}:${pattern}`;
+    if (trip.trip_headsign) headsigns.set(key, trip.trip_headsign);
+    const base = tripId.replace(/~\d+$/, "");
+    const entry = legsOfPattern.get(key) ?? { base, legs: [] };
+    if (entry.base === base) entry.legs.push(tripId);
+    legsOfPattern.set(key, entry);
   }
   const parentOf = new Map(
     parseCsv(files.stops).map((s) => [s.stop_id ?? "", s.parent_station ?? ""] as const),
@@ -103,6 +116,7 @@ export function buildGtfsIndex(files: {
     stopsOfTrip.set(tripId, list);
   }
 
+  const codesOfTrip = new Map<string, string[]>();
   const longest = new Map<string, string[]>();
   for (const [tripId, stops] of stopsOfTrip) {
     const routeId = routeOfTrip.get(tripId);
@@ -115,9 +129,23 @@ export function buildGtfsIndex(files: {
       .sort((a, b) => a.seq - b.seq)
       .map((s) => stationCodeOf(s.stopId, parentOf))
       .filter((code): code is string => Boolean(code));
+    codesOfTrip.set(tripId, codes);
     if (codes.length > (longest.get(key)?.length ?? 0)) longest.set(key, codes);
   }
-  return { lineOrders: longest, headsigns };
+
+  const legNumber = (tripId: string) => Number(tripId.match(/~(\d+)$/)?.[1] ?? 1);
+  const routeStops = new Map<string, string[]>();
+  for (const [key, { legs }] of legsOfPattern) {
+    const codes: string[] = [];
+    for (const leg of legs.sort((a, b) => legNumber(a) - legNumber(b))) {
+      for (const code of codesOfTrip.get(leg) ?? []) {
+        // 换乘站同时是上一段的终点和下一段的起点，只留一次。
+        if (codes.at(-1) !== code) codes.push(code);
+      }
+    }
+    if (codes.length) routeStops.set(key, codes);
+  }
+  return { lineOrders: longest, headsigns, routeStops };
 }
 
 /** 下载并解析某个服务器的 GTFS 静态包。 */

@@ -1,6 +1,6 @@
 import { DepartureGroup } from "./DepartureGroup.tsx";
 import type { PlatformGroup } from "./departures.ts";
-import { LineView } from "./LineView.tsx";
+import { LineView, type TrainSelect } from "./LineView.tsx";
 import type { BoardData } from "./useBoardData.ts";
 import styles from "./BoardPanels.module.css";
 
@@ -51,10 +51,20 @@ export function DepartureList({
   );
 }
 
-/** 单线列车位置。 */
-export function LinePanel({ data }: { data: BoardData }) {
+/** 单线列车位置；点列车卡片打开详情。 */
+export function LinePanel({
+  data,
+  onSelectTrain,
+}: {
+  data: BoardData;
+  onSelectTrain?: TrainSelect;
+}) {
   const { lineLayout, trains, gtfs, lineOrder, primaryLine } = data;
-  if (lineLayout) return <LineView layout={lineLayout} lineColor={primaryLine?.color} />;
+  if (lineLayout) {
+    return (
+      <LineView layout={lineLayout} lineColor={primaryLine?.color} onSelectTrain={onSelectTrain} />
+    );
+  }
   if (trains.isError || gtfs.isError) {
     return (
       <div className={styles.message}>

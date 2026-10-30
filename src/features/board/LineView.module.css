@@ -196,6 +196,10 @@
     var(--control-shadow);
 }
 
+.train:active {
+  transform: scale(0.97);
+}
+
 .left {
   right: calc(100% - var(--line-x) + var(--gap));
 }

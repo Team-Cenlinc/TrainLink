@@ -91,7 +91,18 @@ export function LineSwitcher({
  * 往第一站方向的列车卡片在左，往最后一站方向的在右；卡片外侧有一个深色小三角，
  * 指向列车在线路上的真实位置。卡片保留列车图标，一眼就能认出是车。
  */
-export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?: string }) {
+/** 点列车卡片：传回列车名与卡片位置（大屏的详情卡片据此定位）。 */
+export type TrainSelect = (trainName: string, anchor: DOMRect) => void;
+
+export function LineView({
+  layout,
+  lineColor,
+  onSelectTrain,
+}: {
+  layout: LineLayout;
+  lineColor?: string;
+  onSelectTrain?: TrainSelect;
+}) {
   const currentRef = useRef<HTMLLIElement>(null);
   const { stops, trains } = layout;
   const height = stops.length * rowHeight;
@@ -143,7 +154,13 @@ export function LineView({ layout, lineColor }: { layout: LineLayout; lineColor?
         <span className={styles.line} aria-hidden />
 
         {placed.map(({ train, top, anchor }) => (
-          <TrainCard key={train.name} train={train} top={top} anchor={anchor} />
+          <TrainCard
+            key={train.name}
+            train={train}
+            top={top}
+            anchor={anchor}
+            onSelect={onSelectTrain}
+          />
         ))}
       </div>
     </section>
@@ -189,13 +206,30 @@ function placeColumn(trains: LineTrain[], height: number) {
 /** 位置三角离卡片上下边缘至少留这么多，卡片被挪开时也不会超出卡片范围。 */
 const tailInset = 12;
 
-function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anchor: number }) {
+/** 列车卡片是按钮：点开列车详情。 */
+function TrainCard({
+  train,
+  top,
+  anchor,
+  onSelect,
+}: {
+  train: LineTrain;
+  top: number;
+  anchor: number;
+  onSelect?: TrainSelect;
+}) {
   const side = train.direction === "toStart" ? styles.left : styles.right;
   const label = `${train.serviceType}，往${train.headsign ?? "未知终点"}${
     train.cars ? `，${train.cars.length} 节` : ""
   }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
   return (
-    <div className={`${styles.train} ${side}`} style={{ top }} aria-label={label}>
+    <button
+      type="button"
+      className={`${styles.train} ${side}`}
+      style={{ top }}
+      aria-label={`${label}，查看列车详情`}
+      onClick={(event) => onSelect?.(train.name, event.currentTarget.getBoundingClientRect())}
+    >
       {/* 位置三角：在卡片外侧，指向列车在线路上的真实位置。 */}
       <span
         className={styles.tail}
@@ -215,7 +249,7 @@ function TrainCard({ train, top, anchor }: { train: LineTrain; top: number; anch
         {train.cars && <Cars loads={train.cars} />}
         <TrainIcon aria-hidden />
       </span>
-    </div>
+    </button>
   );
 }
 

@@ -7,7 +7,7 @@ import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
-import { LineDirections, LineSwitcher } from "./LineView.tsx";
+import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
 import { StationName, StationTags } from "./StationHeader.tsx";
 import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
@@ -19,6 +19,7 @@ interface WideBoardProps {
   onInfo: PanelOpener;
   onPickStation: PanelOpener;
   onChooseLine: (lineCode: string) => void;
+  onSelectTrain: TrainSelect;
 }
 
 /**
@@ -28,7 +29,14 @@ interface WideBoardProps {
  * - 下面两块：左边本站发车，右边列车位置（固定宽度）。发车区够宽（≥ 700）时按方向分成两栏，
  *   否则一栏；由实际可用宽度决定（容器查询），不按设备名猜，任何宽度都不挤。各块独立滚动。
  */
-export function WideBoard({ data, layout, onInfo, onPickStation, onChooseLine }: WideBoardProps) {
+export function WideBoard({
+  data,
+  layout,
+  onInfo,
+  onPickStation,
+  onChooseLine,
+  onSelectTrain,
+}: WideBoardProps) {
   const navigate = useNavigate();
   const { home, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
   const isTransfer = lines.length > 1;
@@ -95,7 +103,7 @@ export function WideBoard({ data, layout, onInfo, onPickStation, onChooseLine }:
               />
             )}
           </div>
-          <LinePanel data={data} />
+          <LinePanel data={data} onSelectTrain={onSelectTrain} />
         </section>
       </main>
     </div>

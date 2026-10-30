@@ -72,6 +72,7 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
 
   return {
     home,
+    catalog: catalog.data,
     now,
     timeZone,
     station,

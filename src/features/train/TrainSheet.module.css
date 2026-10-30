@@ -1,0 +1,398 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.close svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: -6px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* 晚点：不足 5 分琥珀，5 分及以上红（PIDS）。 */
+.chip {
+  padding: 1px 6px;
+  border-radius: var(--radius-info);
+  background: var(--status-caution);
+  color: var(--status-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.severe {
+  background: var(--status-error);
+}
+
+/* ---------- 到达本站 ---------- */
+
+.arrival {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.arrival > div:first-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.minutes {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.minutes :global(.num) {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.unit {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.times {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+
+.planned {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.actual {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.late {
+  color: var(--status-caution);
+}
+
+.platform {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+.platformBox {
+  display: inline-block;
+  min-width: 32px;
+  padding: 6px;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ---------- 车厢 ---------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 每节车厢一格，车厢号写在色块里；颜色按 PIDS 状态色。 */
+.car {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  border-radius: var(--radius-info);
+  color: var(--status-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.low {
+  background: var(--status-ok);
+}
+
+.medium {
+  background: var(--status-caution);
+}
+
+.high {
+  background: var(--status-error);
+}
+
+.direction {
+  flex: none;
+  width: 12px;
+  height: 14px;
+  background: var(--text);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* ---------- 停靠站 ---------- */
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 每行：线路列 28 + 站名 + 右对齐时刻（PIDS 定宽盒）。 */
+.stop {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+
+/* 线路：线身 10 + 两侧 2 px 深色描边，贯穿整行；首行只画下半、末行只画上半。 */
+.rail {
+  position: relative;
+  align-self: stretch;
+}
+
+.rail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  width: 10px;
+  background: var(--line);
+  border-inline: 2px solid var(--text);
+}
+
+.first .rail::before {
+  top: 50%;
+}
+
+.last .rail::before {
+  bottom: 50%;
+}
+
+/* 已过区段：灰色、无描边。 */
+.passed .rail::before {
+  background: var(--border);
+  border-color: var(--border);
+}
+
+.dot {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 4px solid var(--text);
+}
+
+.passed .dot {
+  border-color: var(--border);
+}
+
+/* 本站：深色粗环、白芯。 */
+.here .dot {
+  left: 0;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  border-width: 9px;
+}
+
+.end .dot {
+  background: var(--text);
+}
+
+/* 列车位置：深色三角，指向行进方向（站序向下）。 */
+.train {
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  width: 18px;
+  height: 15px;
+  margin-top: -7px;
+  background: var(--text);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* 列车停在这一站：站点圆填深色，里面一个白色小三角。 */
+.dwell .dot {
+  background: var(--text);
+}
+
+.dwell .train {
+  left: 9px;
+  width: 10px;
+  height: 8px;
+  margin-top: -3px;
+  background: var(--paper);
+}
+
+.trainRow {
+  min-height: 32px;
+}
+
+.stopName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  word-break: keep-all;
+}
+
+.here .stopName,
+.end .stopName {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.passed .stopName,
+.passed .stopTime {
+  color: var(--muted);
+}
+
+.tag {
+  padding: 0 5px;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.stopTime {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.here .stopTime {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* 折叠的中间站：线路改成虚线段，旁边一个展开按钮。 */
+.gap {
+  min-height: 36px;
+}
+
+.gap .rail::before {
+  background: repeating-linear-gradient(var(--line) 0 5px, transparent 5px 9px);
+  border: 0;
+  left: 9px;
+  width: 10px;
+}
+
+.expand {
+  justify-self: start;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--info);
+}
+
+.message {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--muted);
+}

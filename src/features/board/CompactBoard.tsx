@@ -13,7 +13,7 @@ import { Segmented } from "@/components/Segmented.tsx";
 import { formatClock } from "@/lib/time.ts";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { CompactBar } from "./CompactBar.tsx";
-import { LineDirections, LineSwitcher } from "./LineView.tsx";
+import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
 import { StationHeader } from "./StationHeader.tsx";
 import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
@@ -42,6 +42,7 @@ interface CompactBoardProps {
   onInfo: PanelOpener;
   onPickStation: PanelOpener;
   onChooseLine: (lineCode: string) => void;
+  onSelectTrain: TrainSelect;
 }
 
 /**
@@ -56,6 +57,7 @@ export function CompactBoard({
   onInfo,
   onPickStation,
   onChooseLine,
+  onSelectTrain,
 }: CompactBoardProps) {
   const navigate = useNavigate();
   const { home, station, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
@@ -230,7 +232,7 @@ export function CompactBoard({
           </div>
 
           {view === "line" ? (
-            <LinePanel data={data} />
+            <LinePanel data={data} onSelectTrain={onSelectTrain} />
           ) : (
             <DepartureList data={data} limit={rowsShown} />
           )}

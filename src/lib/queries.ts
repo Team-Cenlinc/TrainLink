@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { fetchGtfsIndex } from "./gtfs.ts";
 import { fetchBoard, fetchCatalog, fetchTrains } from "./railApi.ts";
+import { fetchTripUpdates } from "./realtime.ts";
 import type { HomeStation } from "./homeStation.ts";
 
 /**
@@ -50,6 +51,20 @@ export function useTrains(enabled: boolean) {
   return useQuery({
     queryKey: ["trains"],
     queryFn: ({ signal }) => fetchTrains(signal),
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+    enabled,
+  });
+}
+
+/**
+ * GTFS-Realtime 行程更新（各列车接下来各站的预计时刻），每 15 秒刷新。
+ * 只在打开列车详情时读取。
+ */
+export function useTripUpdates(serverId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["tripUpdates", serverId],
+    queryFn: ({ signal }) => fetchTripUpdates(serverId, signal),
     refetchInterval: 15_000,
     staleTime: 10_000,
     enabled,
