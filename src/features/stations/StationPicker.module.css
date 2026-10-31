@@ -134,7 +134,7 @@
   gap: 4px;
 }
 
-/* 站码与旁边的小号线路色牌同高 22 px。 */
+/* 站码（设置里打开才显示）与旁边的小号线路色牌同高 22 px。 */
 .code {
   display: inline-flex;
   align-items: center;
@@ -148,7 +148,11 @@
   color: var(--muted);
 }
 
+/* 「本站」与旁边的小号线路色牌同高 22 px。 */
 .here {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
   padding: 0 5px;
   border-radius: var(--radius-info);
   background: var(--action);

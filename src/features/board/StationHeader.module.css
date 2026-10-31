@@ -93,22 +93,26 @@
   gap: 6px;
 }
 
+/*
+ * 线路标签：底色与站名文字同色（浅色线路上是深色块，深色线路上是白块），线路码用线路色，
+ * 本站只有一条线时看起来是在色块上镂空出来的字；换乘站的色块是深色，各标签的字用各自线路色。
+ */
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
   height: 24px;
   padding: 0 7px;
   border-radius: var(--radius-info);
-  background: var(--on-line-light);
-  color: var(--on-line-dark);
+  background: var(--on-line);
+  color: var(--tag-line);
   font-family: var(--font-display);
   font-size: 13px;
   font-weight: 800;
 }
 
-.tagLine {
-  color: var(--tag-line);
+/* 站码标签（设置里打开才显示）：字用色块的颜色，同样是镂空的样子。 */
+.code {
+  color: var(--line);
 }
 
 .band {

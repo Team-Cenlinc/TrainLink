@@ -5,6 +5,7 @@ import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
+import { useSettings } from "@/lib/settings.ts";
 import { linePlatforms, type PlatformDirection, type PlatformGroup } from "./departures.ts";
 import { StationName } from "./StationHeader.tsx";
 import styles from "./StationInfoSheet.module.css";
@@ -59,6 +60,7 @@ function SheetContent({
   variant,
 }: StationInfoSheetProps) {
   const position = station?.position;
+  const { showStationCodes } = useSettings();
 
   return (
     <>
@@ -66,7 +68,7 @@ function SheetContent({
         <h2 id="station-info-title" className={styles.title}>
           <StationName name={station?.name ?? stationCode} />
         </h2>
-        <span className={styles.number}>{stationCode}</span>
+        {showStationCodes && <span className={styles.number}>{stationCode}</span>}
         <button
           data-autofocus
           type="button"

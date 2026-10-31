@@ -34,12 +34,12 @@ export function Page({
   const navigate = useNavigate();
   const layout = useLayout();
   // 手机与平板：整页固定、在自己里面滚动（同看板），文档锁住（data-fixed-page，见 global.css）。
-  // Safari 给浏览器栏着色时会参考贴边固定元素的底色，这里是面板灰（见 Page.module.css）。
+  // Safari 底部工具栏取贴底固定元素的颜色，这里是面板灰（见 Page.module.css）。
   // 桌面有侧边栏，保持普通的文档滚动。
   const fixed = layout !== "wide";
   // 标签页标题：大标题是文字时用它，否则（起终点、时刻等内容）用工具栏上的页面名。
   useDocumentTitle(typeof title === "string" ? title : back);
-  // 从主屏打开时状态栏与标题块同色（见 useTopColor）。
+  // 状态栏与标题块同色（见 useTopColor）。
   useTopColor("var(--hero)");
   return (
     <div

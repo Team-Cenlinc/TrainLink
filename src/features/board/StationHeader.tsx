@@ -6,9 +6,10 @@ import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
-import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
-import type { StripStop } from "@/lib/station.ts";
 import { useTopColor } from "@/lib/useTopColor.ts";
+import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
+import { useSettings } from "@/lib/settings.ts";
+import type { StripStop } from "@/lib/station.ts";
 import type { PanelOpener } from "./BoardPage.tsx";
 import { useShown } from "./useShown.ts";
 import styles from "./StationHeader.module.css";
@@ -78,7 +79,7 @@ export function StationHeader({
 }: StationHeaderProps) {
   const isTransfer = lines.length > 1;
   const color = isTransfer ? fallbackLineColor : (lines[0]?.color ?? fallbackLineColor);
-  // 从主屏打开时状态栏与色块同色（见 useTopColor）；车站数据还没到时不改，免得先闪一下默认深色。
+  // 状态栏与色块同色（见 useTopColor）；车站数据还没到时不改，免得先把默认深色交给 iOS。
   useTopColor(station ? color : undefined);
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
   const position = station?.position;
@@ -190,7 +191,10 @@ export function StationName({ name }: { name: string }) {
   ));
 }
 
-/** 编号标签：白底，线路码用线路色，站码用深色。 */
+/**
+ * 线路标签：底色同站名文字，线路码用线路色（镂空的样子，见样式）。站码默认不显示（对乘客用处不大），
+ * 设置里打开后在最后单独加一个站码标签，换乘站也只显示一次。
+ */
 export function StationTags({
   lines,
   stationCode,
@@ -200,6 +204,7 @@ export function StationTags({
   stationCode: string;
   className?: string;
 }) {
+  const { showStationCodes } = useSettings();
   return (
     <div className={`${styles.tags} ${className ?? ""}`}>
       {lines.map((line) => (
@@ -208,10 +213,10 @@ export function StationTags({
           className={styles.tag}
           style={{ "--tag-line": line.color ?? fallbackLineColor } as CSSProperties}
         >
-          <span className={styles.tagLine}>{line.lineCode}</span>
-          {stationCode}
+          {line.lineCode}
         </span>
       ))}
+      {showStationCodes && <span className={`${styles.tag} ${styles.code}`}>{stationCode}</span>}
     </div>
   );
 }

@@ -19,6 +19,12 @@ describe("设置", () => {
     ).toEqual({ ...defaultSettings, remindMinutes: 10, hiddenOperators: ["survival:PUAT"] });
   });
 
+  it("站码默认不显示，只认布尔值", () => {
+    expect(defaultSettings.showStationCodes).toBe(false);
+    expect(parseSettings(JSON.stringify({ showStationCodes: true })).showStationCodes).toBe(true);
+    expect(parseSettings(JSON.stringify({ showStationCodes: "yes" })).showStationCodes).toBe(false);
+  });
+
   it("隐藏或重新显示运营方；同一台服务器上最后一家显示的不能隐藏", () => {
     const hidden = toggleOperator([], "s:b", operators);
 

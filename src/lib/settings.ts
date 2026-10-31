@@ -4,7 +4,7 @@ import { useCatalog } from "./queries.ts";
 import type { RailCatalog, RailOperator } from "./railApi.ts";
 
 /**
- * 设置：外观、出发提醒提前几分钟、不显示的运营方。保存在浏览器本地，整个 App 共用
+ * 设置：外观、出发提醒提前几分钟、不显示的运营方、是否显示站码。保存在浏览器本地，整个 App 共用
  * （写法同 homeStation.ts）。服务器不单独保存：当前服务器就是本站所在的服务器。
  */
 
@@ -16,6 +16,8 @@ export interface Settings {
   remindMinutes: number;
   /** 不显示的运营方（catalog 里运营方的 id）。存「不显示」的：以后新增的运营方默认显示。 */
   hiddenOperators: string[];
+  /** 显示站码（如 PTK）。对乘客用处不大，默认不显示，熟悉线网的人可以打开。 */
+  showStationCodes: boolean;
 }
 
 /** 提醒可选的提前分钟数。 */
@@ -25,6 +27,7 @@ export const defaultSettings: Settings = {
   theme: "system",
   remindMinutes: 5,
   hiddenOperators: [],
+  showStationCodes: false,
 };
 
 const themes: Theme[] = ["system", "light", "dark"];
@@ -48,6 +51,10 @@ export function parseSettings(text: string | null): Settings {
       raw.hiddenOperators.every((id) => typeof id === "string")
         ? raw.hiddenOperators
         : defaultSettings.hiddenOperators,
+    showStationCodes:
+      typeof raw.showStationCodes === "boolean"
+        ? raw.showStationCodes
+        : defaultSettings.showStationCodes,
   };
 }
 

@@ -63,6 +63,24 @@ export function SettingsPage() {
             onChange={(theme) => updateSettings({ theme })}
           />
         </li>
+        <li>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.showStationCodes}
+            className={styles.row}
+            onClick={() => updateSettings({ showStationCodes: !settings.showStationCodes })}
+          >
+            <span className={styles.main}>
+              <span className={styles.name}>显示站码</span>
+            </span>
+            <span
+              className={`${styles.switch} ${settings.showStationCodes ? styles.on : ""}`}
+              aria-hidden
+            />
+          </button>
+        </li>
+        <li className={styles.footnote}>在车站名旁边显示站码（如 PTK），熟悉线网时方便对照。</li>
       </Group>
 
       <Group title="出发提醒">

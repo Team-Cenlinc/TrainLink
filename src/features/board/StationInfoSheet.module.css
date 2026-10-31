@@ -11,6 +11,7 @@
   word-break: keep-all;
 }
 
+/* 站码（设置里打开才显示）。 */
 .number {
   padding: 1px 6px;
   border: 2px solid var(--text);

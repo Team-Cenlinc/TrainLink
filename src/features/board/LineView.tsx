@@ -5,6 +5,7 @@ import TrainIcon from "@material-symbols/svg-400/outlined/train.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
+import { useSettings } from "@/lib/settings.ts";
 import type { CarLoad, LineLayout, LineTrain } from "./linePositions.ts";
 import { severeDelayMinutes } from "./departures.ts";
 import { cardHeight, placeColumn, rowHeight } from "./placeColumn.ts";
@@ -100,6 +101,7 @@ export function LineView({
   onSelectTrain?: TrainSelect;
 }) {
   const currentRef = useRef<HTMLLIElement>(null);
+  const { showStationCodes } = useSettings();
   const { stops, trains } = layout;
   const height = stops.length * rowHeight;
 
@@ -133,7 +135,7 @@ export function LineView({
             >
               <span className={styles.stopName}>{stop.name}</span>
               <span className={styles.stopMeta}>
-                <span className={styles.code}>{stop.code}</span>
+                {showStationCodes && <span className={styles.code}>{stop.code}</span>}
                 {stop.current && <span className={styles.here}>本站</span>}
                 {stop.transfers.map((line) => (
                   <ServiceBadge

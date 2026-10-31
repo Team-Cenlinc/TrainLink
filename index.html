@@ -4,20 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!--
-      浏览器栏颜色：面板灰（--canvas）。不跟每页标题色：Safari 站内切页后不一定重新取色，会对不上（见 lib/useTopColor.ts）。
-      App 里选了外观时由 settings.ts 的 applyTheme 换。
+      地址栏颜色：面板灰（--canvas），iOS 26 的 Safari 不看它（状态栏颜色来自贴顶色条，见 lib/useTopColor.ts），
+      给其他浏览器用。App 里选了外观时由 settings.ts 的 applyTheme 换。
     -->
     <meta name="theme-color" content="#F0F1F0" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111416" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <!--
-      从主屏打开时状态栏透明，标题色一直铺到屏幕顶（沉浸）。iOS 26 在这种模式下有两处只能用文档背景色填：
-      状态栏下的滚动边缘渐变，和屏幕最底下画不到的一截（视口少了状态栏那么高，WebKit bug 301108）。
-      主屏模式的文档背景用顶部颜色（global.css 的 data-standalone）：顶部无缝，底部那截是标题色，等 iOS 修好就没了。
-      default 是一条浅色状态栏、black 是纯黑，都和色块接不上，所以不用。改状态栏样式后，主屏图标要删掉重新添加才生效。
+      不写 apple-mobile-web-app-status-bar-style：从主屏打开时状态栏不压在页面上，颜色由 iOS 取页面顶上的
+      贴顶色条（见 lib/useTopColor.ts），跟着每页、每个车站变，没有渐变，内容一直铺到屏幕底。
+      写 black-translucent（Apple 已弃用）时 iOS 26/27 会在状态栏下面盖一层关不掉的渐变，
+      屏幕最底下还有一截画不到（WebKit bug 317153、301108）。主屏图标要删掉重新添加才生效。
     -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="TrainLink" />
     <meta
       name="description"
@@ -64,6 +63,7 @@
   </head>
   <body>
     <noscript>TrainLink 需要启用 JavaScript 才能使用。</noscript>
+    <div id="top-edge" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

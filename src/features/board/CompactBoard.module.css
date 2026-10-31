@@ -4,8 +4,8 @@
   inset: 0;
   overflow: hidden;
   /*
-   * 面板灰：Safari 给浏览器栏着色时会参考贴边固定元素的底色，与 theme-color 一致用面板灰
-   *（为什么不跟线路色，见 lib/useTopColor.ts）。面板与色块各自有底色，这里露不出来。
+   * 面板灰：Safari 底部工具栏取贴底固定元素的颜色；顶部状态栏的颜色来自贴顶色条（见 lib/useTopColor.ts）。
+   * 面板与色块各自有底色，这里露不出来。
    */
   background: var(--canvas);
 }

@@ -1,14 +1,15 @@
 import { useEffect } from "react";
 
 /**
- * 页面顶部的颜色：写到 <html> 的 --top-color，只给从 iOS 主屏打开时用（状态栏透明，见 index.html）。
- * iOS 26 在状态栏下面盖的「滚动边缘」渐变取文档背景色，主屏模式的文档背景就用它
- *（global.css 的 data-standalone），与标题色块连成一片；切页、换车站都实时跟着变。
- * 每页把自己顶部的颜色交上来：看板是线路色，其他页是标题块的 var(--hero)。
- * 变量原样写进去，由 CSS 按当前外观取值，外观切换时自己跟着变。
+ * 页面顶部的颜色，交给贴顶的色条（index.html 的 #top-edge，样式见 global.css）。
  *
- * Safari 网页里的浏览器栏不跟：它的颜色来自 theme-color 和贴边固定元素的底色，
- * 实测站内切页后有时重取、有时不重取，跟着标题色走就会对不上，所以统一用面板灰（见 settings.ts 的 applyTheme）。
+ * iOS 26/27 给状态栏着色、决定要不要在状态栏下面盖一层模糊渐变时，在屏幕顶边中点往下 4 px 做一次
+ * 点击检测，沿命中的元素往上找第一个 fixed / sticky 元素（WebKit 的 LocalFrameView::fixedContainerEdges）：
+ * - 宽度不到视口 90%、或高不超过 10 px 的不算；
+ * - 铺满整屏的固定元素（我们的页面外壳）被当作「整屏层」，沿用上一次取到的颜色，换页、换车站都不更新；
+ * - 一条铺满宽度的普通固定条：直接用它的背景色，每次都重新取，状态栏就是这个纯色，不盖模糊。
+ * 所以顶上放一条固定色条，颜色跟着每页顶部（看板是线路色，其他页是标题块的 var(--hero)）。
+ * 变量原样写进去，由 CSS 按当前外观取值，外观切换时自己跟着变。
  *
  * 冷启动时颜色按页面（看板 / 其他页）从本地先设上（restoreTopColor），第一帧就是对的；
  * 颜色还说不准时传 undefined，不覆盖。
@@ -16,7 +17,7 @@ import { useEffect } from "react";
  */
 export function useTopColor(color: string | undefined) {
   useEffect(() => {
-    if (!color || !isStandalone()) return;
+    if (!color) return;
     setTopColor(color);
     try {
       const saved = readSaved();
@@ -33,8 +34,6 @@ const key = "trainlink.topColors";
 /** 看板的顶部是车站的线路色，其他页都是标题块的深色：分两类存。 */
 const pageKind = (pathname: string) => (pathname === "/" ? "board" : "page");
 
-const isStandalone = () => document.documentElement.dataset.standalone !== undefined;
-
 function readSaved(): Record<string, string> {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? "{}");
@@ -48,14 +47,8 @@ function setTopColor(color: string) {
   document.documentElement.style.setProperty("--top-color", color);
 }
 
-/**
- * 启动时（第一次渲染前）：标记是否从 iOS 主屏以网页 App 打开（data-standalone，样式据此换文档背景），
- * 并先用上次的顶部颜色，第一帧状态栏下的渐变就是对的颜色。
- * 只认 iOS 的 navigator.standalone：Android、桌面装的 PWA 有自己的标题栏，不需要这套处理。
- */
+/** 启动时（第一次渲染前）先用上次的顶部颜色，iOS 第一次取色就是对的。 */
 export function restoreTopColor() {
-  if ((navigator as Navigator & { standalone?: boolean }).standalone !== true) return;
-  document.documentElement.dataset.standalone = "";
   const saved = readSaved()[pageKind(location.pathname)];
   if (typeof saved === "string") setTopColor(saved);
 }

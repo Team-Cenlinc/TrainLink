@@ -17,7 +17,7 @@ import {
 } from "@/lib/homeStation.ts";
 import { useCatalog, useGtfs } from "@/lib/queries.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
-import { useShownOperators } from "@/lib/settings.ts";
+import { useSettings, useShownOperators } from "@/lib/settings.ts";
 import { servingLines } from "@/lib/station.ts";
 import styles from "./StationPicker.module.css";
 
@@ -185,7 +185,7 @@ function PickerContent({
           <SearchIcon aria-hidden />
           <input
             type="search"
-            placeholder="站名、站码或英文名"
+            placeholder="站名或英文名"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             data-autofocus={focusSearch ? true : undefined}
@@ -238,6 +238,7 @@ function StationRow({
   onChoose: () => void;
   onToggleFavorite: () => void;
 }) {
+  const { showStationCodes } = useSettings();
   return (
     <li className={styles.row}>
       <button
@@ -248,7 +249,7 @@ function StationRow({
       >
         <span className={styles.name}>{entry.name}</span>
         <span className={styles.meta}>
-          <span className={styles.code}>{entry.ref.stationCode}</span>
+          {showStationCodes && <span className={styles.code}>{entry.ref.stationCode}</span>}
           {entry.lines.map((l) => (
             <ServiceBadge key={l.lineId} lineCode={l.lineCode} lineColor={l.color} size="s" />
           ))}

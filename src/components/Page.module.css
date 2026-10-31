@@ -15,8 +15,8 @@
 
 /*
  * 手机与平板：整页固定、铺满屏幕，在自己里面滚动（同看板）。
- * Safari 给浏览器栏着色时会参考贴边固定元素的底色，这里用面板灰（--canvas），与 theme-color 一致
- *（为什么不跟标题色，见 lib/useTopColor.ts）。标题块的颜色由 .hero 自己铺。
+ * 底色是面板灰：Safari 底部工具栏取贴底固定元素的颜色；顶部状态栏的颜色来自贴顶色条（见 lib/useTopColor.ts）。
+ * 标题块的颜色由 .hero 自己铺。
  */
 .fixed {
   position: fixed;

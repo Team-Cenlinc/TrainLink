@@ -7,8 +7,8 @@
 }
 
 /*
- * 文档背景是面板的浅灰：Safari 网页里状态栏与底部工具栏都是这个灰（theme-color、贴边的固定页面底色也是它）。
- * 不跟每页标题色的原因见 lib/useTopColor.ts。
+ * 文档背景是面板的浅灰：Safari 网页里底部工具栏是这个灰（贴底的固定页面底色也是它）；
+ * 顶部状态栏的颜色来自贴顶色条（#top-edge，见下）。
  * body 不铺底色（Safari 会改取 body 的颜色），页面内容的底色由各页自己给。
  * 关掉整页回弹，免得拉过头时露出不同颜色的一截。
  */
@@ -18,11 +18,19 @@ html {
 }
 
 /*
- * 从主屏以网页 App 打开（状态栏透明，见 index.html）：状态栏下的滚动边缘渐变取文档背景色，
- * 用顶部颜色，与标题色块同色看不出来。代价是 iOS 26 视口少一截时，屏幕最底下那条也是这个颜色。
+ * 贴顶色条：颜色跟着每页顶部（--top-color，见 lib/useTopColor.ts）。
+ * iOS 找到这样一条铺满宽度、高过 10 px 的固定元素，就用它的颜色画状态栏（Safari 网页与主屏 App 都是），
+ * 不再盖模糊渐变。状态栏不压在页面上时没有安全区，至少 12 px；不挡点击；压在弹出面板下面。
  */
-html[data-standalone] {
-  background: var(--top-color, var(--canvas));
+#top-edge {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  height: max(var(--safe-top), 12px);
+  background: var(--top-color, transparent);
+  pointer-events: none;
 }
 
 html,
