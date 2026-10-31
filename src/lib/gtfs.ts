@@ -16,6 +16,11 @@ export interface GtfsIndex {
   headsigns: Map<string, string>;
   /** 键同上，值为这个交路按站序经过的站码（取该交路的一个车次，跨线直通时含两条线）。 */
   routeStops: Map<string, string[]>;
+  /**
+   * 与 routeStops 一一对应：列车从这一站开出时所在的线路码。
+   * 跨线直通时会变，例如 MT-3O_DPExp 在新笛矢·壑湖之前是 MT，之后是 WS。
+   */
+  routeStopLines: Map<string, string[]>;
 }
 
 export function lineKey(operatorCode: string, lineCode: string): string {
@@ -135,17 +140,29 @@ export function buildGtfsIndex(files: {
 
   const legNumber = (tripId: string) => Number(tripId.match(/~(\d+)$/)?.[1] ?? 1);
   const routeStops = new Map<string, string[]>();
+  const routeStopLines = new Map<string, string[]>();
   for (const [key, { legs }] of legsOfPattern) {
     const codes: string[] = [];
+    const lines: string[] = [];
     for (const leg of legs.sort((a, b) => legNumber(a) - legNumber(b))) {
+      // 每一段的线路看它的 route_id（survival:SURC:WS → WS）。
+      const lineCode = routeOfTrip.get(leg)?.split(":")[2] ?? "";
       for (const code of codesOfTrip.get(leg) ?? []) {
-        // 换乘站同时是上一段的终点和下一段的起点，只留一次。
-        if (codes.at(-1) !== code) codes.push(code);
+        if (codes.at(-1) === code) {
+          // 换乘站同时是上一段的终点和下一段的起点：只留一次，开出时已在下一段的线路上。
+          lines[lines.length - 1] = lineCode;
+        } else {
+          codes.push(code);
+          lines.push(lineCode);
+        }
       }
     }
-    if (codes.length) routeStops.set(key, codes);
+    if (codes.length) {
+      routeStops.set(key, codes);
+      routeStopLines.set(key, lines);
+    }
   }
-  return { lineOrders: longest, headsigns, routeStops };
+  return { lineOrders: longest, headsigns, routeStops, routeStopLines };
 }
 
 /** 下载并解析某个服务器的 GTFS 静态包。 */

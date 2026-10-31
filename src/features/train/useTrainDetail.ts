@@ -19,9 +19,14 @@ export function useTrainDetail(data: BoardData, trainName: string | undefined) {
           serverId: data.home.serverId,
           homeStationCode: data.home.stationCode,
           routeStops: train.routeCode ? data.gtfs.data?.routeStops.get(train.routeCode) : undefined,
+          // 本地缓存里旧版本的 GTFS 索引可能没有 routeStopLines，所以这里也用 ?.。
+          routeStopLines: train.routeCode
+            ? data.gtfs.data?.routeStopLines?.get(train.routeCode)
+            : undefined,
           headsign: train.routeCode ? data.gtfs.data?.headsigns.get(train.routeCode) : undefined,
           tripUpdate: tripUpdates.data?.get(train.name),
           departure: data.board.data?.departures.find((d) => d.train === train.name),
+          carLoads: data.carLoads.data?.get(train.name),
           catalog: data.catalog,
           now: data.now,
         })

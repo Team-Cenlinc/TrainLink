@@ -1,10 +1,11 @@
-import { useState, type CSSProperties } from "react";
+import { Fragment, useState, type CSSProperties } from "react";
 import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import CollapseIcon from "@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react";
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import { formatClock } from "@/lib/time.ts";
+import type { RailStationLine } from "@/lib/railApi.ts";
 import type { CarLoad } from "@/features/board/linePositions.ts";
 import type { DetailStop, TrainDetail } from "./trainDetail.ts";
 import styles from "./TrainSheet.module.css";
@@ -94,6 +95,17 @@ function Content({
             晚点 {detail.delayMinutes} 分
           </span>
         )}
+        {detail.through && (
+          <span className={styles.through}>
+            {detail.through.map((l, i) => (
+              <Fragment key={l.lineId}>
+                {i > 0 && <span aria-hidden>→</span>}
+                <ServiceBadge lineCode={l.lineCode} lineColor={l.color} size="s" />
+              </Fragment>
+            ))}
+            直通
+          </span>
+        )}
         {detail.cars && <span>{detail.cars.length} 节</span>}
         <span>
           {section.at ? `停靠${section.at}` : `${section.from ?? "—"} → ${section.to ?? "—"}`}
@@ -101,27 +113,37 @@ function Content({
       </p>
 
       {here && (
-        <section className={styles.arrival} aria-label="到达本站">
-          <div>
-            <span className={styles.label}>到达本站 {here.stationName}</span>
+        // 三列各有标签，连起来读：距本站 蒲塘桥 3 分钟 · 预计到达 08:15 · 站台 1。
+        <section className={styles.arrival} aria-label="本站到站信息">
+          <span className={styles.label}>
+            {here.atStation ? "本站" : "距本站"} {here.stationName}
+          </span>
+          <span className={styles.timeLabel}>{here.atStation ? "预计发车" : "预计到达"}</span>
+          {here.platform && <span className={styles.platformLabel}>站台</span>}
+          {here.atStation ? (
+            <span className={styles.state}>停靠中</span>
+          ) : (
             <span className={styles.minutes}>
               <span className="num">{Math.max(1, Math.ceil((here.time - now) / 60_000))}</span>
-              <span className={styles.unit}>分</span>
+              <span className={styles.unit}>分钟</span>
             </span>
-          </div>
-          <div className={styles.times}>
-            {here.planned && <span className={`${styles.planned} num`}>{clock(here.planned)}</span>}
+          )}
+          <span className={styles.time}>
+            {here.planned && (
+              <s className={`${styles.planned} num`} aria-label={`原定 ${clock(here.planned)}`}>
+                {clock(here.planned)}
+              </s>
+            )}
             <span className={`${styles.actual} ${here.planned ? styles.late : ""} num`}>
               {clock(here.time)}
             </span>
-          </div>
-          {here.platform && (
-            <div className={styles.platform}>
-              <span className={styles.label}>站台</span>
-              <span className={`${styles.platformBox} num`}>{here.platform}</span>
-            </div>
-          )}
+          </span>
+          {here.platform && <span className={`${styles.platformBox} num`}>{here.platform}</span>}
         </section>
+      )}
+
+      {!here && detail.notStopping && (
+        <p className={styles.notice}>本列车不停靠{detail.notStopping}</p>
       )}
 
       {detail.cars && (
@@ -156,10 +178,12 @@ function Content({
           {shown.map((stop, i) => {
             const index = upcoming.indexOf(stop);
             const isTrainAfter = !detail.position.dwelling && index === detail.position.afterIndex;
+            const previous = upcoming[index - 1];
             return (
               <StopRow
                 key={stop.code}
                 stop={stop}
+                lineIn={previous?.line ?? stop.line}
                 time={clock(stop.time)}
                 trainHere={detail.position.dwelling && index === detail.position.afterIndex}
                 trainAfter={isTrainAfter}
@@ -176,12 +200,21 @@ function Content({
   );
 }
 
+/** 线段颜色：行的上半段是驶入这一站的线路，下半段是驶出的线路，直通换线时在站点圆处变色。 */
+function railColors(lineIn: RailStationLine, lineOut: RailStationLine) {
+  return {
+    "--line-in": lineIn.color ?? fallbackLineColor,
+    "--line-out": lineOut.color ?? fallbackLineColor,
+  } as CSSProperties;
+}
+
 /**
  * 停靠站一行：左侧粗线路与站点圆（已过为灰色），站名与标签，右侧时刻。
  * 列车位置用 ▼ 标在站上（停站）或两站之间（行驶中）。
  */
 function StopRow({
   stop,
+  lineIn,
   time,
   trainHere,
   trainAfter,
@@ -191,6 +224,8 @@ function StopRow({
   last,
 }: {
   stop: DetailStop;
+  /** 驶入这一站时所在的线路（上一站开出的线路）。 */
+  lineIn: RailStationLine;
   time?: string;
   trainHere: boolean;
   trainAfter: boolean;
@@ -199,10 +234,14 @@ function StopRow({
   first: boolean;
   last: boolean;
 }) {
+  // 直通：从这一站起换到另一条线路运行。
+  const entersLine = lineIn.lineCode !== stop.line.lineCode ? stop.line : undefined;
+  const ahead = railColors(stop.line, stop.line);
   return (
     <>
       <li
-        className={`${styles.stop} ${styles[stop.kind]} ${trainHere ? styles.dwell : ""} ${first ? styles.first : ""} ${last ? styles.last : ""}`}
+        className={`${styles.stop} ${styles[stop.kind]} ${trainHere ? `${styles.dwell} ${styles.reached}` : ""} ${first ? styles.first : ""} ${last ? styles.last : ""}`}
+        style={railColors(lineIn, stop.line)}
       >
         <span className={styles.rail} aria-hidden>
           <span className={styles.dot} />
@@ -213,13 +252,18 @@ function StopRow({
           {stop.kind === "here" && <span className={styles.tag}>本站</span>}
           {stop.kind === "end" && <span className={styles.tag}>终点</span>}
           {trainHere && <span className={styles.status}>列车在此</span>}
+          {entersLine && (
+            <span className={styles.status}>
+              直通 {entersLine.lineCode} {entersLine.lineName}
+            </span>
+          )}
         </span>
         <span className={`${styles.stopTime} num`}>
           {stop.kind === "passed" ? "已发车" : (time ?? "")}
         </span>
       </li>
       {trainAfter && (
-        <li className={`${styles.stop} ${styles.trainRow}`}>
+        <li className={`${styles.stop} ${styles.trainRow} ${styles.reached}`} style={ahead}>
           <span className={styles.rail} aria-hidden>
             <span className={styles.train} />
           </span>
@@ -227,7 +271,7 @@ function StopRow({
         </li>
       )}
       {collapsedAfter > 0 && (
-        <li className={`${styles.stop} ${styles.gap}`}>
+        <li className={`${styles.stop} ${styles.gap}`} style={ahead}>
           <span className={styles.rail} aria-hidden />
           <button type="button" className={styles.expand} onClick={onExpand}>
             展开另 {collapsedAfter} 站

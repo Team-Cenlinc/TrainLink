@@ -32,7 +32,7 @@ export interface LineTrain {
   direction: TrainDirection;
   serviceType: string;
   headsign?: string;
-  /** 每节车厢的拥挤程度，顺序同编组；只有出现在本站站牌上的列车才知道。 */
+  /** 每节车厢的拥挤程度，顺序同编组；来自车辆位置，没有时用本站站牌的数据。 */
   cars?: CarLoad[];
   /** 晚点分钟数（≥ 1 才有）。 */
   delayMinutes?: number;
@@ -53,9 +53,13 @@ export function stationOfNode(node: string | undefined): string | undefined {
 export type CarLoad = "low" | "medium" | "high";
 
 /** 按在车人数占座位数的比例分三级：不到 40% 宽松，不到 75% 较多，其余拥挤。 */
-export function carLoad(car: RailCar): CarLoad {
-  const ratio = car.seats > 0 ? car.occupied / car.seats : 0;
+export function loadOfRatio(ratio: number): CarLoad {
   return ratio < 0.4 ? "low" : ratio < 0.75 ? "medium" : "high";
+}
+
+/** 站牌里的一节车厢（人数与座位数）→ 拥挤程度。 */
+export function carLoad(car: RailCar): CarLoad {
+  return loadOfRatio(car.seats > 0 ? car.occupied / car.seats : 0);
 }
 
 /** 停车判定：低于这个速度（方块/秒）且当前节点是车站，就画在车站上。 */
@@ -69,6 +73,8 @@ export function buildLineLayout(input: {
   trains: RailTrain[];
   headsigns: Map<string, string>;
   departures: RailDeparture[];
+  /** 车辆位置给出的各节车厢满载率，以列车名索引。 */
+  carLoads?: Map<string, number[]>;
   catalog?: RailCatalog;
 }): LineLayout {
   const { order, line, serverId, stationCode, catalog } = input;
@@ -122,7 +128,7 @@ export function buildLineLayout(input: {
       direction,
       serviceType: serviceTypeOf({ routeId: train.routeCode ?? "" }),
       headsign,
-      cars: departure?.cars?.map(carLoad),
+      cars: input.carLoads?.get(train.name)?.map(loadOfRatio) ?? departure?.cars?.map(carLoad),
       delayMinutes: delayMinutes >= 1 ? delayMinutes : undefined,
     });
   }

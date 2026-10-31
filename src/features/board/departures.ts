@@ -122,7 +122,8 @@ export function toDepartureView(
 ): DepartureView {
   const eta = departure.etaEpochMillis;
   return {
-    key: `${departure.routeId}-${eta ?? index}-${departure.train ?? index}`,
+    // 已出车的班次用列车名做 key：预计时刻每次刷新都会变，拿它做 key 会让整行被重建。
+    key: departure.train ? `train-${departure.train}` : `${departure.routeId}-${eta ?? index}`,
     lineCode: departure.line,
     lineColor: lineColorOf(departure, context),
     serviceType: serviceTypeOf(departure),

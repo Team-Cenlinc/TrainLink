@@ -62,25 +62,46 @@
 
 /* ---------- 到达本站 ---------- */
 
+/*
+ * 两行网格：上行是三列各自的标签（距本站 / 预计到达 / 站台），下行是数值（分钟 / 时刻 / 站台号）。
+ * 与看板标题同一规则：字号不同的元素按基线对齐，站台号方块里的数字也落在这条基线上。
+ */
 .arrival {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.arrival > div:first-child {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    "label timeLabel platformLabel"
+    "minutes time platform";
+  align-items: baseline;
+  column-gap: 16px;
+  row-gap: 4px;
 }
 
 .label {
+  grid-area: label;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.timeLabel {
+  grid-area: timeLabel;
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.platformLabel {
+  grid-area: platformLabel;
+  justify-self: center;
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
 }
 
 .minutes {
+  grid-area: minutes;
   display: flex;
   align-items: baseline;
   gap: 4px;
@@ -98,11 +119,21 @@
   font-weight: 700;
 }
 
-.times {
+/* 列车已经停在本站：不显示分钟数。 */
+.state {
+  grid-area: minutes;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* 时刻列：晚点时原定时刻划掉、放在实际时刻左边，同一条基线。 */
+.time {
+  grid-area: time;
+  justify-self: end;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding-bottom: 4px;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .planned {
@@ -121,25 +152,21 @@
   color: var(--status-caution);
 }
 
-.platform {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding-bottom: 4px;
-}
-
+/* 站台号：与看板相同的方块写法（上下等距内边距 + text-box 裁掉字体留白），数字才有基线。 */
 .platformBox {
+  grid-area: platform;
+  justify-self: center;
   display: inline-block;
-  min-width: 32px;
-  padding: 6px;
+  min-width: 34px;
+  padding: 7px;
+  text-align: center;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
   border-radius: var(--radius-info);
   background: var(--action);
   color: var(--action-text);
-  text-align: center;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
-  line-height: 1;
 }
 
 /* ---------- 车厢 ---------- */
@@ -162,9 +189,14 @@
   gap: 4px;
 }
 
-/* 每节车厢一格，车厢号写在色块里；颜色按 PIDS 状态色。 */
+/*
+ * 每节车厢一格，车厢号写在色块里，颜色按 PIDS 状态色。
+ * 固定 48 × 26（约 2:1，读起来像一节车），从左排起；
+ * 车厢很多时才等比缩窄，不再按宽度拉伸，免得三节车显得和屏幕一样长。
+ */
 .car {
-  flex: 1;
+  flex: 0 1 48px;
+  min-width: 28px;
   display: grid;
   place-items: center;
   height: 26px;
@@ -192,6 +224,23 @@
   height: 14px;
   background: var(--text);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+/* 直通：途经线路的小色标，按运行顺序。 */
+.through {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 列车不停本站：在原本「距本站」的位置说明一句。 */
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-info);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .legend {
@@ -228,44 +277,69 @@
   list-style: none;
 }
 
-/* 每行：线路列 28 + 站名 + 右对齐时刻（PIDS 定宽盒）。 */
+/*
+ * 每行：线路列 28 + 站名 + 右对齐时刻（PIDS 定宽盒）。站名、标签、时刻按基线对齐；
+ * 行高由上下内边距撑出，--pad 同时给线路列用，让它盖住整行高度。
+ */
 .stop {
+  --pad: 13px;
   display: grid;
   grid-template-columns: 28px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
+  align-items: baseline;
+  column-gap: 12px;
+  padding-block: var(--pad);
+  line-height: 22px;
 }
 
-/* 线路：线身 10 + 两侧 2 px 深色描边，贯穿整行；首行只画下半、末行只画上半。 */
 .rail {
   position: relative;
   align-self: stretch;
+  margin-block: calc(-1 * var(--pad));
 }
 
-.rail::before {
+/*
+ * 线路：线身 10 + 两侧 2 px 深色描边，中心与站点圆同在 14 px。
+ * 上下两半分开画，才能让列车走过的一段变灰；上半多画 1 px，盖住与上一行之间的接缝。
+ */
+.rail::before,
+.rail::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
   left: 7px;
-  width: 10px;
-  background: var(--line);
+  width: 14px;
   border-inline: 2px solid var(--text);
 }
 
-.first .rail::before {
-  top: 50%;
-}
-
-.last .rail::before {
+/* 上半段是驶入这一站的线路色，下半段是驶出的线路色（跨线直通时两者不同）。 */
+.rail::before {
+  top: -1px;
   bottom: 50%;
+  background: var(--line-in, var(--line));
 }
 
-/* 已过区段：灰色、无描边。 */
-.passed .rail::before {
+.rail::after {
+  top: 50%;
+  bottom: 0;
+  background: var(--line-out, var(--line));
+}
+
+.first .rail::before,
+.last .rail::after {
+  display: none;
+}
+
+/* 列车已经走过的线段为灰色、无描边：已过站整行，以及列车所在行的上半段。 */
+.passed .rail::before,
+.passed .rail::after,
+.reached .rail::before {
   background: var(--border);
   border-color: var(--border);
+}
+
+/* 站点圆与列车三角画在线路两半之上。 */
+.dot,
+.train {
+  z-index: 1;
 }
 
 .dot {
@@ -323,13 +397,22 @@
 }
 
 .trainRow {
-  min-height: 32px;
+  --pad: 5px;
+}
+
+/* 行驶中：灰色线段止于三角的底边，线路色从三角底边开始，三角正好压在新旧两段的交界上。 */
+.trainRow .rail::before {
+  bottom: calc(50% + 7px);
+}
+
+.trainRow .rail::after {
+  top: calc(50% - 7px);
 }
 
 .stopName {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
   font-size: 16px;
   font-weight: 500;
@@ -374,14 +457,22 @@
 
 /* 折叠的中间站：线路改成虚线段，旁边一个展开按钮。 */
 .gap {
-  min-height: 36px;
+  --pad: 7px;
 }
 
+/*
+ * 折叠段画成虚线：每一段都和实线一样是「线身 + 两侧 2 px 深色描边」，
+ * 用遮罩切成 7 px 一段、间隔 4 px，描边跟着线身一起断开。
+ * 这一行高 36（内边距 7 × 2 + 行高 22），加上盖接缝的 1 px 共 37 = 4 + 11 × 3：
+ * 首尾都是间隔，虚线段不会和上下的实线粘在一起。
+ */
 .gap .rail::before {
-  background: repeating-linear-gradient(var(--line) 0 5px, transparent 5px 9px);
-  border: 0;
-  left: 9px;
-  width: 10px;
+  bottom: 0;
+  mask: repeating-linear-gradient(transparent 0 4px, #000 4px 11px);
+}
+
+.gap .rail::after {
+  display: none;
 }
 
 .expand {

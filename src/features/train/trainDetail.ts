@@ -2,7 +2,12 @@ import type { RailCatalog, RailDeparture, RailStationLine, RailTrain } from "@/l
 import type { TripUpdate } from "@/lib/realtime.ts";
 import { findStation } from "@/lib/station.ts";
 import { serviceTypeOf } from "@/features/board/departures.ts";
-import { carLoad, stationOfNode, type CarLoad } from "@/features/board/linePositions.ts";
+import {
+  carLoad,
+  loadOfRatio,
+  stationOfNode,
+  type CarLoad,
+} from "@/features/board/linePositions.ts";
 
 /**
  * 列车详情需要的全部信息，由在线列车、GTFS 交路站序、GTFS-RT 行程更新与本站站牌拼起来。
@@ -15,8 +20,10 @@ export interface DetailStop {
   code: string;
   name: string;
   kind: StopKind;
-  /** 预计到达（终点）或发车时刻，毫秒；没有实时数据时为 undefined。 */
+  /** 预计到达时刻（列车正停着的站为发车时刻），毫秒；没有实时数据时为 undefined。 */
   time?: number;
+  /** 列车从这一站开出时所在的线路；跨线直通时在换乘站改变，停靠站列表据此给线段上色。 */
+  line: RailStationLine;
 }
 
 export interface TrainDetail {
@@ -26,10 +33,22 @@ export interface TrainDetail {
   headsign?: string;
   delayMinutes?: number;
   cars?: CarLoad[];
+  /** 跨线直通的车次：按运行顺序经过的线路（至少两条）；不直通时为 undefined。 */
+  through?: RailStationLine[];
+  /** 这趟车不经停本站时，本站站名（例如快车通过的站、短交路到不了的站）。 */
+  notStopping?: string;
   /** 当前区间：停在某站时只有 at，行驶中为 from → to。 */
   section: { at?: string; from?: string; to?: string };
-  /** 列车会停靠本站时，本站的到站信息。 */
-  here?: { stationName: string; time: number; planned?: number; platform?: string };
+  /**
+   * 列车会停靠本站时，本站的信息。time 是预计到达时刻；列车已经停在本站（atStation）时是预计发车时刻。
+   */
+  here?: {
+    stationName: string;
+    time: number;
+    planned?: number;
+    platform?: string;
+    atStation: boolean;
+  };
   stops: DetailStop[];
   /** 列车位置画在 stops 的哪一项之后（停站时画在该站上）。 */
   position: { afterIndex: number; dwelling: boolean };
@@ -55,9 +74,13 @@ export function buildTrainDetail(input: {
   serverId: string;
   homeStationCode: string;
   routeStops?: string[];
+  /** 与 routeStops 一一对应，列车从每一站开出时所在的线路码。 */
+  routeStopLines?: string[];
   headsign?: string;
   tripUpdate?: TripUpdate;
   departure?: RailDeparture;
+  /** 车辆位置给出的各节车厢满载率。 */
+  carLoads?: number[];
   catalog?: RailCatalog;
   now: number;
 }): TrainDetail {
@@ -77,10 +100,19 @@ export function buildTrainDetail(input: {
 
   // 站序：优先用交路站序；没有时用实时数据里的站。
   const order = input.routeStops ?? tripUpdate?.stops.map((s) => s.stationCode) ?? [];
-  const timeAt = new Map(
-    (tripUpdate?.stops ?? []).map((s) => [s.stationCode, s.departure ?? s.arrival]),
-  );
+  const stopTimeAt = new Map((tripUpdate?.stops ?? []).map((s) => [s.stationCode, s]));
   const last = order.length - 1;
+
+  // 每一站开出时的线路：在这一站的 catalog 线路里找，找不到就用列车当前所在的线路。
+  const lineAt = (index: number): RailStationLine => {
+    const lineCode = input.routeStops ? input.routeStopLines?.[index] : undefined;
+    if (!lineCode || lineCode === line.lineCode) return line;
+    const station = findStation(catalog, serverId, line.operatorCode, order[index] ?? "");
+    return station?.lines.find((l) => l.lineCode === lineCode && !l.viaStationCode) ?? line;
+  };
+  const lineSequence = order
+    .map((_, index) => lineAt(index))
+    .filter((l, index, all) => index === 0 || l.lineCode !== all[index - 1]?.lineCode);
 
   // 在停站序里的位置：停在某个停靠站上，或者在 ahead 这一站之前的区间里。
   // ahead 依次看下一节点、实时数据里第一个还没到时刻的站、当前站的下一站。
@@ -110,17 +142,22 @@ export function buildTrainDetail(input: {
             : code === input.homeStationCode
               ? "here"
               : "stop",
-      // 终点只有到达时刻；其余站用发车时刻（到站即停，乘客关心何时能上车）。
+      // 各站统一写到达时刻，与上方「预计到达」一致；列车正停着的那一站写发车时刻。
       time:
-        index === last
-          ? tripUpdate?.stops.find((s) => s.stationCode === code)?.arrival
-          : timeAt.get(code),
+        dwelling && index === currentIndex
+          ? (stopTimeAt.get(code)?.departure ?? stopTimeAt.get(code)?.arrival)
+          : (stopTimeAt.get(code)?.arrival ?? stopTimeAt.get(code)?.departure),
+      line: lineAt(index),
     };
   });
 
   const delaySeconds = departure?.delaySeconds ?? tripUpdate?.delaySeconds ?? 0;
   const delayMinutes = Math.floor(delaySeconds / 60);
-  const hereTime = timeAt.get(input.homeStationCode) ?? departure?.etaEpochMillis;
+  const atHome = dwelling && current === input.homeStationCode;
+  // 本站时刻与停靠站列表里本站那一行相同；没有实时数据时用站牌的预计时刻。
+  const hereTime =
+    stops.find((s) => s.code === input.homeStationCode && s.kind !== "passed")?.time ??
+    departure?.etaEpochMillis;
   const willStopHere = stops.some((s) => s.code === input.homeStationCode && s.kind !== "passed");
 
   return {
@@ -129,7 +166,12 @@ export function buildTrainDetail(input: {
     serviceType: serviceTypeOf({ routeId: train.routeCode ?? "" }),
     headsign: input.headsign,
     delayMinutes: delayMinutes >= 1 ? delayMinutes : undefined,
-    cars: departure?.cars?.map(carLoad),
+    cars: input.carLoads?.map(loadOfRatio) ?? departure?.cars?.map(carLoad),
+    through: lineSequence.length > 1 ? lineSequence : undefined,
+    notStopping:
+      order.length > 0 && !order.includes(input.homeStationCode)
+        ? nameOf(input.homeStationCode)
+        : undefined,
     section: dwelling ? { at: nameOf(current) } : { from: nameOf(from), to: nameOf(to) },
     here:
       willStopHere && hereTime
@@ -138,6 +180,7 @@ export function buildTrainDetail(input: {
             time: hereTime,
             planned: delayMinutes >= 1 ? hereTime - delaySeconds * 1000 : undefined,
             platform: departure?.platform,
+            atStation: atHome,
           }
         : undefined,
     stops,

@@ -1,6 +1,6 @@
 import { lineKey } from "@/lib/gtfs.ts";
 import { useHomeStation } from "@/lib/homeStation.ts";
-import { useBoard, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
+import { useBoard, useCarLoads, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
 import {
   blueMapUrl,
@@ -28,6 +28,7 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
   const board = useBoard(home);
   const gtfs = useGtfs(home.serverId);
   const trains = useTrains(trainsEnabled);
+  const carLoads = useCarLoads(home.serverId, trainsEnabled);
 
   const station = findStation(catalog.data, home.serverId, home.operatorCode, home.stationCode);
   const lines = station ? servingLines(station) : [];
@@ -66,6 +67,7 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
           trains: trains.data.trains,
           headsigns: gtfs.data?.headsigns ?? new Map(),
           departures: board.data?.departures ?? [],
+          carLoads: carLoads.data,
           catalog: catalog.data,
         })
       : undefined;
@@ -88,6 +90,7 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
     groups,
     gtfs,
     trains,
+    carLoads,
     lineOrder,
     lineLayout,
   };
