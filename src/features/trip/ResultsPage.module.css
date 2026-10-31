@@ -1,0 +1,169 @@
+/* 标题是「蒲塘桥港 → 南渡」；箭头细一些、淡一些，站名是主角。 */
+.arrow {
+  margin: 0 0.3em;
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+/* 标题下一行：出发时间（同看板标题块里的时刻那一行）。 */
+.when {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+/* ---------- 桌面两栏：左边方案，右边乘坐指南（同看板发车区与列车位置的比例） ---------- */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(380px, 40%, 480px);
+  gap: 24px;
+  align-items: start;
+}
+
+.listColumn {
+  min-width: 0;
+}
+
+/* 右栏跟着页面滚动时停在顶部，长列表往下翻也一直看得到选中的方案。 */
+.guideColumn {
+  position: sticky;
+  top: 24px;
+}
+
+.guideHeading {
+  margin: 0 0 10px;
+  padding: 0 4px;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.guideCard {
+  padding: 20px 20px 8px;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+}
+
+.guideTimes {
+  margin: 0 0 4px;
+  font-size: 32px;
+  font-weight: 900;
+}
+
+/* 选中的方案：整行浅灰底，左边一条深色竖线（同线路选择里选中项的深色描边）。 */
+.selected {
+  margin: 0 -16px;
+  padding: 0 16px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  box-shadow: inset 4px 0 0 var(--text);
+}
+
+/* 一个方案：四行，各自贴左；整行可点。 */
+.journey {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 16px 0 14px;
+  text-align: left;
+}
+
+.journey:active {
+  opacity: 0.7;
+}
+
+/* 起止时刻 22 px 粗体，用时靠右，按基线对齐。 */
+.times {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.times .arrow {
+  margin: 0 2px;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.planned {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.late {
+  color: var(--status-caution);
+}
+
+.duration {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.duration :global(.num) {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wait {
+  color: var(--status-ok);
+}
+
+.now {
+  color: var(--status-caution);
+}
+
+.chip {
+  padding: 1px 6px;
+  border-radius: var(--radius-info);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--status-text);
+}
+
+.caution {
+  background: var(--status-caution);
+}
+
+.severe {
+  background: var(--status-error);
+}
+
+.transfers {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.notes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.notes span {
+  flex: 1;
+  min-width: 0;
+}
+
+.chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: var(--text);
+}

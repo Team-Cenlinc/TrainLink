@@ -1,6 +1,6 @@
 import { transit_realtime } from "gtfs-realtime-bindings";
 import { describe, expect, it } from "vitest";
-import { decodeAlerts } from "./realtime.ts";
+import { decodeAlerts, decodeTripRealtime } from "./realtime.ts";
 
 /** 用官方绑定库编码一份通告数据源，与 API 返回的二进制格式相同。 */
 function alertsFeed(alerts: transit_realtime.IAlert[], ids = alerts.map((_, i) => `alert-${i}`)) {
@@ -64,5 +64,51 @@ describe("decodeAlerts", () => {
       { start: 1_793_000_000_000, end: 1_793_100_000_000 },
     ]);
     expect(alerts[1]?.activePeriods).toEqual([]);
+  });
+});
+
+describe("decodeTripRealtime", () => {
+  it("按车次读出各站预计时刻（秒换成毫秒）与取消的车次", async () => {
+    const { ScheduleRelationship } = transit_realtime.TripDescriptor;
+    const bytes = transit_realtime.FeedMessage.encode({
+      header: { gtfsRealtimeVersion: "2.0", timestamp: 1_793_400_000 },
+      entity: [
+        {
+          id: "running",
+          tripUpdate: {
+            trip: { tripId: "survival:SURC:MT:T:M1" },
+            delay: 120,
+            stopTimeUpdate: [
+              {
+                stopId: "survival:SURC:S:PTK:1",
+                arrival: { time: 1_793_400_060 },
+                departure: { time: 1_793_400_090 },
+              },
+            ],
+          },
+        },
+        {
+          id: "cancelled",
+          tripUpdate: {
+            trip: {
+              tripId: "survival:SURC:MT:T:M2",
+              scheduleRelationship: ScheduleRelationship.CANCELED,
+            },
+          },
+        },
+      ],
+    }).finish();
+
+    const realtime = await decodeTripRealtime(bytes);
+
+    expect(realtime.get("survival:SURC:MT:T:M1")).toMatchObject({
+      cancelled: false,
+      delaySeconds: 120,
+    });
+    expect(realtime.get("survival:SURC:MT:T:M1")?.stops.get("PTK")).toEqual({
+      arrival: 1_793_400_060_000,
+      departure: 1_793_400_090_000,
+    });
+    expect(realtime.get("survival:SURC:MT:T:M2")?.cancelled).toBe(true);
   });
 });

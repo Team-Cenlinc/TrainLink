@@ -15,6 +15,9 @@
   --border: #c9ced0;
   --action: #1b2022;
   --action-text: #f4f6f5;
+  /* 看板以外各页的标题块：浅色下与 action 同为深色；深色模式下 action 反成浅色，标题块仍保持深色。 */
+  --hero: #1b2022;
+  --hero-text: #f4f6f5;
   --status-ok: #0f7a4f;
   --status-caution: #9a5d00;
   --status-error: #b8443e;
@@ -61,6 +64,8 @@
     --border: #3d474a;
     --action: #eef0ef;
     --action-text: #1b2022;
+    --hero: #24292b;
+    --hero-text: #eef0ef;
     --status-ok: #4fcb8a;
     --status-caution: #f0b84a;
     --status-error: #ff8c84;

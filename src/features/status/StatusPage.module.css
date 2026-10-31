@@ -1,23 +1,4 @@
-/*
- * 与看板同一套结构：顶部纯色标题块（深色 action 色，状态由下面的标签表达，不让整页一直是红色），
- * 下面是圆角面板压在标题块上；面板里每组「标题 + 白色卡片」。
- */
-.page {
-  min-height: 100dvh;
-  background: var(--action);
-}
-
-.hero {
-  padding: calc(var(--safe-top) + 48px) 20px 52px;
-  color: var(--action-text);
-}
-
-.name {
-  margin: 0 0 8px;
-  font-size: clamp(34px, 11vw, 48px);
-  font-weight: 900;
-  line-height: 1.1;
-}
+/* 运行状态页自己的部分；外壳（标题块、面板、组标题与卡片）在 components/Page.module.css。 */
 
 /* 概况与更新时刻同一行，按基线对齐（同看板的编号标签与当前时刻）。 */
 .summaryRow {
@@ -58,18 +39,12 @@
   font-weight: 800;
 }
 
-.panel {
-  min-height: calc(100dvh - 160px);
-  margin-top: -24px;
-  padding: 24px 16px 120px;
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-  background: var(--canvas);
-  container-type: inline-size;
-}
-
-.message {
-  margin: 24px 4px;
-  color: var(--muted);
+/* 大屏同 WideBoard：更新时刻紧跟在概况后面，不推到最右。 */
+@media (min-width: 768px) {
+  .summaryRow {
+    justify-content: flex-start;
+    gap: 16px;
+  }
 }
 
 /* 面板够宽（≥ 700）时线路在左、通告在右，与看板发车区分两栏的断点相同。 */
@@ -79,41 +54,14 @@
   align-items: start;
 }
 
-.lines {
-  display: grid;
-  gap: 28px;
+.column {
+  min-width: 0;
 }
 
 @container (min-width: 700px) {
   .groups {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-}
-
-/* 组标题：同看板发车组标题，22 px 900，数量按基线跟在后面。 */
-.heading {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 0 10px;
-  padding: 0 4px;
-  font-size: 22px;
-  font-weight: 900;
-  line-height: 1.2;
-}
-
-.count {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.card {
-  margin: 0;
-  padding: 0 16px;
-  list-style: none;
-  border-radius: var(--radius-group);
-  background: var(--paper);
 }
 
 /* 一行：色牌、线路名与说明、状态标签，三列各自垂直居中（同发车行）。 */
@@ -123,10 +71,6 @@
   gap: 12px;
   min-height: 68px;
   padding: 12px 0;
-}
-
-.row + .row {
-  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .main {
@@ -151,13 +95,12 @@
   white-space: pre-line;
 }
 
-/* 通告行：上面一排涉及的线路，标题与正文在下面；顶对齐，长正文从上往下读。 */
+/* 通告行：喇叭图标在色牌那一列；上面一排涉及的线路，标题与正文在下面；顶对齐。 */
 .bulletin {
   align-items: flex-start;
   padding: 14px 0;
 }
 
-/* 通告行前的喇叭图标：与线路行的色牌同列，和第一排（涉及的线路）居中对齐。 */
 .bulletinIcon {
   flex: none;
   width: 24px;
@@ -183,14 +126,4 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--muted);
-}
-
-@media (min-width: 768px) {
-  .hero {
-    padding: calc(var(--safe-top) + 40px) 32px 52px;
-  }
-
-  .panel {
-    padding: 24px 32px 48px;
-  }
 }

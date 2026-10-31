@@ -25,6 +25,10 @@ interface StationPickerProps {
   onClose: () => void;
   variant: "sheet" | "popover";
   anchor?: DOMRect;
+  /** 标题，默认「选择车站」。 */
+  title?: string;
+  /** 选中一个车站时调用；省略时把它设为本站（看板的用法）。 */
+  onChoose?: (station: HomeStation) => void;
 }
 
 /** 选择器里的一个车站。 */
@@ -38,9 +42,17 @@ interface Entry {
 
 /**
  * 车站选择：搜索、常用车站、按线路分组的全部车站。
- * 点一个车站就把它设为本站并关闭；星标加入或移出常用车站。
+ * 点一个车站就选中并关闭：看板上是把它设为本站，行程里是选起点或终点（onChoose）；
+ * 星标加入或移出常用车站。
  */
-export function StationPicker({ open, onClose, variant, anchor }: StationPickerProps) {
+export function StationPicker({
+  open,
+  onClose,
+  variant,
+  anchor,
+  title = "选择车站",
+  onChoose = setHomeStation,
+}: StationPickerProps) {
   return (
     <Overlay
       open={open}
@@ -48,13 +60,22 @@ export function StationPicker({ open, onClose, variant, anchor }: StationPickerP
       variant={variant}
       anchor={anchor}
       labelledBy="station-picker-title"
+      fill
     >
-      <PickerContent onClose={onClose} variant={variant} />
+      <PickerContent onClose={onClose} variant={variant} title={title} onChoose={onChoose} />
     </Overlay>
   );
 }
 
-function PickerContent({ onClose, variant }: Pick<StationPickerProps, "onClose" | "variant">) {
+function PickerContent({
+  onClose,
+  variant,
+  title,
+  onChoose,
+}: Pick<StationPickerProps, "onClose" | "variant"> & {
+  title: string;
+  onChoose: (station: HomeStation) => void;
+}) {
   const home = useHomeStation();
   const favorites = useFavoriteStations();
   const catalog = useCatalog();
@@ -94,7 +115,7 @@ function PickerContent({ onClose, variant }: Pick<StationPickerProps, "onClose" 
 
   const isFavorite = (e: Entry) => favorites.some((f) => sameStation(f, e.ref));
   const choose = (e: Entry) => {
-    setHomeStation(e.ref);
+    onChoose(e.ref);
     onClose();
   };
 
@@ -124,33 +145,36 @@ function PickerContent({ onClose, variant }: Pick<StationPickerProps, "onClose" 
 
   return (
     <>
-      <header className={styles.header}>
-        <h2 id="station-picker-title" className={styles.title}>
-          选择车站
-        </h2>
-        <button
-          type="button"
-          className={styles.close}
-          aria-label={variant === "popover" ? "关闭" : "收起"}
-          onClick={onClose}
-          data-autofocus={variant === "sheet" ? true : undefined}
-        >
-          {variant === "popover" ? <CloseIcon aria-hidden /> : <CollapseIcon aria-hidden />}
-        </button>
-      </header>
+      {/* 标题与搜索框吸顶：往下翻车站列表、搜索结果变少时，搜索框都停在原处。 */}
+      <div className={styles.top}>
+        <header className={styles.header}>
+          <h2 id="station-picker-title" className={styles.title}>
+            {title}
+          </h2>
+          <button
+            type="button"
+            className={styles.close}
+            aria-label={variant === "popover" ? "关闭" : "收起"}
+            onClick={onClose}
+            data-autofocus={variant === "sheet" ? true : undefined}
+          >
+            {variant === "popover" ? <CloseIcon aria-hidden /> : <CollapseIcon aria-hidden />}
+          </button>
+        </header>
 
-      <label className={styles.search}>
-        <SearchIcon aria-hidden />
-        <input
-          type="search"
-          placeholder="站名、站码或英文名"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          // 大屏直接聚焦搜索框；手机上不自动弹出键盘。
-          data-autofocus={variant === "popover" ? true : undefined}
-          aria-label="搜索车站"
-        />
-      </label>
+        <label className={styles.search}>
+          <SearchIcon aria-hidden />
+          <input
+            type="search"
+            placeholder="站名、站码或英文名"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            // 大屏直接聚焦搜索框；手机上不自动弹出键盘。
+            data-autofocus={variant === "popover" ? true : undefined}
+            aria-label="搜索车站"
+          />
+        </label>
+      </div>
 
       {catalog.isPending ? (
         <p className={styles.message}>正在读取车站…</p>

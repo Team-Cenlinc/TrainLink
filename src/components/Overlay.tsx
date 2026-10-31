@@ -18,6 +18,11 @@ interface OverlayProps {
    * side 出现在按钮旁边，在窗口里垂直居中（适合列车详情这类长内容）。
    */
   placement?: "above-below" | "side";
+  /**
+   * 固定高度：面板不随内容变高变矮（手机上几乎占满屏幕，大屏最高 640）。
+   * 用于有搜索框的面板：搜索结果变少时面板不缩，搜索框就不会跟着移动。
+   */
+  fill?: boolean;
   /** 面板标题元素的 id，供读屏朗读。 */
   labelledBy: string;
   children: ReactNode;
@@ -36,6 +41,7 @@ export function Overlay({
   variant,
   anchor,
   placement = "above-below",
+  fill = false,
   labelledBy,
   children,
 }: OverlayProps) {
@@ -57,10 +63,11 @@ export function Overlay({
             <div key="dismiss" className={styles.dismiss} onClick={onClose} />
             <motion.section
               key="popover"
-              className={styles.popover}
-              style={
-                placement === "side" && anchor ? sidePosition(anchor) : popoverPosition(anchor)
-              }
+              className={`${styles.popover} ${fill ? styles.fill : ""}`}
+              style={fixedHeight(
+                placement === "side" && anchor ? sidePosition(anchor) : popoverPosition(anchor),
+                fill,
+              )}
               role="dialog"
               aria-modal="true"
               aria-labelledby={labelledBy}
@@ -85,7 +92,7 @@ export function Overlay({
             />
             <motion.section
               key="sheet"
-              className={styles.sheet}
+              className={`${styles.sheet} ${fill ? styles.fill : ""}`}
               role="dialog"
               aria-modal="true"
               aria-labelledby={labelledBy}
@@ -133,6 +140,14 @@ function popoverPosition(anchor?: DOMRect): CSSProperties {
     ...(right ? { right: window.innerWidth - anchor.right } : { left: anchor.left }),
     transformOrigin: `${below ? "top" : "bottom"} ${right ? "right" : "left"}`,
   };
+}
+
+/** fill 时把弹出卡片的高度定为可用高度（最高 640），不再随内容伸缩。 */
+function fixedHeight(position: CSSProperties, fill: boolean): CSSProperties {
+  if (!fill) return position;
+  const max =
+    typeof position.maxHeight === "number" ? `${position.maxHeight}px` : position.maxHeight;
+  return { ...position, height: max ? `min(640px, ${max})` : "640px" };
 }
 
 /** 放在按钮旁边（按钮在右半边时放左侧），上下各留 16 px，内容不满一屏时垂直居中。 */

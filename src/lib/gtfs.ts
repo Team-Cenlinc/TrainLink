@@ -166,23 +166,40 @@ export function buildGtfsIndex(files: {
 }
 
 /** 下载并解析某个服务器的 GTFS 静态包。 */
-export async function fetchGtfsIndex(serverId: string, signal?: AbortSignal): Promise<GtfsIndex> {
+/**
+ * 下载某服务器的 GTFS 包，解压出需要的几个文件（文本）。
+ * 包本身有 HTTP 缓存（5 分钟），GTFS 索引与行程规划的时刻表各自读取时不会重复下载。
+ */
+export async function fetchGtfsFiles<Name extends string>(
+  serverId: string,
+  names: Name[],
+  signal?: AbortSignal,
+): Promise<Record<Name, string>> {
   const response = await fetch(
     `${railApiBase}/v1/rail/servers/${encodeURIComponent(serverId)}/gtfs.zip`,
     { signal },
   );
   if (!response.ok) throw new Error(`GTFS 下载失败：${response.status}`);
   const files = unzipSync(new Uint8Array(await response.arrayBuffer()), {
-    filter: (file) => ["trips.txt", "stops.txt", "stop_times.txt"].includes(file.name),
+    filter: (file) => (names as string[]).includes(file.name),
   });
   const read = (name: string) => {
     const file = files[name];
     if (!file) throw new Error(`GTFS 包缺少 ${name}`);
     return strFromU8(file);
   };
+  return Object.fromEntries(names.map((name) => [name, read(name)])) as Record<Name, string>;
+}
+
+export async function fetchGtfsIndex(serverId: string, signal?: AbortSignal): Promise<GtfsIndex> {
+  const files = await fetchGtfsFiles(
+    serverId,
+    ["trips.txt", "stops.txt", "stop_times.txt"],
+    signal,
+  );
   return buildGtfsIndex({
-    trips: read("trips.txt"),
-    stops: read("stops.txt"),
-    stopTimes: read("stop_times.txt"),
+    trips: files["trips.txt"],
+    stops: files["stops.txt"],
+    stopTimes: files["stop_times.txt"],
   });
 }

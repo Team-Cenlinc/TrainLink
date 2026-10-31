@@ -1,0 +1,202 @@
+/*
+ * 规划行程。起终点卡片放在标题块里（白底大圆角，同发车卡片）：左边上下两栏「从 / 到」，
+ * 右边一列交换按钮。终点还没选时「到」那一栏用出口黄（--exit），提示从这里开始（同 v06）。
+ */
+.ends {
+  display: flex;
+  margin-top: 16px;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.field {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 60px;
+  padding: 0 16px;
+  text-align: left;
+}
+
+.field + .field {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.field:active {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.empty {
+  background: var(--exit);
+  color: var(--exit-text);
+}
+
+.empty .fieldName {
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.fieldLabel {
+  flex: none;
+  align-self: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.empty .fieldLabel {
+  color: inherit;
+}
+
+.fieldName {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  font-size: 20px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+
+.badges {
+  flex: none;
+  align-self: center;
+  display: flex;
+  gap: 4px;
+}
+
+.swap {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.swap svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.swap:disabled {
+  color: var(--border);
+  cursor: default;
+}
+
+/* 出发时间：分段控制；指定时间时后面跟一个时刻输入；选好终点后有「查询」按钮。 */
+.when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.time {
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.go {
+  height: 44px;
+  padding: 0 22px;
+  border-radius: var(--radius-control);
+  background: var(--exit);
+  color: var(--exit-text);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.go:active {
+  transform: scale(0.97);
+}
+
+.columns {
+  display: grid;
+  gap: 28px;
+  align-items: start;
+}
+
+.column {
+  min-width: 0;
+}
+
+.column:empty {
+  display: none;
+}
+
+@container (min-width: 700px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .when {
+    max-width: 560px;
+  }
+}
+
+/* 卡片里的一行：前面色牌或小图标，名称，右边一个斜箭头（点了直接查询）。 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 0;
+  text-align: left;
+}
+
+.row:active {
+  opacity: 0.7;
+}
+
+.rowLead {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+}
+
+.rowLead svg {
+  width: 22px;
+  height: 22px;
+  fill: var(--muted);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  word-break: keep-all;
+}
+
+.rowIcon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: var(--text);
+}
+
+@media (min-width: 768px) {
+  .ends {
+    max-width: 560px;
+  }
+}

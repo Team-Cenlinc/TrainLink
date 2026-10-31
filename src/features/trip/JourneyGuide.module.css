@@ -1,0 +1,302 @@
+/*
+ * 概况与操作。放在深色标题块里（onHero）时按钮半透明、文字反白；
+ * 放在白色卡片里（onCard，桌面右栏）时按钮浅灰、文字深色。已收藏、已提醒的按钮都用出口黄。
+ */
+.arrow {
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+.meta {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.onHero .meta,
+.onHero .note {
+  opacity: 0.85;
+}
+
+.onCard .meta,
+.onCard .note {
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 72px;
+  height: 60px;
+  border-radius: var(--radius-control);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.onHero .action {
+  background: color-mix(in srgb, var(--hero-text) 14%, transparent);
+}
+
+.onCard .action {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.action svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.action[aria-pressed="true"] {
+  background: var(--exit);
+  color: var(--exit-text);
+}
+
+.action:active {
+  transform: scale(0.96);
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+/* ---------- 时间线 ---------- */
+
+.timeline {
+  margin: 0;
+  padding: 12px 0;
+  list-style: none;
+}
+
+/* 每行：时刻 48 + 线路列 28 + 内容；线路列撑满整行，各行的线段首尾相接。 */
+.item {
+  display: grid;
+  grid-template-columns: 48px 28px 1fr;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.time s {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.late {
+  color: var(--status-caution);
+}
+
+.rail {
+  position: relative;
+  align-self: stretch;
+}
+
+/* 线段画法同列车详情：线身 10 + 两侧 2 px 深色描边，中心在 14 px。 */
+.rail::before,
+.rail::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  width: 14px;
+  border-inline: 2px solid var(--text);
+}
+
+/* 车站：上半段是驶入的线路色，下半段是驶出的；起点没有上半段，终点没有下半段。 */
+.stop {
+  min-height: 52px;
+}
+
+.stop .rail::before {
+  top: 0;
+  bottom: 50%;
+  background: var(--above);
+}
+
+.stop .rail::after {
+  top: 50%;
+  bottom: 0;
+  background: var(--below);
+}
+
+.noAbove::before,
+.noBelow::after {
+  display: none;
+}
+
+.dot {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 4px solid var(--text);
+}
+
+/* 终点：深色实心圆，中间一个白点（同看板的本站）。 */
+.end .dot {
+  left: 0;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  border-width: 9px;
+}
+
+.stationText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+}
+
+.stationName {
+  font-size: 18px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+
+/* 同站换乘写在车站名下面：换乘图标 + 「站内换乘 · 3 分钟」；时间太紧时用琥珀色。 */
+.changeNote {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.changeNote svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.tight {
+  color: var(--status-caution);
+}
+
+.change .stationName {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* 乘车：整行一段线路色（直通车从上到下分色）。 */
+.ride .rail::before {
+  top: -1px;
+  bottom: 0;
+  background: var(--ride);
+}
+
+.ride .rail::after {
+  display: none;
+}
+
+.ride .time {
+  align-self: start;
+  padding-top: 14px;
+}
+
+.rideInfo {
+  padding: 10px 0 12px;
+}
+
+.rideHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headsign {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+
+/* 站台：同看板标题里的站台号方块。 */
+.platform {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.platformBox {
+  display: inline-block;
+  min-width: 30px;
+  padding: 6px;
+  text-align: center;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+  border-radius: var(--radius-info);
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.rideMeta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 站外换乘（步行到另一站）：线路列是灰色虚线，右边步行图标与说明。 */
+.transfer {
+  min-height: 44px;
+}
+
+.transfer .rail::before {
+  top: 0;
+  bottom: 0;
+  left: 12px;
+  width: 4px;
+  border: 0;
+  background: repeating-linear-gradient(var(--muted) 0 5px, transparent 5px 9px);
+}
+
+.transfer .rail::after {
+  display: none;
+}
+
+.transferText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.transferText svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}

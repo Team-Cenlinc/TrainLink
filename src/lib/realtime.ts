@@ -155,6 +155,50 @@ export async function fetchAlerts(serverId: string, signal?: AbortSignal) {
   return decodeAlerts(await fetchFeedBytes(serverId, "alerts", signal));
 }
 
+/** 一个车次（GTFS trip_id）的实时情况，用于行程规划。 */
+export interface TripRealtime {
+  /** 整个车次已取消。 */
+  cancelled: boolean;
+  delaySeconds?: number;
+  /** 各站预计到发时刻（毫秒），以站码索引。 */
+  stops: Map<string, { arrival?: number; departure?: number }>;
+}
+
+/** 解码行程更新，按车次（trip_id）索引；与按列车名索引的 fetchTripUpdates 不同，取消的车次也在里面。 */
+export async function decodeTripRealtime(bytes: Uint8Array): Promise<Map<string, TripRealtime>> {
+  const realtime = await loadRealtime();
+  const feed = realtime.FeedMessage.decode(bytes);
+  const { CANCELED } = realtime.TripDescriptor.ScheduleRelationship;
+  const byTrip = new Map<string, TripRealtime>();
+  for (const entity of feed.entity) {
+    const update = entity.tripUpdate;
+    const tripId = update?.trip.tripId;
+    if (!update || !tripId) continue;
+    const stops = new Map<string, { arrival?: number; departure?: number }>();
+    for (const s of update.stopTimeUpdate ?? []) {
+      const station = stationOfStop(s.stopId);
+      if (!station) continue;
+      const arrival = toNumber(s.arrival?.time as LongLike);
+      const departure = toNumber(s.departure?.time as LongLike);
+      stops.set(station, {
+        arrival: arrival ? arrival * 1000 : undefined,
+        departure: departure ? departure * 1000 : undefined,
+      });
+    }
+    byTrip.set(tripId, {
+      cancelled: update.trip.scheduleRelationship === CANCELED,
+      delaySeconds: update.delay ?? undefined,
+      stops,
+    });
+  }
+  return byTrip;
+}
+
+/** 读取某服务器各车次的实时情况（行程规划用）。 */
+export async function fetchTripRealtime(serverId: string, signal?: AbortSignal) {
+  return decodeTripRealtime(await fetchFeedBytes(serverId, "trip-updates", signal));
+}
+
 /** 读取某服务器的行程更新，按列车名索引。 */
 export async function fetchTripUpdates(
   serverId: string,

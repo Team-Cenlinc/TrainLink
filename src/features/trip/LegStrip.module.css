@@ -1,0 +1,49 @@
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.ride {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 56px;
+  flex-basis: 0;
+}
+
+/* 线身 6 + 上下 2 px 深色描边，同线路图的线路画法。 */
+.bar {
+  flex: 1;
+  display: flex;
+  height: 10px;
+  border-block: 2px solid var(--text);
+}
+
+.bar span {
+  flex: 1;
+  background: var(--line);
+}
+
+.walk {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 40px;
+  flex-basis: 0;
+}
+
+.walk svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: var(--text);
+}
+
+.walk::after {
+  content: "";
+  flex: 1;
+  height: 0;
+  border-top: 3px dashed var(--muted);
+}

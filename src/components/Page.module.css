@@ -1,0 +1,162 @@
+/*
+ * 看板以外各页的外壳：顶部纯色标题块（深色，--hero，状态与线路色由页面里的标签表达），
+ * 下面是圆角面板压在标题块上，填满剩余高度（同看板的面板，圆角 28、底色 canvas）。
+ *
+ * 标题的位置与字号和看板的站名一致，切换标签页时标题不跳：
+ * 手机：顶部 12 + 工具栏 44 + 14 = 70 px；大屏：16 + 44 + 24 = 84 px（见 StationHeader、WideBoard）。
+ * 这里没有工具栏，就用上内边距留出同样的位置；二级页面的返回按钮正好放在工具栏那一行。
+ */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--hero);
+}
+
+.hero {
+  flex: none;
+  padding: calc(var(--safe-top) + 70px) 20px 52px;
+  color: var(--hero-text);
+}
+
+.withBack {
+  padding-top: calc(var(--safe-top) + 12px);
+}
+
+/* 二级页面的工具栏：返回按钮 + 页面名（17 px 粗体），占看板工具栏那一行的位置。 */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin-bottom: 14px;
+}
+
+.pageName {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.back {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--hero-text) 14%, transparent);
+}
+
+.back svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.back:active {
+  transform: scale(0.96);
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: clamp(34px, 11vw, 48px);
+  font-weight: 900;
+  line-height: 1.1;
+  word-break: keep-all;
+}
+
+/* 二级页面的大标题是内容（起终点、起止时刻），比一级页面名小一档。 */
+.subTitle {
+  font-size: clamp(28px, 8.5vw, 36px);
+}
+
+.panel {
+  flex: 1;
+  margin-top: -24px;
+  padding: 24px 16px 120px;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--canvas);
+  container-type: inline-size;
+}
+
+.narrow {
+  max-width: 760px;
+}
+
+.message {
+  margin: 24px 4px;
+  color: var(--muted);
+}
+
+.group + .group {
+  margin-top: 28px;
+}
+
+/* 组标题：同看板发车组标题，22 px 900；数量按基线跟在后面，右侧可放一个小操作。 */
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0 4px;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.count {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.action {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* 白色卡片：同发车卡片，圆角 20；行与行之间一条细线（行的样式由各页决定）。 */
+.card {
+  margin: 0;
+  padding: 0 16px;
+  list-style: none;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+  /* 行的底色（例如选中的方案）不超出圆角。 */
+  overflow: hidden;
+}
+
+.card > li + li {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* 大屏：与 WideBoard 的标题块相同（左右 32，标题 44–72 px）。 */
+@media (min-width: 768px) {
+  .hero {
+    padding: calc(var(--safe-top) + 84px) 32px 52px;
+  }
+
+  .withBack {
+    padding-top: calc(var(--safe-top) + 16px);
+  }
+
+  .toolbar {
+    margin-bottom: 24px;
+  }
+
+  .title {
+    margin-bottom: 10px;
+    font-size: clamp(44px, 6vw, 72px);
+    line-height: 1.05;
+  }
+
+  .subTitle {
+    font-size: clamp(36px, 4vw, 52px);
+  }
+
+  .panel {
+    padding: 24px 32px 48px;
+  }
+}

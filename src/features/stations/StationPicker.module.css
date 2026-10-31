@@ -1,3 +1,19 @@
+/*
+ * 吸顶的标题与搜索框。Overlay 提供 --sticky-top / --sticky-pad：底部面板停在拖动条下面；
+ * 弹出卡片停在卡片上沿，用负外边距 + 同样的内边距盖住卡片的上内边距，不吸顶时位置不变。
+ */
+.top {
+  position: sticky;
+  top: var(--sticky-top, 0);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: calc(-1 * var(--sticky-pad, 0px));
+  padding: var(--sticky-pad, 0px) 0 4px;
+  background: var(--canvas);
+}
+
 .header {
   display: flex;
   align-items: center;

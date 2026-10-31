@@ -7,6 +7,9 @@
 
 /* 手机：底部面板，宽度最多 560，过高时内部滚动。 */
 .sheet {
+  /* 面板里吸顶的内容（例如搜索框）停在拖动条下面。 */
+  --sticky-top: 28px;
+  --sticky-pad: 0px;
   position: fixed;
   left: 0;
   right: 0;
@@ -54,6 +57,9 @@
 }
 
 .popover {
+  /* 吸顶内容停在卡片最上沿，盖住上内边距（见 --sticky-pad 的用法）。 */
+  --sticky-top: -20px;
+  --sticky-pad: 20px;
   position: fixed;
   z-index: 31;
   width: min(400px, calc(100vw - 48px));
@@ -66,6 +72,11 @@
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent),
     0 16px 40px rgb(0 0 0 / 0.18);
+}
+
+/* 固定高度的底部面板：几乎占满屏幕，内容少时也不缩。 */
+.sheet.fill {
+  height: calc(100dvh - var(--safe-top) - 40px);
 }
 
 .content {
