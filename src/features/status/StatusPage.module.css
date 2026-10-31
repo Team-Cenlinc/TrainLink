@@ -64,6 +64,14 @@
   }
 }
 
+/* 数据不全时的说明（晚点信息暂缺），在线路组上方。 */
+.note {
+  margin: 0 4px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 /* 一行：色牌、线路名与说明、状态标签，三列各自垂直居中（同发车行）。 */
 .row {
   display: flex;

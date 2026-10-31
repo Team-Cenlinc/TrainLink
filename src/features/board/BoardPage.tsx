@@ -92,7 +92,7 @@ export function BoardPage() {
         station={data.station}
         stationCode={data.home.stationCode}
         lines={data.lines}
-        platforms={data.groups.map((g) => ({ platform: g.platform, destinations: g.destinations }))}
+        groups={data.groups}
         transfers={data.transfers}
         nearest={data.nearest}
         mapUrl={data.mapUrl}

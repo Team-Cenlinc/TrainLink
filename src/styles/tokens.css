@@ -24,6 +24,8 @@
   --status-text: #f4f6f5;
   --info: #0067b1;
   --info-text: #f4f6f5;
+  /* 键盘焦点框：浅色模式同信息蓝；深色模式的信息蓝太暗（对比度约 2:1），焦点框另用亮蓝。 */
+  --focus: #0067b1;
   --exit: #f3c742;
   --exit-text: #171b1d;
   --on-line-light: #f4f6f5;
@@ -71,6 +73,7 @@
     --status-error: #ff8c84;
     --status-text: #1b2022;
     --info: #155575;
+    --focus: #6cb8ec;
     --exit: #7a5a16;
     --exit-text: #f4f6f5;
     --floating-shadow: 0 0 58px -20px rgb(0 0 0 / 0.72);

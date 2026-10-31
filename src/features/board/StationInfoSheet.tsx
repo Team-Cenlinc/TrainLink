@@ -5,14 +5,9 @@ import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
+import { linePlatforms, type PlatformDirection, type PlatformGroup } from "./departures.ts";
 import { StationName } from "./StationHeader.tsx";
 import styles from "./StationInfoSheet.module.css";
-
-/** 某条线路在本站各站台的去向，例如「站台 1 往绿洲农场」。 */
-export interface PlatformDirection {
-  platform: string;
-  destinations: string[];
-}
 
 interface StationInfoSheetProps {
   open: boolean;
@@ -20,7 +15,8 @@ interface StationInfoSheetProps {
   station?: RailStation;
   stationCode: string;
   lines: RailStationLine[];
-  platforms: PlatformDirection[];
+  /** 本站站牌按站台的分组；每条线路只列出自己的站台。 */
+  groups: PlatformGroup[];
   transfers: RailStationLine[];
   /** 本站不能换乘时，沿线最近的换乘站。 */
   nearest?: { stop: RailStation; lines: RailStationLine[]; distance: number };
@@ -56,7 +52,7 @@ function SheetContent({
   station,
   stationCode,
   lines,
-  platforms,
+  groups,
   transfers,
   nearest,
   mapUrl,
@@ -84,21 +80,22 @@ function SheetContent({
       </header>
 
       <Section title="停靠线路">
-        {lines.map((line) => (
-          <div key={line.lineId} className={styles.row}>
-            <ServiceBadge lineCode={line.lineCode} lineColor={line.color} />
-            <div className={styles.text}>
-              <span className={styles.primary}>{line.lineName}</span>
-              {platforms.length > 0 && (
-                <span className={styles.secondary}>
-                  {platforms
-                    .map((p) => `站台 ${p.platform} 往${p.destinations.slice(0, 2).join("、")}`)
-                    .join(" · ")}
-                </span>
-              )}
+        {lines.map((line) => {
+          const platforms = linePlatforms(groups, line.lineCode);
+          return (
+            <div key={line.lineId} className={styles.row}>
+              <ServiceBadge lineCode={line.lineCode} lineColor={line.color} />
+              <div className={styles.text}>
+                <span className={styles.primary}>{line.lineName}</span>
+                {platforms.length > 0 && (
+                  <span className={styles.secondary}>
+                    {platforms.map(platformText).join(" · ")}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </Section>
 
       <Section title="换乘">
@@ -158,6 +155,13 @@ function SheetContent({
       )}
     </>
   );
+}
+
+/** 「站台 1 往绿洲农场」；只有终到列车的站台与看板一致，写「本站终到」。 */
+function platformText({ platform, destinations }: PlatformDirection) {
+  return destinations.length > 0
+    ? `站台 ${platform} 往${destinations.slice(0, 2).join("、")}`
+    : `站台 ${platform} 本站终到`;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

@@ -5,7 +5,7 @@ import { serviceTypeOf } from "@/features/board/departures.ts";
 import {
   carLoad,
   loadOfRatio,
-  stationOfNode,
+  trainSection,
   type CarLoad,
 } from "@/features/board/linePositions.ts";
 
@@ -57,19 +57,12 @@ export interface TrainDetail {
 /** 停车判定：低于这个速度（方块/秒）就算停在当前站。 */
 const dwellSpeed = 0.5;
 
-/**
- * 节点两端的站：车站节点（SURC:S:PTK:1）是一个站；区间节点（SURC:PPK:RVS:2:001）是两端的站，
- * 名字不表示方向；车厂等其他节点（SURC:D:…）不算。
- */
-function stationsOf(node: string | undefined): string[] {
-  const parts = node?.split(":") ?? [];
-  if (parts[1] === "S") return parts[2] ? [parts[2]] : [];
-  if (parts[1] === "D") return [];
-  return parts.slice(1, 3).filter(Boolean);
-}
-
 export function buildTrainDetail(input: {
   train: RailTrain;
+  /**
+   * 看板认为这列车所在的线路。跨线直通后列车可能已经在别的线路上，
+   * 详情的线路按列车当前（或刚离开）的那一站重新确定，这里只在查不到时兜底。
+   */
   line: RailStationLine;
   serverId: string;
   homeStationCode: string;
@@ -88,27 +81,32 @@ export function buildTrainDetail(input: {
   const nameOf = (code?: string) =>
     code ? (findStation(catalog, serverId, line.operatorCode, code)?.name ?? code) : undefined;
 
-  // 物理位置：当前节点与下一节点所在的站（可能是快车通过不停的站）。
-  const current = stationOfNode(train.currentNode);
-  const next = stationOfNode(train.nextNode);
-  const [from, to] = current
-    ? [current, next ?? stationsOf(train.nextNode).find((c) => c !== current)]
-    : next
-      ? [stationsOf(train.currentNode).find((c) => c !== next), next]
-      : stationsOf(train.currentNode);
-  const stopped = train.speedBlocksPerSecond < dwellSpeed || !train.nextNode;
-
   // 站序：优先用交路站序；没有时用实时数据里的站。
   const order = input.routeStops ?? tripUpdate?.stops.map((s) => s.stationCode) ?? [];
+
+  // 物理位置：当前节点与下一节点所在的站（可能是快车通过不停的站）；与看板线路图同一套判断。
+  const { current, from, to } = trainSection(train, order);
+  const stopped = train.speedBlocksPerSecond < dwellSpeed || !train.nextNode;
   const stopTimeAt = new Map((tripUpdate?.stops ?? []).map((s) => [s.stationCode, s]));
   const last = order.length - 1;
+
+  // 某一站停靠的某条线路（不含经车站组换乘的线路）。
+  const lineOf = (stationCode: string | undefined, lineCode: string) =>
+    findStation(catalog, serverId, line.operatorCode, stationCode ?? "")?.lines.find(
+      (l) => l.lineCode === lineCode && !l.viaStationCode,
+    );
+  // 列车此刻所在的线路：在当前站（或前后站）的 catalog 线路里找列车报告的线路码。
+  const trainLine =
+    train.lineCode === line.lineCode
+      ? line
+      : ([current, to, from].map((code) => lineOf(code, train.lineCode)).find(Boolean) ?? line);
 
   // 每一站开出时的线路：在这一站的 catalog 线路里找，找不到就用列车当前所在的线路。
   const lineAt = (index: number): RailStationLine => {
     const lineCode = input.routeStops ? input.routeStopLines?.[index] : undefined;
-    if (!lineCode || lineCode === line.lineCode) return line;
-    const station = findStation(catalog, serverId, line.operatorCode, order[index] ?? "");
-    return station?.lines.find((l) => l.lineCode === lineCode && !l.viaStationCode) ?? line;
+    if (!lineCode || lineCode === trainLine.lineCode) return trainLine;
+    if (lineCode === line.lineCode) return line;
+    return lineOf(order[index], lineCode) ?? trainLine;
   };
 
   // 在停站序里的位置：停在某个停靠站上，或者在 ahead 这一站之前的区间里。
@@ -157,9 +155,15 @@ export function buildTrainDetail(input: {
     departure?.etaEpochMillis;
   const willStopHere = stops.some((s) => s.code === input.homeStationCode && s.kind !== "passed");
 
+  // 停站时位置就是当前站；行驶中位置在最后一个已过站之后。不知道位置时不画。
+  const position = dwelling
+    ? { afterIndex: currentIndex - start, dwelling }
+    : { afterIndex: lastPassed >= 0 ? lastPassed - start : -1, dwelling };
+
   return {
     name: train.name,
-    line,
+    // 标题的线路：列车正停着或刚离开的那一站开出时的线路（跨线直通后随之改变）；位置不明时用列车报告的线路。
+    line: stops[position.afterIndex]?.line ?? trainLine,
     serviceType: serviceTypeOf({ routeId: train.routeCode ?? "" }),
     headsign: input.headsign,
     delayMinutes: delayMinutes >= 1 ? delayMinutes : undefined,
@@ -186,9 +190,6 @@ export function buildTrainDetail(input: {
           }
         : undefined,
     stops,
-    // 停站时位置就是当前站；行驶中位置在最后一个已过站之后。不知道位置时不画。
-    position: dwelling
-      ? { afterIndex: currentIndex - start, dwelling }
-      : { afterIndex: lastPassed >= 0 ? lastPassed - start : -1, dwelling },
+    position,
   };
 }

@@ -32,9 +32,9 @@ a {
   text-decoration: none;
 }
 
-/* 键盘焦点：3 px 信息蓝外框，只在键盘操作时出现。 */
+/* 键盘焦点：3 px 蓝色外框（--focus），只在键盘操作时出现。 */
 :focus-visible {
-  outline: 3px solid var(--info);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 

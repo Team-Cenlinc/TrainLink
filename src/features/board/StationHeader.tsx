@@ -8,6 +8,7 @@ import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
 import type { StripStop } from "@/lib/station.ts";
 import type { PanelOpener } from "./BoardPage.tsx";
+import { useShown } from "./useShown.ts";
 import styles from "./StationHeader.module.css";
 
 interface StationHeaderProps {
@@ -83,10 +84,17 @@ export function StationHeader({
   const lineNameReveal = useReveal(down, 0.05, 0.55);
   const stripReveal = useReveal(down, 0.2, 0.75);
   const mapReveal = useReveal(down, 0.35, 0.9);
+  // 完全淡出后的工具栏与地图链接设为 inert（见 useShown），与上面的不透明度区间一致。
+  const toolbarShown = useShown(up, (p) => p < 0.45);
+  const mapShown = useShown(down, (p) => p > 0.35);
 
   return (
     <header className={styles.header} style={style} onPointerDown={onDragStart}>
-      <motion.div className={styles.toolbar} style={{ opacity: toolbarOpacity, y: toolbarY }}>
+      <motion.div
+        className={styles.toolbar}
+        style={{ opacity: toolbarOpacity, y: toolbarY }}
+        inert={!toolbarShown}
+      >
         <button type="button" className={styles.textButton} onClick={onPickStation}>
           <StarIcon aria-hidden />
           常用车站
@@ -131,7 +139,7 @@ export function StationHeader({
           </motion.div>
         )}
         {mapUrl && position && (
-          <motion.div className={styles.mapRow} style={mapReveal}>
+          <motion.div className={styles.mapRow} style={mapReveal} inert={!mapShown}>
             <a className={styles.mapButton} href={mapUrl} target="_blank" rel="noreferrer">
               在地图中查看
               <OpenIcon aria-hidden />

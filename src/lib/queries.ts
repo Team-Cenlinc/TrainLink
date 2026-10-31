@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { fetchGtfsIndex } from "./gtfs.ts";
 import { fetchBoard, fetchCatalog, fetchTrains } from "./railApi.ts";
-import { fetchAlerts, fetchCarLoads, fetchTripUpdates } from "./realtime.ts";
+import { fetchAlerts, fetchCarLoads, fetchTripFeed, type TripFeed } from "./realtime.ts";
 import type { HomeStation } from "./homeStation.ts";
 
 /**
@@ -58,29 +58,44 @@ export function useTrains(enabled: boolean) {
 }
 
 /**
- * GTFS-Realtime 行程更新（各列车接下来各站的预计时刻），每 15 秒刷新。
- * 只在打开列车详情时读取。
+ * GTFS-Realtime 行程更新，每 15 秒刷新。列车详情、运行状态、行程规划共用这一个查询：
+ * 同一份数据只下载、解码一次，各自用 select 取需要的索引；没有页面在用时不刷新。
  */
-export function useTripUpdates(serverId: string, enabled: boolean) {
+function useTripFeed<T>(serverId: string, enabled: boolean, select: (feed: TripFeed) => T) {
   return useQuery({
-    queryKey: ["tripUpdates", serverId],
-    queryFn: ({ signal }) => fetchTripUpdates(serverId, signal),
+    queryKey: ["tripFeed", serverId],
+    queryFn: ({ signal }) => fetchTripFeed(serverId, signal),
     refetchInterval: 15_000,
     staleTime: 10_000,
     enabled,
+    select,
   });
 }
 
+const byTrain = (feed: TripFeed) => feed.byTrain;
+const byTrip = (feed: TripFeed) => feed.byTrip;
+
+/** 按列车名索引的行程更新（列车详情、运行状态）。 */
+export function useTripUpdates(serverId: string, enabled: boolean) {
+  return useTripFeed(serverId, enabled, byTrain);
+}
+
+/** 按车次索引的实时情况（行程规划：预计时刻、取消的车次）。 */
+export function useTripRealtime(serverId: string) {
+  return useTripFeed(serverId, true, byTrip);
+}
+
 /**
- * 线上各列车每节车厢的满载率，每 15 秒刷新（与列车位置同步）。
+ * 线上各列车每节车厢的满载率，每 30 秒刷新。
  * 与 useTrains 一样，只在显示线路视图时读取。
  */
 export function useCarLoads(serverId: string, enabled: boolean) {
   return useQuery({
     queryKey: ["carLoads", serverId],
     queryFn: ({ signal }) => fetchCarLoads(serverId, signal),
-    refetchInterval: 15_000,
-    staleTime: 10_000,
+    // 拥挤度变化比列车位置慢，30 秒刷新一次就够，省一半请求。
+    refetchInterval: 30_000,
+    staleTime: 25_000,
     enabled,
   });
 }

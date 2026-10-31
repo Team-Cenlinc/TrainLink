@@ -6,13 +6,9 @@ import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
 import type { CarLoad, LineLayout, LineTrain } from "./linePositions.ts";
+import { severeDelayMinutes } from "./departures.ts";
+import { cardHeight, placeColumn, rowHeight } from "./placeColumn.ts";
 import styles from "./LineView.module.css";
-
-/** 每站一行的高度；列车位置按行换算成纵坐标。 */
-const rowHeight = 72;
-/** 一列车在卡片里占的高度（标题 36 + 正文 28）；合并卡片按车数叠加。用于避让同一侧的相邻卡片。 */
-const cardHeight = 64;
-const cardGap = 6;
 
 /** 线路色与行高写成 CSS 变量，方向标题与线路图共用同一套列位置。 */
 function lineStyle(lineColor?: string): CSSProperties {
@@ -107,10 +103,11 @@ export function LineView({
   const { stops, trains } = layout;
   const height = stops.length * rowHeight;
 
-  // 打开时把本站滚到视野中间。
+  // 打开时、换乘站上切换线路时，把本站滚到视野中间；只是列车位置刷新时不动。
+  const stopsKey = stops.map((s) => s.code).join(",");
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: "center" });
-  }, [stops.length]);
+  }, [stopsKey]);
 
   const placed = [
     ...placeColumn(
@@ -167,57 +164,6 @@ export function LineView({
   );
 }
 
-/**
- * 同一侧卡片的摆放：
- * 1. 同一侧、同一位置（同停一站或同在一个区间）的几列车合成一张卡片，每列车一段，都留在那一站旁边；
- * 2. 仍然重叠的卡片合成一组，整组以各卡片真实位置的平均值为中心排开，
- *    并限制在线路图范围内（不会挤到最后一站下面）。位置三角仍指向每张卡片的真实位置。
- */
-function placeColumn(trains: LineTrain[], height: number) {
-  type Item = { trains: LineTrain[]; anchor: number };
-  type Group = { items: Item[]; top: number };
-  const itemHeight = (item: Item) => item.trains.length * cardHeight;
-  const size = (g: Group) =>
-    g.items.reduce((sum, item) => sum + itemHeight(item), 0) + (g.items.length - 1) * cardGap;
-  const clamp = (g: Group) => {
-    g.top = Math.min(Math.max(g.top, 0), height - size(g));
-  };
-
-  const items: Item[] = [];
-  for (const train of [...trains].sort((a, b) => a.slot - b.slot)) {
-    const previous = items.at(-1);
-    if (previous && previous.trains[0]!.slot === train.slot) previous.trains.push(train);
-    else items.push({ trains: [train], anchor: train.slot * rowHeight + rowHeight / 2 });
-  }
-
-  const groups: Group[] = [];
-  for (const item of items) {
-    const group: Group = { items: [item], top: item.anchor - itemHeight(item) / 2 };
-    clamp(group);
-    groups.push(group);
-    // 与上一组重叠就合并，并重新居中；合并后可能又碰到更上一组，所以循环。
-    while (groups.length > 1) {
-      const b = groups[groups.length - 1]!;
-      const a = groups[groups.length - 2]!;
-      if (a.top + size(a) + cardGap <= b.top) break;
-      a.items.push(...b.items);
-      const mean = a.items.reduce((sum, i) => sum + i.anchor, 0) / a.items.length;
-      a.top = mean - size(a) / 2;
-      clamp(a);
-      groups.pop();
-    }
-  }
-
-  return groups.flatMap((g) => {
-    let top = g.top;
-    return g.items.map((item) => {
-      const placed = { ...item, top };
-      top += itemHeight(item) + cardGap;
-      return placed;
-    });
-  });
-}
-
 /** 位置三角离卡片上下边缘至少留这么多，卡片被挪开时也不会超出卡片范围。 */
 const tailInset = 12;
 
@@ -261,7 +207,7 @@ function TrainCard({
 }
 
 /**
- * 卡片里的一列车：种别与终点、车厢拥挤度。晚点标签一般浮在卡片上方；
+ * 卡片里的一列车：种别与终点、车厢拥挤度。晚点标签一般浮在卡片上方（摆放时已为它留出空间，见 placeColumn）；
  * 合并卡片里第二列车起放进车厢那一行，代替列车图标，免得盖住上一段。
  */
 function TrainEntry({
@@ -276,8 +222,13 @@ function TrainEntry({
   const label = `${train.serviceType}，往${train.headsign ?? "未知终点"}${
     train.cars ? `，${train.cars.length} 节` : ""
   }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
+  // 颜色与站牌、列车详情一致：不足 5 分琥珀，5 分及以上红。
   const delay = train.delayMinutes !== undefined && (
-    <span className={delayInline ? styles.delayInline : styles.delay}>
+    <span
+      className={`${delayInline ? styles.delayInline : styles.delay} ${
+        train.delayMinutes >= severeDelayMinutes ? styles.severe : ""
+      }`}
+    >
       +{train.delayMinutes} 分
     </span>
   );

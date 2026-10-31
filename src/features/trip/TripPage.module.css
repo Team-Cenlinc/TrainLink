@@ -128,6 +128,14 @@
   transform: scale(0.97);
 }
 
+/* 查询不了时的一句说明（例如起点和终点相同），占满一行。 */
+.hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .columns {
   display: grid;
   gap: 28px;
@@ -145,10 +153,6 @@
 @container (min-width: 700px) {
   .columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .when {
-    max-width: 560px;
   }
 }
 
@@ -195,8 +199,10 @@
   fill: var(--text);
 }
 
+/* 起终点卡片与出发时间同宽：同一个条件下一起收到 560，不会一个满宽、一个靠左变窄。 */
 @media (min-width: 768px) {
-  .ends {
+  .ends,
+  .when {
     max-width: 560px;
   }
 }

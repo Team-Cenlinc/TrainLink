@@ -1,0 +1,437 @@
+.arrow {
+  margin: 0 0.3em;
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+/* 标题块下一行：状态标签 + 有效期，按基线对齐。 */
+.heroMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 状态标签：未入站中性深色、已入站绿、已出站与已失效灰（同 PIDS 状态色的用法）。 */
+.state {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-info);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.unused {
+  background: var(--info);
+  color: var(--info-text);
+}
+
+.entered {
+  background: var(--status-ok);
+  color: var(--status-text);
+}
+
+.exited,
+.expired {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--muted);
+}
+
+/* 标题块是深色的：已出站、已失效的标签改用标题块的文字色，不然看不见。 */
+.heroMeta .exited,
+.heroMeta .expired {
+  background: color-mix(in srgb, var(--hero-text) 18%, transparent);
+  color: var(--hero-text);
+}
+
+/* ---------- 票面：v06 虚拟车票（3 px 深色外框、顶部线路色带、撕线、深色票脚） ---------- */
+
+/*
+ * 出票台：出票口、票、检票钳与纸屑都在这里定位（动作见 ticketMotion.ts）。
+ * 不裁切：撕下的票根、纸屑往下落，检票钳从右边滑进来，超出的部分由页面面板裁掉。
+ */
+.stage {
+  position: relative;
+  padding-top: 8px;
+}
+
+/* 出票口：票上方一条深色缝，出票时从中间展开，送完淡出。 */
+.slot {
+  position: absolute;
+  top: 2px;
+  left: -8px;
+  right: -8px;
+  z-index: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--text);
+  transform: scaleX(0);
+}
+
+.feed {
+  position: relative;
+}
+
+/* 出票时只裁出票口那一条上沿（左右与下方不裁，送完落下的那一震不会被切掉）。 */
+.feeding {
+  clip-path: inset(0 -100vw -100vh);
+}
+
+/* 还没送出的票停在出票口上方（被 .feeding 裁掉看不见）。 */
+.unprinted {
+  transform: translateY(-110%);
+}
+
+/* 暂时看不见、但仍占位置的部件：没打的孔（检票钳按它定位）、没撕时的锯齿。 */
+.hidden {
+  opacity: 0;
+}
+
+/* 检票钳钳头：深色圆角块，中间一个冲模；平时透明，打孔时滑进来。 */
+.jaw {
+  position: absolute;
+  z-index: 3;
+  width: 56px;
+  height: 46px;
+  border-radius: 10px;
+  background: var(--text);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.jaw::after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+/* 纸屑：与孔一样大的白色小圆，打孔时从孔里落下。 */
+.chad {
+  position: absolute;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--border);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 一张票 = 票身 + 票根，两块各有深色外框，中间那条虚线就是撕线。 */
+.ticket {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 票身连同撕开后的锯齿：锯齿要盖住票身的外框，所以放在票身外面这一层。 */
+.bodyWrap {
+  position: relative;
+}
+
+.body {
+  position: relative;
+  overflow: hidden;
+  border: 3px solid var(--text);
+  border-bottom: 0;
+  border-radius: var(--radius-group) var(--radius-group) 0 0;
+  background: var(--paper);
+}
+
+/*
+ * 撕开后票身下沿的锯齿：与面板底色相同的一排三角，盖在票脚下沿，连两侧外框一起切成锯齿。
+ * round 让齿数取整、按宽度微调齿距，两端都停在完整的齿上。
+ */
+.teeth {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 8px;
+  background: conic-gradient(from -45deg at 50% 100%, transparent 90deg, var(--canvas) 0) 0 0 / 16px
+    8px;
+  background-repeat: round no-repeat;
+}
+
+.band {
+  display: flex;
+  height: 12px;
+  border-bottom: 3px solid var(--text);
+}
+
+.band span {
+  flex: 1;
+  background: var(--line);
+}
+
+.face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px 16px;
+}
+
+.brand {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.brand span {
+  font-family: var(--font-sc);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.route {
+  margin: 4px 0 0;
+  font-size: 28px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+
+.times {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.dash {
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+.meta {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.badges {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 0;
+}
+
+/*
+ * 票根：二维码与刷新倒计时。上沿是撕线（3 px 虚线），两端各一个半圆缺口（同纸质车票）。
+ * 撕下时以左上角为轴翻落（动画见 ticketMotion.ts）。
+ */
+.stub {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 3px solid var(--text);
+  border-top: 3px dashed var(--text);
+  border-radius: 0 0 var(--radius-group) var(--radius-group);
+  background: var(--paper);
+  transform-origin: left top;
+}
+
+.stub::before,
+.stub::after {
+  content: "";
+  position: absolute;
+  top: -14px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--canvas);
+  border: 3px solid var(--text);
+}
+
+.stub::before {
+  left: -15px;
+}
+
+.stub::after {
+  right: -15px;
+}
+
+/*
+ * 打孔：票身右侧一个圆孔，透出底色，内侧一点阴影显出纸的厚度；
+ * 孔沿一圈浅色细边：深色模式下票面与底色都深，没有这圈孔就看不出来。
+ */
+.hole {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  border-radius: 50%;
+  background: var(--canvas);
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 0.35),
+    0 0 0 2px color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+/* 二维码：白底 + 3 px 深色框，深色模式下仍是白底黑码，扫码器才读得出来。 */
+.qr {
+  position: relative;
+  flex: none;
+  width: min(48vw, 200px);
+  padding: 6px;
+  border: 3px solid var(--text);
+  border-radius: var(--radius-control);
+  background: #fff;
+}
+
+.qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 用过或失效的票：二维码变淡，盖一个状态章。 */
+.qrOff svg {
+  opacity: 0.15;
+}
+
+/* 状态章：二维码中央一枚斜放的方章（深色双线框），像检票后盖的戳。 */
+.qrStamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  padding: 6px 12px;
+  border: 3px double #1b2022;
+  border-radius: var(--radius-info);
+  background: rgb(255 255 255 / 0.85);
+  font-size: 22px;
+  font-weight: 900;
+  color: #1b2022;
+  white-space: nowrap;
+}
+
+.qrText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.qrText p {
+  margin: 0;
+}
+
+/* 刷新倒计时：一条细条从满到空。 */
+.countdown {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  overflow: hidden;
+}
+
+/* 每秒缩短一格，用 1 秒的线性过渡连成匀速；换码时换一个新元素，不会倒着涨回去。 */
+.countdown span {
+  display: block;
+  height: 100%;
+  background: var(--text);
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .countdown span {
+    transition: none;
+  }
+}
+
+/* 票脚：票号（数字字体）与中文说明按基线对齐，两种字体行框高矮不同也不会一高一低。 */
+.foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--action);
+  color: var(--action-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.foot :global(.num) {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+/* ---------- 闸机仿真 ---------- */
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.gateButton {
+  height: 56px;
+  border-radius: var(--radius-control);
+  background: var(--exit);
+  color: var(--exit-text);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.gateButton:active {
+  transform: scale(0.98);
+}
+
+/* 动作进行中：按钮留在原处（焦点不丢），只是暂时不响应。 */
+.gateButton[aria-disabled="true"] {
+  opacity: 0.6;
+  transform: none;
+}
+
+/* 闸机结果的播报区一直在（读屏软件才会读出第一次的结果）；没有内容时不占位置。 */
+.status:empty {
+  position: absolute;
+}
+
+.status:focus {
+  outline: none;
+}
+
+.gateResult {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gateOk {
+  background: color-mix(in srgb, var(--status-ok) 14%, var(--paper));
+  color: var(--status-ok);
+}
+
+.gateRefused {
+  background: color-mix(in srgb, var(--status-error) 14%, var(--paper));
+  color: var(--status-error);
+}
+
+.record {
+  margin: 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}

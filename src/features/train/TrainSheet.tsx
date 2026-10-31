@@ -6,6 +6,7 @@ import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import { formatClock } from "@/lib/time.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
+import { severeDelayMinutes } from "@/features/board/departures.ts";
 import type { CarLoad } from "@/features/board/linePositions.ts";
 import type { DetailStop, TrainDetail } from "./trainDetail.ts";
 import styles from "./TrainSheet.module.css";
@@ -99,7 +100,9 @@ function Content({
 
       <p className={styles.meta}>
         {detail.delayMinutes && (
-          <span className={`${styles.chip} ${detail.delayMinutes >= 5 ? styles.severe : ""}`}>
+          <span
+            className={`${styles.chip} ${detail.delayMinutes >= severeDelayMinutes ? styles.severe : ""}`}
+          >
             晚点 {detail.delayMinutes} 分
           </span>
         )}

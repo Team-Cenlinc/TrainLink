@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { lineKey } from "@/lib/gtfs.ts";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useBoard, useCarLoads, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
@@ -30,8 +31,12 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
   const trains = useTrains(trainsEnabled);
   const carLoads = useCarLoads(home.serverId, trainsEnabled);
 
-  const station = findStation(catalog.data, home.serverId, home.operatorCode, home.stationCode);
-  const lines = station ? servingLines(station) : [];
+  // catalog 只在刷新时才换成新对象，按它与本站缓存查找结果，不必每次重绘（每 15 秒一次的时钟）都查一遍。
+  const station = useMemo(
+    () => findStation(catalog.data, home.serverId, home.operatorCode, home.stationCode),
+    [catalog.data, home.serverId, home.operatorCode, home.stationCode],
+  );
+  const lines = useMemo(() => (station ? servingLines(station) : []), [station]);
   const lineOrders = gtfs.data?.lineOrders;
   // 有站序数据（GTFS 里有车次）的线路才能画列车位置；停运检修的线路没有。
   const orderedLines = lines.filter((l) => lineOrders?.has(lineKey(l.operatorCode, l.lineCode)));
@@ -57,20 +62,36 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
   const lineOrder = primaryLine
     ? lineOrders?.get(lineKey(primaryLine.operatorCode, primaryLine.lineCode))
     : undefined;
-  const lineLayout =
-    trainsEnabled && primaryLine && lineOrder && trains.data
-      ? buildLineLayout({
-          order: lineOrder,
-          line: primaryLine,
-          serverId: home.serverId,
-          stationCode: home.stationCode,
-          trains: trains.data.trains,
-          headsigns: gtfs.data?.headsigns ?? new Map(),
-          departures: board.data?.departures ?? [],
-          carLoads: carLoads.data,
-          catalog: catalog.data,
-        })
-      : undefined;
+  // 列车位置只随列车、站牌、GTFS 等数据变化，不随时钟变化；缓存起来，避免每次重绘都重新查站名。
+  const lineLayout = useMemo(
+    () =>
+      trainsEnabled && primaryLine && lineOrder && trains.data
+        ? buildLineLayout({
+            order: lineOrder,
+            line: primaryLine,
+            serverId: home.serverId,
+            stationCode: home.stationCode,
+            trains: trains.data.trains,
+            headsigns: gtfs.data?.headsigns ?? new Map(),
+            routeStops: gtfs.data?.routeStops,
+            departures: board.data?.departures ?? [],
+            carLoads: carLoads.data,
+            catalog: catalog.data,
+          })
+        : undefined,
+    [
+      trainsEnabled,
+      primaryLine,
+      lineOrder,
+      trains.data,
+      home.serverId,
+      home.stationCode,
+      gtfs.data,
+      board.data,
+      carLoads.data,
+      catalog.data,
+    ],
+  );
 
   return {
     home,

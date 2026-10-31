@@ -70,8 +70,13 @@
   font-size: clamp(28px, 8.5vw, 36px);
 }
 
+/*
+ * 面板裁掉超出的内容（clip 不产生滚动容器，吸顶照常）：
+ * 车票页落下的票根、从屏幕边滑进来的检票钳不会把页面撑出滚动条。
+ */
 .panel {
   flex: 1;
+  overflow: clip;
   margin-top: -24px;
   padding: 24px 16px 120px;
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;

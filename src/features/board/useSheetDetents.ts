@@ -7,15 +7,9 @@ import {
 } from "motion/react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
-/**
- * 看板面板的三档位置（面板顶边距屏幕顶部的像素）。
- * expanded：推上，盖到收起的标题栏下方；normal：默认；peek：下拉，露出车站周围信息。
- */
-export interface Detents {
-  expanded: number;
-  normal: number;
-  peek: number;
-}
+import type { Detents } from "./detents.ts";
+
+export type { Detents };
 
 export type Detent = keyof Detents;
 

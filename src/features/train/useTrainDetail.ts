@@ -9,6 +9,8 @@ import { buildTrainDetail } from "./trainDetail.ts";
 export function useTrainDetail(data: BoardData, trainName: string | undefined) {
   const tripUpdates = useTripUpdates(data.home.serverId, Boolean(trainName));
   const train = trainName ? data.trains.data?.trains.find((t) => t.name === trainName) : undefined;
+  // 只是兜底：跨线直通后列车可能已在本站不停靠的线路上，详情里的线路由 buildTrainDetail
+  // 按列车当前（或刚离开）那一站重新确定。
   const line = train && (data.lines.find((l) => l.lineCode === train.lineCode) ?? data.primaryLine);
 
   const detail =

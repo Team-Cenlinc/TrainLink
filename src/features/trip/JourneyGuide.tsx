@@ -2,18 +2,20 @@ import { useState, type CSSProperties } from "react";
 import BellIcon from "@material-symbols/svg-400/outlined/notifications.svg?react";
 import BellOnIcon from "@material-symbols/svg-400/outlined/notifications_active.svg?react";
 import ShareIcon from "@material-symbols/svg-400/outlined/share.svg?react";
+import TicketIcon from "@material-symbols/svg-400/outlined/confirmation_number.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
 import StarFillIcon from "@material-symbols/svg-400/outlined/star-fill.svg?react";
 import TransferIcon from "@material-symbols/svg-400/outlined/transfer_within_a_station.svg?react";
 import WalkIcon from "@material-symbols/svg-400/outlined/directions_walk.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { serviceTypeOf } from "@/features/board/departures.ts";
+import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import type { RailCatalog } from "@/lib/railApi.ts";
 import { minutesBetween, transferCount } from "./journeyText.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
 import { changeSeconds, type RideLeg } from "./planner.ts";
-import { clearReminder, hasReminder, setReminder, type ReminderResult } from "./reminders.ts";
+import { clearReminder, setReminder, useReminder, type ReminderResult } from "./reminders.ts";
 import { clockOf } from "./serviceDay.ts";
 import { lineOf } from "./stations.ts";
 import { toggleSavedTrip, type TripRoute } from "./tripStore.ts";
@@ -46,14 +48,15 @@ export function GuideSummary({
   journey,
   route,
   saved,
-  nowSeconds,
+  dayStart,
   name,
   tone,
 }: {
   journey: LiveJourney;
   route: TripRoute;
   saved: boolean;
-  nowSeconds: number;
+  /** 方案所在运营日 0 点的绝对时刻（毫秒），用来算提醒的时刻。 */
+  dayStart: number;
   name: (code: string) => string;
   tone: "hero" | "card";
 }) {
@@ -65,51 +68,54 @@ export function GuideSummary({
         {transfers === 0 ? "直达" : `换乘 ${transfers} 次`} · {name(route.from.stationCode)} →{" "}
         {name(route.to.stationCode)}
       </p>
-      <Actions journey={journey} route={route} saved={saved} nowSeconds={nowSeconds} name={name} />
+      <Actions journey={journey} route={route} saved={saved} dayStart={dayStart} name={name} />
     </div>
   );
 }
 
-/** 收藏这条行程、出发前提醒、分享。 */
+/** 收藏这条行程、出发前提醒、分享、生成仿真车票。 */
 function Actions({
   journey,
   route,
   saved,
-  nowSeconds,
+  dayStart,
   name,
 }: {
   journey: LiveJourney;
   route: TripRoute;
   saved: boolean;
-  nowSeconds: number;
+  dayStart: number;
   name: (code: string) => string;
 }) {
-  const key = `${route.from.stationCode}-${route.to.stationCode}-${journey.departure}`;
-  const [reminded, setReminded] = useState(() => hasReminder(key));
-  const [note, setNote] = useState<string>();
+  // 桌面上换选一个方案时这里不会重新挂载：提醒状态按 key 订阅，提示文字也只属于当时的方案。
+  const key = `${route.from.stationCode}-${route.to.stationCode}-${dayStart}-${journey.departure}`;
+  const reminded = useReminder(key);
+  const [noteOf, setNoteOf] = useState<{ key: string; text: string }>();
+  const note = noteOf?.key === key ? noteOf.text : undefined;
+  const setNote = (text: string | undefined) => setNoteOf(text ? { key, text } : undefined);
+  const issueTicket = useIssueTicket();
   const firstRide = journey.legs.find((l): l is LiveLeg & RideLeg => l.kind === "ride");
   const summary = `${clockOf(journey.live.departure)} ${name(route.from.stationCode)} → ${clockOf(journey.live.arrival)} ${name(route.to.stationCode)}`;
 
   const remind = async () => {
     if (reminded) {
       clearReminder(key);
-      setReminded(false);
       setNote(undefined);
       return;
     }
-    const fireAt = Date.now() + (journey.live.departure - remindMinutes * 60 - nowSeconds) * 1000;
+    // 按预计出发算绝对时刻，不依赖「现在」（它每 15 秒才更新一次）。
+    const fireAt = dayStart + (journey.live.departure - remindMinutes * 60) * 1000;
     const result: ReminderResult = await setReminder(
       key,
       fireAt,
       `${remindMinutes} 分钟后出发`,
       `${summary}${firstRide?.platform ? `，${firstRide.platform} 号站台上车` : ""}`,
     );
-    setReminded(result === "set");
     setNote(
       {
         set: `将在出发前 ${remindMinutes} 分钟提醒（需保持 TrainLink 打开）`,
         denied: "没有通知权限，可在浏览器设置里允许通知",
-        unsupported: "这个浏览器不支持通知",
+        unsupported: "这个浏览器不支持网页提醒",
         past: `离出发不到 ${remindMinutes} 分钟了`,
       }[result],
     );
@@ -148,6 +154,15 @@ function Actions({
         <button type="button" className={styles.action} onClick={share}>
           <ShareIcon aria-hidden />
           分享
+        </button>
+        {/* 生成这段行程的仿真车票（不接入真实系统），放进票夹并打开。 */}
+        <button
+          type="button"
+          className={styles.action}
+          onClick={() => issueTicket(route, journey, dayStart)}
+        >
+          <TicketIcon aria-hidden />
+          车票
         </button>
       </div>
       {note && <p className={styles.note}>{note}</p>}

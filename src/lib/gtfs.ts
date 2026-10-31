@@ -165,10 +165,11 @@ export function buildGtfsIndex(files: {
   return { lineOrders: longest, headsigns, routeStops, routeStopLines };
 }
 
-/** 下载并解析某个服务器的 GTFS 静态包。 */
 /**
  * 下载某服务器的 GTFS 包，解压出需要的几个文件（文本）。
- * 包本身有 HTTP 缓存（5 分钟），GTFS 索引与行程规划的时刻表各自读取时不会重复下载。
+ * GTFS 索引与行程规划的时刻表各自调用一次，各发一次请求。包的 Cache-Control 是 max-age=299，
+ * 浏览器缓存还新鲜时第二次可以直接命中，但不保证：两边同时读取、或 CDN 上的副本已经存了一阵
+ * （Age 头）时，仍会再下载一遍。
  */
 export async function fetchGtfsFiles<Name extends string>(
   serverId: string,
@@ -191,6 +192,7 @@ export async function fetchGtfsFiles<Name extends string>(
   return Object.fromEntries(names.map((name) => [name, read(name)])) as Record<Name, string>;
 }
 
+/** 下载并解析某个服务器的 GTFS 静态包，生成 GTFS 索引。 */
 export async function fetchGtfsIndex(serverId: string, signal?: AbortSignal): Promise<GtfsIndex> {
   const files = await fetchGtfsFiles(
     serverId,

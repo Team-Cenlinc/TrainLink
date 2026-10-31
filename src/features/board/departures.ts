@@ -87,6 +87,9 @@ function lineColorOf(departure: RailDeparture, context: BoardContext): string | 
   )?.color;
 }
 
+/** 晚点达到这么多分钟算严重（PIDS 红色），不足为一般（琥珀）。看板、线路图、列车详情共用。 */
+export const severeDelayMinutes = 5;
+
 export function statusOf(departure: RailDeparture): DepartureStatus {
   switch (departure.phase) {
     case "CANCELLED":
@@ -99,7 +102,7 @@ export function statusOf(departure: RailDeparture): DepartureStatus {
   }
   const delayMinutes = Math.floor((departure.delaySeconds ?? 0) / 60);
   if (delayMinutes >= 1) {
-    return { kind: "delayed", minutes: delayMinutes, severe: delayMinutes >= 5 };
+    return { kind: "delayed", minutes: delayMinutes, severe: delayMinutes >= severeDelayMinutes };
   }
   // 计划中、或按表预测而还没有具体列车的班次，都显示为「计划」。
   if (departure.phase === "PLANNED" || departure.phase === "PENDING") return { kind: "planned" };
@@ -163,4 +166,22 @@ export function groupByPlatform(
   return [...groups.values()].sort((a, b) =>
     a.platform.localeCompare(b.platform, "zh-Hans", { numeric: true }),
   );
+}
+
+/** 某条线路在本站一个站台的去向，例如「站台 1 往绿洲农场」；只有终到列车时 destinations 为空。 */
+export interface PlatformDirection {
+  platform: string;
+  destinations: string[];
+}
+
+/** 车站信息里每条线路各自的站台：只列这条线路的班次用到的站台，去向也只算这条线路的班次。 */
+export function linePlatforms(groups: PlatformGroup[], lineCode: string): PlatformDirection[] {
+  return groups.flatMap((group) => {
+    const own = group.departures.filter((d) => d.lineCode === lineCode);
+    if (own.length === 0) return [];
+    const destinations = [
+      ...new Set(own.filter((d) => !d.terminating).map((d) => d.destinationName)),
+    ];
+    return [{ platform: group.platform, destinations }];
+  });
 }

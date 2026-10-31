@@ -70,8 +70,8 @@ export interface ServiceAlert {
   id: string;
   title: string;
   body?: string;
-  /** 涉及的线路码；为空表示全网通告。 */
-  lineCodes: string[];
+  /** 涉及的线路（运营方码 + 线路码；不同运营方可能用同一个线路码）；为空表示全网通告。 */
+  lines: AlertLine[];
   /** 对运营的影响：停运、班次减少，或其他（公告、未说明）。 */
   effect: AlertEffect;
   /** 生效时段（毫秒）；没有时段表示一直生效，start / end 缺省表示不限。 */
@@ -79,6 +79,12 @@ export interface ServiceAlert {
 }
 
 export type AlertEffect = "noService" | "reducedService" | "other";
+
+/** 通告涉及的一条线路。 */
+export interface AlertLine {
+  operatorCode: string;
+  lineCode: string;
+}
 
 type Translated = { translation?: { text?: string | null; language?: string | null }[] | null };
 
@@ -89,7 +95,21 @@ function chineseText(value: Translated | null | undefined): string | undefined {
   return (zh ?? translations[0])?.text ?? undefined;
 }
 
-/** 解码通告数据源。route_id 形如 survival:SURC:DS，取出线路码 DS。 */
+/**
+ * 通告涉及的线路。route_id 形如 survival:SURC:DS，取出运营方 SURC 与线路码 DS；
+ * 同一条线路可能被提到几次（例如分方向各列一次），只记一次。
+ */
+function linesOf(entities: { routeId?: string | null }[]): AlertLine[] {
+  const lines = new Map<string, AlertLine>();
+  for (const { routeId } of entities) {
+    const [, operatorCode, lineCode] = routeId?.split(":") ?? [];
+    if (operatorCode && lineCode)
+      lines.set(`${operatorCode}:${lineCode}`, { operatorCode, lineCode });
+  }
+  return [...lines.values()];
+}
+
+/** 解码通告数据源。 */
 export async function decodeAlerts(bytes: Uint8Array): Promise<ServiceAlert[]> {
   const realtime = await loadRealtime();
   const feed = realtime.FeedMessage.decode(bytes);
@@ -113,9 +133,7 @@ export async function decodeAlerts(bytes: Uint8Array): Promise<ServiceAlert[]> {
         id: entity.id,
         title: chineseText(alert.headerText) ?? "",
         body: chineseText(alert.descriptionText),
-        lineCodes: (alert.informedEntity ?? [])
-          .map((e) => e.routeId?.split(":")[2])
-          .filter((code): code is string => Boolean(code)),
+        lines: linesOf(alert.informedEntity ?? []),
         effect: effectOf(alert.effect),
         activePeriods: (alert.activePeriod ?? []).map((p) => ({
           start: msOf(p.start as LongLike),
@@ -164,53 +182,109 @@ export interface TripRealtime {
   stops: Map<string, { arrival?: number; departure?: number }>;
 }
 
-/** 解码行程更新，按车次（trip_id）索引；与按列车名索引的 fetchTripUpdates 不同，取消的车次也在里面。 */
-export async function decodeTripRealtime(bytes: Uint8Array): Promise<Map<string, TripRealtime>> {
+/** 一份行程更新的两种索引：按列车名（列车详情、运行状态用）与按车次（行程规划用）。 */
+export interface TripFeed {
+  byTrain: Map<string, TripUpdate>;
+  /** 取消的车次也在里面（它们没有列车）。 */
+  byTrip: Map<string, TripRealtime>;
+}
+
+/** 一列车某个车次的一段更新（跨线直通的车次按线路拆成几段）。 */
+interface TripLeg {
+  tripId: string;
+  /** 段号：基础车次号是第 1 段，后缀 ~2、~3… 是后面几段。 */
+  leg: number;
+  /** 开行日期与时刻（GTFS 的 start_date + start_time），用来比较哪个车次先开。 */
+  start?: string;
+  delaySeconds?: number;
+  stops: StopTime[];
+}
+
+/** 直通车次的分段后缀：MT-3N_DPExp-081~2 是 MT-3N_DPExp-081 的第 2 段。 */
+const legSuffix = /~(\d+)$/;
+
+/** 去掉分段后缀的车次号，同一车次的各段相同。 */
+const baseTripId = (tripId: string) => tripId.replace(legSuffix, "");
+
+/** 一个车次各站已知的预计时刻（毫秒）。 */
+const timesOf = (legs: TripLeg[]) =>
+  legs.flatMap((l) =>
+    l.stops.flatMap((s) => [s.arrival, s.departure]).filter((t): t is number => t !== undefined),
+  );
+
+/** 一个车次最早的一个预计时刻；没有时刻时为 undefined。 */
+const firstTime = (legs: TripLeg[]) => {
+  const times = timesOf(legs);
+  return times.length > 0 ? Math.min(...times) : undefined;
+};
+
+/** 一个车次最晚的一个预计时刻；没有时刻时为 undefined。 */
+const lastTime = (legs: TripLeg[]) => {
+  const times = timesOf(legs);
+  return times.length > 0 ? Math.max(...times) : undefined;
+};
+
+/** 车次的开行日期时刻：各段里最早的那个（时刻已补齐成 8 位，按字符串比较即可，25:10:00 这样的跨日时刻也对）。 */
+const startOf = (legs: TripLeg[]) =>
+  legs
+    .map((l) => l.start)
+    .filter((s): s is string => s !== undefined)
+    .sort()[0];
+
+/**
+ * 一列车可能同时带着几个车次：正在跑的车次，以及折返后接着跑的下一个车次。
+ * 列车详情与运行状态只要当前车次：先去掉所有站都已过去的车次，再取开行最早的
+ * （有开行日期时刻就比它，没有就比最早的预计时刻）。
+ */
+function currentTrip(trips: TripLeg[][], feedTime: number | undefined): TripLeg[] {
+  const pending = trips.filter((legs) => {
+    const last = lastTime(legs);
+    return feedTime === undefined || last === undefined || last >= feedTime;
+  });
+  const candidates = pending.length > 0 ? pending : trips;
+  return [...candidates].sort((a, b) => {
+    const [startA, startB] = [startOf(a), startOf(b)];
+    if (startA !== undefined && startB !== undefined && startA !== startB) {
+      return startA < startB ? -1 : 1;
+    }
+    return (firstTime(a) ?? Infinity) - (firstTime(b) ?? Infinity);
+  })[0]!;
+}
+
+/**
+ * 把一个车次的各段按段号接成一条；换乘站在前一段是终点（只有到达）、在后一段是起点，合并成一站。
+ */
+function joinLegs(trainName: string, legs: TripLeg[]): TripUpdate {
+  const [first, ...rest] = [...legs].sort((a, b) => a.leg - b.leg);
+  const stops = first!.stops.map((s) => ({ ...s }));
+  for (const leg of rest) {
+    const junction = stops.at(-1);
+    const [head, ...tail] = leg.stops;
+    if (junction && head?.stationCode === junction.stationCode) {
+      junction.departure = head.departure ?? junction.departure;
+      stops.push(...tail.map((s) => ({ ...s })));
+    } else {
+      stops.push(...leg.stops.map((s) => ({ ...s })));
+    }
+  }
+  return { trainName, tripId: first!.tripId, delaySeconds: first!.delaySeconds, stops };
+}
+
+/**
+ * 解码行程更新，一次生成两种索引。几个页面共用同一份数据（见 lib/queries.ts 的 useTripFeed），
+ * 不再各自下载一遍。
+ */
+export async function decodeTripFeed(bytes: Uint8Array): Promise<TripFeed> {
   const realtime = await loadRealtime();
   const feed = realtime.FeedMessage.decode(bytes);
   const { CANCELED } = realtime.TripDescriptor.ScheduleRelationship;
   const byTrip = new Map<string, TripRealtime>();
+  /** 每列车的各个车次（以去掉分段后缀的车次号区分）及其各段。 */
+  const tripsOfTrain = new Map<string, Map<string, TripLeg[]>>();
+
   for (const entity of feed.entity) {
     const update = entity.tripUpdate;
-    const tripId = update?.trip.tripId;
-    if (!update || !tripId) continue;
-    const stops = new Map<string, { arrival?: number; departure?: number }>();
-    for (const s of update.stopTimeUpdate ?? []) {
-      const station = stationOfStop(s.stopId);
-      if (!station) continue;
-      const arrival = toNumber(s.arrival?.time as LongLike);
-      const departure = toNumber(s.departure?.time as LongLike);
-      stops.set(station, {
-        arrival: arrival ? arrival * 1000 : undefined,
-        departure: departure ? departure * 1000 : undefined,
-      });
-    }
-    byTrip.set(tripId, {
-      cancelled: update.trip.scheduleRelationship === CANCELED,
-      delaySeconds: update.delay ?? undefined,
-      stops,
-    });
-  }
-  return byTrip;
-}
-
-/** 读取某服务器各车次的实时情况（行程规划用）。 */
-export async function fetchTripRealtime(serverId: string, signal?: AbortSignal) {
-  return decodeTripRealtime(await fetchFeedBytes(serverId, "trip-updates", signal));
-}
-
-/** 读取某服务器的行程更新，按列车名索引。 */
-export async function fetchTripUpdates(
-  serverId: string,
-  signal?: AbortSignal,
-): Promise<Map<string, TripUpdate>> {
-  const feed = await fetchFeed(serverId, "trip-updates", signal);
-
-  const byTrain = new Map<string, TripUpdate>();
-  for (const entity of feed.entity) {
-    const update = entity.tripUpdate;
-    const trainName = update?.vehicle?.id;
-    if (!update || !trainName) continue;
+    if (!update) continue;
     const stops: StopTime[] = (update.stopTimeUpdate ?? [])
       .map((s) => {
         const arrival = toNumber(s.arrival?.time as LongLike);
@@ -224,26 +298,47 @@ export async function fetchTripUpdates(
       })
       .filter((s) => s.stationCode);
 
-    // 跨线直通的列车按线路拆成几条更新（与 GTFS 的分段一致），按顺序接起来；
-    // 换乘站在前一段是终点（只有到达）、在后一段是起点，合并成一站。
-    const previous = byTrain.get(trainName);
-    if (previous) {
-      const junction = previous.stops.at(-1);
-      const [first, ...rest] = stops;
-      if (junction && first?.stationCode === junction.stationCode) {
-        junction.departure = first.departure ?? junction.departure;
-        previous.stops.push(...rest);
-      } else {
-        previous.stops.push(...stops);
-      }
-      continue;
+    const tripId = update.trip.tripId;
+    if (tripId) {
+      byTrip.set(tripId, {
+        cancelled: update.trip.scheduleRelationship === CANCELED,
+        delaySeconds: update.delay ?? undefined,
+        stops: new Map(
+          stops.map((s) => [s.stationCode, { arrival: s.arrival, departure: s.departure }]),
+        ),
+      });
     }
-    byTrain.set(trainName, {
-      trainName,
-      tripId: update.trip.tripId ?? "",
+
+    const trainName = update.vehicle?.id;
+    if (!trainName) continue;
+    const id = tripId ?? "";
+    const { startDate, startTime } = update.trip;
+    const leg: TripLeg = {
+      tripId: id,
+      leg: Number(legSuffix.exec(id)?.[1] ?? 1),
+      start:
+        startDate || startTime
+          ? `${startDate ?? ""} ${(startTime ?? "").padStart(8, "0")}`
+          : undefined,
       delaySeconds: update.delay ?? undefined,
       stops,
-    });
+    };
+    const trips = tripsOfTrain.get(trainName) ?? new Map<string, TripLeg[]>();
+    tripsOfTrain.set(trainName, trips);
+    const base = baseTripId(id);
+    trips.set(base, [...(trips.get(base) ?? []), leg]);
   }
-  return byTrain;
+
+  const feedSeconds = toNumber(feed.header?.timestamp as LongLike);
+  const feedTime = feedSeconds ? feedSeconds * 1000 : undefined;
+  const byTrain = new Map<string, TripUpdate>();
+  for (const [trainName, trips] of tripsOfTrain) {
+    byTrain.set(trainName, joinLegs(trainName, currentTrip([...trips.values()], feedTime)));
+  }
+  return { byTrain, byTrip };
+}
+
+/** 读取某服务器的行程更新（两种索引一起）。 */
+export async function fetchTripFeed(serverId: string, signal?: AbortSignal): Promise<TripFeed> {
+  return decodeTripFeed(await fetchFeedBytes(serverId, "trip-updates", signal));
 }

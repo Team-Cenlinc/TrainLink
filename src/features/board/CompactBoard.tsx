@@ -18,7 +18,8 @@ import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
 import { StationHeader } from "./StationHeader.tsx";
 import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
-import { useSheetDetents, type Detents } from "./useSheetDetents.ts";
+import { measureDetents, type Detents } from "./detents.ts";
+import { useSheetDetents } from "./useSheetDetents.ts";
 import styles from "./CompactBoard.module.css";
 
 export type BoardView = "station" | "line";
@@ -74,15 +75,15 @@ export function CompactBoard({
     // 标题会随拖动缩放、位移，那是视觉变换，不能影响各档位置。
     const bottomOf = (el: HTMLElement | null) => (el ? el.offsetTop + el.offsetHeight : undefined);
     const measure = () => {
-      const expanded = barRef.current?.offsetHeight ?? 64;
       const titleBottom = bottomOf(titleRef.current) ?? 200;
-      const contextBottom = bottomOf(contextRef.current) ?? titleBottom;
-      const normal = Math.round(titleBottom + 24);
-      // 下拉档至少比默认低 120，并给面板留出约 240 的可见高度。
-      const peek = Math.round(
-        Math.min(Math.max(contextBottom, normal + 120), window.innerHeight - 240),
+      setDetents(
+        measureDetents({
+          barHeight: barRef.current?.offsetHeight ?? 64,
+          titleBottom,
+          contextBottom: bottomOf(contextRef.current) ?? titleBottom,
+          viewportHeight: window.innerHeight,
+        }),
       );
-      setDetents({ expanded, normal, peek });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -104,13 +105,15 @@ export function CompactBoard({
    */
   const detentsRef = useRef(detents);
   detentsRef.current = detents;
+  // 矮屏上两档可能重合（见 measureDetents），这时那一段没有行程，进度固定为 0，不能除以 0。
+  const progress = (distance: number, range: number) => (range > 0 ? clamp01(distance / range) : 0);
   const up = useTransform(y, (v) => {
     const d = detentsRef.current;
-    return d ? clamp01((d.normal - v) / (d.normal - d.expanded)) : 0;
+    return d ? progress(d.normal - v, d.normal - d.expanded) : 0;
   });
   const down = useTransform(y, (v) => {
     const d = detentsRef.current;
-    return d ? clamp01((v - d.normal) / (d.peek - d.normal)) : 0;
+    return d ? progress(v - d.normal, d.peek - d.normal) : 0;
   });
   // 面板升到色块上方时阴影加深，表达它在色块之上。
   const sheetShadow = useTransform(up, (p) => `0 -10px 30px rgb(0 0 0 / ${(0.14 * p).toFixed(3)})`);
@@ -240,10 +243,7 @@ export function CompactBoard({
             <LinePanel data={data} onSelectTrain={onSelectTrain} />
           ) : (
             <>
-              <StatusNotice
-                stationLineCodes={data.lines.map((l) => l.lineCode)}
-                includeTrains={false}
-              />
+              <StatusNotice stationLineCodes={data.lines.map((l) => l.lineCode)} />
               <DepartureList data={data} limit={rowsShown} />
             </>
           )}

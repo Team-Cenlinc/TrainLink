@@ -6,19 +6,15 @@ import { useNetworkStatus } from "./useNetworkStatus.ts";
 import styles from "./StatusNotice.module.css";
 
 /**
- * 看板上的运行提示：本站线路有停运、班次取消或晚点时，在发车列表上方显示最严重的一项，
+ * 看板上的运行提示：本站线路有停运或班次取消时，在发车列表上方显示最严重的一项，
  * 点一下进入运行状态页。一切正常时不占位置。样式同发车卡片：白底大圆角。
  * 一行写「状态标签 线路名 说明」，状态只由标签表达一次，不再在文字里重复。
+ *
+ * 只用线路目录与通告，不为算晚点去读行程更新（每 15 秒一次）：
+ * 本站班次的晚点在发车列表里已经用琥珀色标出，线路整体的晚点在运行状态页看。
  */
-export function StatusNotice({
-  stationLineCodes,
-  includeTrains,
-}: {
-  stationLineCodes: string[];
-  /** 看板已经在读列车位置时才把晚点算进来（见 useNetworkStatus）。 */
-  includeTrains: boolean;
-}) {
-  const { status } = useNetworkStatus(includeTrains);
+export function StatusNotice({ stationLineCodes }: { stationLineCodes: string[] }) {
+  const { status } = useNetworkStatus(false);
   const notice = status && stationNotice(status, stationLineCodes);
   if (!notice) return null;
   return (

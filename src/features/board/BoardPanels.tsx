@@ -36,14 +36,18 @@ export function DepartureList({
       </div>
     );
   }
-  if (groups.length === 0) return <p className={styles.message}>接下来暂无列车。</p>;
   return (
     <>
-      <div className={className}>
-        {groups.map((group) => (
-          <DepartureGroup key={group.platform} group={group} limit={limit} />
-        ))}
-      </div>
+      {groups.length === 0 ? (
+        <p className={styles.message}>接下来暂无列车。</p>
+      ) : (
+        <div className={className}>
+          {groups.map((group) => (
+            <DepartureGroup key={group.platform} group={group} limit={limit} />
+          ))}
+        </div>
+      )}
+      {/* 列表为空时也要说明：可能只是读不到那台服务器，而不是真的没有车。 */}
       {board.data?.state === "partial" && (
         <p className={styles.note}>部分服务器暂时不可用，列表可能不完整。</p>
       )}

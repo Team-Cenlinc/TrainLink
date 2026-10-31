@@ -268,6 +268,7 @@
   white-space: nowrap;
 }
 
+/* 浮在卡片上方的晚点标签。行高固定 17 px，加上 3 px 间隔与 placeColumn 的 delayLabelHeight 一致。 */
 .delay {
   position: absolute;
   bottom: calc(100% + 3px);
@@ -279,7 +280,14 @@
   color: var(--status-text);
   font-size: 11px;
   font-weight: 700;
+  line-height: 17px;
   white-space: nowrap;
+}
+
+/* 晚点 5 分及以上：红（PIDS），与站牌、列车详情一致。 */
+.delay.severe,
+.delayInline.severe {
+  background: var(--status-error);
 }
 
 /* 卡片标题：种别一行小字，终点一行粗体；终点放不下时省略，完整名称在读屏标签里。 */

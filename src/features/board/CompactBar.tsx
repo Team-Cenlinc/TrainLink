@@ -6,6 +6,7 @@ import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
 import type { PanelOpener } from "./BoardPage.tsx";
 import { StationTags } from "./StationHeader.tsx";
+import { useShown } from "./useShown.ts";
 import styles from "./CompactBar.module.css";
 
 interface CompactBarProps {
@@ -41,12 +42,13 @@ export function CompactBar({
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
   const opacity = useTransform(up, (p) => clamp01((p - 0.55) / 0.45));
   const y = useTransform(opacity, (o) => (1 - o) * 8);
-  // 没完全出现时不拦截点按，点按会落到下面的色块工具栏上。
+  // 没完全出现时不拦截点按，点按会落到下面的色块工具栏上；也不能用 Tab 键聚焦、不让读屏软件读到。
   const pointerEvents = useTransform<number, string>(up, (p) => (p > 0.9 ? "auto" : "none"));
+  const shown = useShown(up, (p) => p > 0.9);
 
   return (
     <motion.div ref={barRef} className={styles.bar} style={{ ...style, pointerEvents }}>
-      <motion.div className={styles.content} style={{ opacity, y }}>
+      <motion.div className={styles.content} style={{ opacity, y }} inert={!shown}>
         <span className={styles.title}>{name}</span>
         <StationTags lines={lines} stationCode={stationCode} className={styles.tags} />
         <span className={styles.spacer} />

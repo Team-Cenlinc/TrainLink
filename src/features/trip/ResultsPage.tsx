@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from "react-router";
 import ChevronIcon from "@material-symbols/svg-400/outlined/chevron_right.svg?react";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
-import { useHomeStation } from "@/lib/homeStation.ts";
+import { useHomeStation, type HomeStation } from "@/lib/homeStation.ts";
 import { useLayout } from "@/lib/useLayout.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import type { RailCatalog } from "@/lib/railApi.ts";
@@ -9,17 +9,11 @@ import { changeNotes, minutesBetween, stationName, transferCount } from "./journ
 import { GuideSummary, JourneyTimes, Timeline } from "./JourneyGuide.tsx";
 import { LegStrip } from "./LegStrip.tsx";
 import type { LiveJourney } from "./live.ts";
-import { clockOf } from "./serviceDay.ts";
+import { clockOf, secondsOfClock } from "./serviceDay.ts";
 import { stationInfo } from "./stations.ts";
 import { isSavedTrip, stationFromParam, stationParam, useSavedTrips } from "./tripStore.ts";
 import { useJourneys } from "./useJourneys.ts";
 import styles from "./ResultsPage.module.css";
-
-/** "08:30" → 运营日内的秒数。 */
-export function secondsOfClock(value: string | null): number | undefined {
-  const match = value?.match(/^(\d{1,2}):(\d{2})$/);
-  return match ? Number(match[1]) * 3600 + Number(match[2]) * 60 : undefined;
-}
 
 /**
  * 行程方案（v06 Mobile 03）：接下来几班可乘的方案，一个比一个晚出发。
@@ -35,8 +29,10 @@ export function ResultsPage() {
   const saved = useSavedTrips();
   const from = stationFromParam(params.get("from"), home.serverId);
   const to = stationFromParam(params.get("to"), home.serverId);
+  // 指定时间：at 是时刻，date 是哪一天（规划页查询时定好；比现在早的时刻指明天）。
   const at = secondsOfClock(params.get("at"));
-  const { journeys, nowSeconds, loading, error } = useJourneys(from, to, at, 6);
+  const { journeys, nowSeconds, dayStart, date, dayLabel, sameStation, loading, error } =
+    useJourneys(from, to, { at, date: params.get("date") }, 6);
   const name = (code: string) => stationName(catalog.data, home.serverId, code);
   const fromInfo = from && stationInfo(catalog.data, from);
   const toInfo = to && stationInfo(catalog.data, to);
@@ -44,9 +40,22 @@ export function ResultsPage() {
   // 桌面：左边方案列表，右边选中方案的乘坐指南（选中的写进网址 dep，刷新后还在）；
   // 手机与平板：点方案进入单独的乘坐指南页。
   const split = layout === "wide";
-  const selectedDep = Number(params.get("dep"));
+  const depParam = params.get("dep");
+  const selectedDep = depParam ? Number(depParam) : undefined;
   const selected =
     journeys?.find((j) => j.departure === selectedDep) ?? (split ? journeys?.[0] : undefined);
+  // 乘坐指南按日期、出发时刻与第一段车次找回这个方案，车次取消或时刻表变了不会换成别的车。
+  const guideHref = (journey: LiveJourney, ends: { from: HomeStation; to: HomeStation }) => {
+    const query = new URLSearchParams({
+      from: stationParam(ends.from),
+      to: stationParam(ends.to),
+      date,
+      dep: String(journey.departure),
+    });
+    const tripId = journey.legs.find((l) => l.kind === "ride")?.tripId;
+    if (tripId) query.set("trip", tripId);
+    return `/trip/guide?${query}`;
+  };
   const select = (journey: LiveJourney) =>
     setParams(
       (current) => {
@@ -64,7 +73,7 @@ export function ResultsPage() {
           <JourneyRow
             key={journey.departure}
             journey={journey}
-            href={`/trip/guide?from=${stationParam(from)}&to=${stationParam(to)}&dep=${journey.departure}`}
+            href={guideHref(journey, { from, to })}
             onSelect={split ? () => select(journey) : undefined}
             selected={split && journey === selected}
             nowSeconds={nowSeconds}
@@ -88,12 +97,14 @@ export function ResultsPage() {
       }
       hero={
         <p className={styles.when}>
-          今天 · {at !== undefined ? `${clockOf(at)} 以后出发` : "现在出发"}
+          {dayLabel} · {at !== undefined ? `${clockOf(at)} 以后出发` : "现在出发"}
         </p>
       }
     >
       {!from || !to ? (
         <PanelMessage>没有选好起点和终点。</PanelMessage>
+      ) : sameStation ? (
+        <PanelMessage>起点和终点是同一个车站，换一个终点再查。</PanelMessage>
       ) : !journeys ? (
         <PanelMessage>
           {loading ? "正在读取时刻表…" : error ? "时刻表暂时读不到，稍后再试。" : null}
@@ -113,7 +124,7 @@ export function ResultsPage() {
                 journey={selected}
                 route={{ from, to }}
                 saved={isSavedTrip(saved, { from, to })}
-                nowSeconds={nowSeconds}
+                dayStart={dayStart}
                 name={name}
                 tone="card"
               />
@@ -178,7 +189,7 @@ function JourneyRow({
 
       <span className={styles.meta}>
         <span className={waitMinutes <= 0 ? styles.now : styles.wait}>
-          {waitMinutes <= 0 ? "正在出发" : `${waitMinutes} 分后出发`}
+          {waitMinutes <= 0 ? "正在出发" : `${waitText(waitMinutes)}后出发`}
         </span>
         {journey.delayMinutes >= 1 && (
           <span className={`${styles.chip} ${styles.caution}`}>晚点 {journey.delayMinutes} 分</span>
@@ -212,4 +223,12 @@ function JourneyRow({
       )}
     </li>
   );
+}
+
+/** 还要等多久：「8 分」；一小时以上写「2 小时 5 分」（查明天的车时）。 */
+function waitText(minutes: number): string {
+  if (minutes < 60) return `${minutes} 分`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} 小时` : `${hours} 小时 ${rest} 分`;
 }

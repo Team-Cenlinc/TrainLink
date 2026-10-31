@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchGtfsFiles } from "@/lib/gtfs.ts";
-import { fetchTripRealtime } from "@/lib/realtime.ts";
 import { buildTimetable } from "./timetable.ts";
 
 /**
@@ -23,15 +22,5 @@ export function useTimetable(serverId: string) {
       });
     },
     staleTime: 5 * 60_000,
-  });
-}
-
-/** 各车次的实时情况（预计时刻、取消），每 15 秒刷新，与站牌同步。 */
-export function useTripRealtime(serverId: string) {
-  return useQuery({
-    queryKey: ["tripRealtime", serverId],
-    queryFn: ({ signal }) => fetchTripRealtime(serverId, signal),
-    refetchInterval: 15_000,
-    staleTime: 10_000,
   });
 }

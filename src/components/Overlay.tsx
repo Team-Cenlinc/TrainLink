@@ -35,6 +35,9 @@ interface OverlayProps {
  * 通过 portal 渲染到 body：看板页面是 position: fixed，会形成自己的层叠上下文，
  * 面板留在里面就盖不过浮动标签栏。
  */
+/** 打开着的面板数：面板可能叠开，最后一个关上时才解除页面主体的 inert。 */
+let openOverlays = 0;
+
 export function Overlay({
   open,
   onClose,
@@ -53,6 +56,18 @@ export function Overlay({
   const popoverTransition = reduceMotion
     ? { duration: 0 }
     : { duration: 0.16, ease: [0.2, 0, 0, 1] as const };
+
+  // 打开期间页面主体（#root）设为 inert：Tab 键与读屏软件都不会跑到面板后面去。
+  // 跟着 open 走，一关上就解除，不等退出动画放完。
+  useEffect(() => {
+    if (!open) return;
+    const root = document.getElementById("root");
+    openOverlays++;
+    root?.setAttribute("inert", "");
+    return () => {
+      if (--openOverlays === 0) root?.removeAttribute("inert");
+    };
+  }, [open]);
 
   return createPortal(
     <AnimatePresence>
@@ -164,24 +179,33 @@ function sidePosition(anchor: DOMRect): CSSProperties {
   };
 }
 
-/** 只在面板打开期间存在：负责焦点进出与 Esc。 */
+/**
+ * 只在面板打开期间存在：负责焦点进出与 Esc。
+ * onClose 存在 ref 里：调用方每次渲染传一个新函数时，不会重新抢焦点。
+ */
 function FocusScope({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  // 打开它的按钮：渲染时记下（这时焦点还没移进面板）。在副作用里记的话，
+  // 严格模式模拟的卸载、重新挂载会把面板里的输入框当成「之前的焦点」。
+  const previous = useRef(document.activeElement as HTMLElement | null);
+  const close = useRef(onClose);
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
+    close.current = onClose;
+  });
+  useEffect(() => {
     const target =
       ref.current?.querySelector<HTMLElement>("[data-autofocus]") ??
       ref.current?.querySelector<HTMLElement>("button, a, input");
     target?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") close.current();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      previous?.focus();
+      previous.current?.focus();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div ref={ref} className={styles.content}>
       {children}

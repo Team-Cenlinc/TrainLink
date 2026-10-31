@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import ArrowIcon from "@material-symbols/svg-400/outlined/north_east.svg?react";
 import HistoryIcon from "@material-symbols/svg-400/outlined/history.svg?react";
@@ -15,8 +15,15 @@ import {
   type HomeStation,
 } from "@/lib/homeStation.ts";
 import { useCatalog } from "@/lib/queries.ts";
-import type { RailCatalog } from "@/lib/railApi.ts";
+import { sourceTimeZone, type RailCatalog } from "@/lib/railApi.ts";
 import { useLayout } from "@/lib/useLayout.ts";
+import {
+  clockOf,
+  departureDayStart,
+  secondsOfClock,
+  serviceClock,
+  serviceDate,
+} from "./serviceDay.ts";
 import { stationInfo } from "./stations.ts";
 import {
   rememberTrip,
@@ -61,11 +68,35 @@ export function TripPage() {
     setParams({}, { replace: true });
   }, [params, setParams]);
 
+  const [hint, setHint] = useState<string>();
+  const timeZone = sourceTimeZone(catalog.data, from.serverId);
+
   const search = (route: TripRoute) => {
+    if (sameStation(route.from, route.to)) {
+      setHint("起点和终点是同一个车站，换一个再查。");
+      return;
+    }
+    setHint(undefined);
     rememberTrip(route);
-    const at = when === "at" && time ? `&at=${time}` : "";
-    navigate(`/trip/results?from=${stationParam(route.from)}&to=${stationParam(route.to)}${at}`);
+    const query = new URLSearchParams({
+      from: stationParam(route.from),
+      to: stationParam(route.to),
+    });
+    // 指定时间：连同哪一天一起定下来写进网址（比现在早的时刻指明天），之后刷新或过了午夜都不会变。
+    // 没填时刻时按现在出发。
+    const at = when === "at" ? secondsOfClock(time) : undefined;
+    if (at !== undefined) {
+      query.set("at", time);
+      query.set("date", serviceDate(departureDayStart(at, Date.now(), timeZone), timeZone));
+    }
+    navigate(`/trip/results?${query}`);
   };
+  const changeWhen = (value: When) => {
+    setWhen(value);
+    // 切到指定时间时先填上现在的时刻，免得空着查询。
+    if (value === "at" && !time) setTime(clockOf(serviceClock(Date.now(), timeZone).seconds));
+  };
+  const closePicker = useCallback(() => setPicking(undefined), []);
   const choose = (station: HomeStation) => {
     if (picking?.end === "from") {
       setFrom(station);
@@ -126,7 +157,7 @@ export function TripPage() {
       }
     >
       <div className={styles.when}>
-        <Segmented label="出发时间" options={whenOptions} value={when} onChange={setWhen} />
+        <Segmented label="出发时间" options={whenOptions} value={when} onChange={changeWhen} />
         {when === "at" && (
           <input
             type="time"
@@ -140,6 +171,11 @@ export function TripPage() {
           <button type="button" className={styles.go} onClick={() => search({ from, to })}>
             查询
           </button>
+        )}
+        {hint && (
+          <p className={styles.hint} role="status">
+            {hint}
+          </p>
         )}
       </div>
 
@@ -203,7 +239,7 @@ export function TripPage() {
 
       <StationPicker
         open={picking !== undefined}
-        onClose={() => setPicking(undefined)}
+        onClose={closePicker}
         variant={layout === "compact" ? "sheet" : "popover"}
         anchor={picking?.anchor}
         title={picking?.end === "from" ? "从哪里出发" : "去哪里"}
