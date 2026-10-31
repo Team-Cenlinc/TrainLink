@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import BackIcon from "@material-symbols/svg-400/outlined/arrow_back.svg?react";
+import { useDocumentTitle } from "@/lib/useDocumentTitle.ts";
 import styles from "./Page.module.css";
 
 /**
@@ -29,6 +30,8 @@ export function Page({
   children: ReactNode;
 }) {
   const navigate = useNavigate();
+  // 标签页标题：大标题是文字时用它，否则（起终点、时刻等内容）用工具栏上的页面名。
+  useDocumentTitle(typeof title === "string" ? title : back);
   return (
     <div className={styles.page}>
       <header className={`${styles.hero} ${back ? styles.withBack : ""}`}>

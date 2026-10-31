@@ -1,5 +1,6 @@
 import { useCallback, useState, type MouseEvent } from "react";
 import { useHomeStation } from "@/lib/homeStation.ts";
+import { useDocumentTitle } from "@/lib/useDocumentTitle.ts";
 import { useLayout } from "@/lib/useLayout.ts";
 import { StationPicker } from "@/features/stations/StationPicker.tsx";
 import { TrainSheet } from "@/features/train/TrainSheet.tsx";
@@ -71,6 +72,7 @@ export function BoardPage() {
   const data = useBoardData(layout !== "compact" || view === "line", chosenLine);
   const variant = layout === "compact" ? "sheet" : "popover";
   const train = useTrainDetail(data, panel?.kind === "train" ? panel.trainName : undefined);
+  useDocumentTitle(data.stationName);
 
   return (
     <>

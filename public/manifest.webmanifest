@@ -1,22 +1,77 @@
 {
+  "id": "/",
   "name": "TrainLink",
   "short_name": "TrainLink",
-  "description": "Fetarute 铁路的本站发车、列车位置与乘车指南。",
+  "description": "Fetarute 铁路的实时发车与列车位置，规划换乘行程，随时掌握各线路运行状态。",
   "lang": "zh-Hans",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#1B2022",
   "theme_color": "#1B2022",
+  "categories": ["travel", "navigation"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
-    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "规划行程",
+      "short_name": "行程",
+      "url": "/trip",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "运行状态",
+      "short_name": "运行状态",
+      "url": "/status",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "车票",
+      "short_name": "车票",
+      "url": "/tickets",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
