@@ -19,12 +19,15 @@ body {
 }
 
 /*
- * 整页固定、只在内部滚动的页面（看板）：文档本身不滚动也不回弹。
+ * 整页固定、只在内部滚动的页面（看板），以及弹出面板打开期间（Overlay 设 data-overlay-open）：
+ * 文档本身不滚动也不回弹。
  * iOS Safari 即使文档没有可滚动的内容也会整页回弹：手指在色块、标签栏上拖，
  * 或面板内容不够长时，滑动会传给文档，固定定位的标签栏跟着被拖走，状态栏下也会出现滚动模糊。
  */
 html:has([data-fixed-page]),
-html:has([data-fixed-page]) body {
+html:has([data-fixed-page]) body,
+html[data-overlay-open],
+html[data-overlay-open] body {
   overflow: hidden;
   overscroll-behavior: none;
 }

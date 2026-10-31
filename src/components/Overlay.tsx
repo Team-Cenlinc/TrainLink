@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from "motion/react";
 import styles from "./Overlay.module.css";
@@ -53,19 +53,24 @@ export function Overlay({
   const sheetTransition = reduceMotion
     ? { duration: 0 }
     : ({ type: "spring", bounce: 0, duration: 0.4 } as const);
+  const keyboard = useKeyboardInset(open && variant === "sheet");
   const popoverTransition = reduceMotion
     ? { duration: 0 }
     : { duration: 0.16, ease: [0.2, 0, 0, 1] as const };
 
-  // 打开期间页面主体（#root）设为 inert：Tab 键与读屏软件都不会跑到面板后面去。
+  // 打开期间页面主体（#root）设为 inert：Tab 键与读屏软件都不会跑到面板后面去；
+  // 文档也锁住不滚动、不回弹（global.css 的 data-overlay-open），点输入框时背后的页面不被带着走。
   // 跟着 open 走，一关上就解除，不等退出动画放完。
   useEffect(() => {
     if (!open) return;
     const root = document.getElementById("root");
     openOverlays++;
     root?.setAttribute("inert", "");
+    document.documentElement.dataset.overlayOpen = "";
     return () => {
-      if (--openOverlays === 0) root?.removeAttribute("inert");
+      if (--openOverlays > 0) return;
+      root?.removeAttribute("inert");
+      delete document.documentElement.dataset.overlayOpen;
     };
   }, [open]);
 
@@ -108,6 +113,7 @@ export function Overlay({
             <motion.section
               key="sheet"
               className={`${styles.sheet} ${fill ? styles.fill : ""}`}
+              style={keyboard}
               role="dialog"
               aria-modal="true"
               aria-labelledby={labelledBy}
@@ -137,6 +143,39 @@ export function Overlay({
     </AnimatePresence>,
     document.body,
   );
+}
+
+/**
+ * 手机键盘占掉的高度与此刻可见区域的高度（visualViewport），交给底部面板的 CSS 变量。
+ * iOS 弹出键盘时不缩小布局视口，而是把可见区域推上去：固定在底部的面板顶部（搜索框）
+ * 被推出屏幕，结果列表又被键盘盖住。面板据此把底边抬到键盘上沿、高度收进可见区域。
+ * 只在面板打开时监听；底边差不到 50 px（Safari 工具栏伸缩）或页面被双指放大时不算键盘。
+ */
+function useKeyboardInset(active: boolean): CSSProperties | undefined {
+  const [inset, setInset] = useState<{ bottom: number; height: number }>();
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!active || !viewport) return;
+    const update = () => {
+      const bottom = window.innerHeight - viewport.height - viewport.offsetTop;
+      const keyboardOpen = bottom > 50 && viewport.scale < 1.01;
+      setInset(keyboardOpen ? { bottom, height: viewport.height } : undefined);
+    };
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+      setInset(undefined);
+    };
+  }, [active]);
+  return inset
+    ? ({
+        "--keyboard-bottom": `${inset.bottom}px`,
+        "--visible-height": `${inset.height}px`,
+      } as CSSProperties)
+    : undefined;
 }
 
 /**
@@ -183,6 +222,33 @@ function sidePosition(anchor: DOMRect): CSSProperties {
  * 只在面板打开期间存在：负责焦点进出与 Esc。
  * onClose 存在 ref 里：调用方每次渲染传一个新函数时，不会重新抢焦点。
  */
+/** iOS 与 iPadOS（iPadOS 13 起自称 Mac，靠触点数区分）。 */
+const isIOS =
+  typeof navigator !== "undefined" &&
+  (/iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1));
+
+/** 会弹出键盘的输入框。 */
+const textTypes = new Set(["text", "search", "email", "number", "tel", "url", "password"]);
+
+/**
+ * 聚焦而不让 iOS 把整页往上推：iOS 弹出键盘时会平移整个可见区域，好让输入框露在键盘上面，
+ * 页面、标签栏、面板一起被顶上去。它判断要不要平移时看的是输入框此刻的位置，
+ * 所以先把输入框临时移到屏幕上方再聚焦，下一帧移回来（React Aria 的 usePreventScroll 同样做法）。
+ */
+function focusWithoutScroll(element: HTMLElement) {
+  if (!isIOS) {
+    element.focus({ preventScroll: true });
+    return;
+  }
+  const transform = element.style.transform;
+  element.style.transform = "translateY(-2000px)";
+  element.focus({ preventScroll: true });
+  requestAnimationFrame(() => {
+    element.style.transform = transform;
+  });
+}
+
 function FocusScope({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   // 打开它的按钮：渲染时记下（这时焦点还没移进面板）。在副作用里记的话，
@@ -196,14 +262,25 @@ function FocusScope({ onClose, children }: { onClose: () => void; children: Reac
     const target =
       ref.current?.querySelector<HTMLElement>("[data-autofocus]") ??
       ref.current?.querySelector<HTMLElement>("button, a, input");
-    target?.focus();
+    if (target) focusWithoutScroll(target);
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") close.current();
     };
+    // iOS 上点面板里的输入框：拦下系统自己的聚焦（它会把整页推上去），改用 focusWithoutScroll。
+    const onTouchEnd = (event: TouchEvent) => {
+      const field = event.target;
+      if (!(field instanceof HTMLInputElement) || !textTypes.has(field.type)) return;
+      if (field === document.activeElement) return;
+      event.preventDefault();
+      focusWithoutScroll(field);
+    };
+    const scope = ref.current;
     window.addEventListener("keydown", onKey);
+    if (isIOS) scope?.addEventListener("touchend", onTouchEnd, { passive: false });
     return () => {
       window.removeEventListener("keydown", onKey);
-      previous.current?.focus();
+      scope?.removeEventListener("touchend", onTouchEnd);
+      previous.current?.focus({ preventScroll: true });
     };
   }, []);
   return (
