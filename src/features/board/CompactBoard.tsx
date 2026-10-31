@@ -156,7 +156,7 @@ export function CompactBoard({
         stationCode={home.stationCode}
         lines={lines}
         up={up}
-        onSearch={() => navigate("/trip")}
+        onSearch={() => navigate("/trip?pick=to")}
         onInfo={onInfo}
         barRef={barRef}
       />
@@ -197,7 +197,11 @@ export function CompactBoard({
 
         <div className={`${styles.scroll} ${detent === "expanded" ? styles.scrollable : ""}`}>
           {view === "station" && (
-            <button type="button" className={styles.tripEntry} onClick={() => navigate("/trip")}>
+            <button
+              type="button"
+              className={styles.tripEntry}
+              onClick={() => navigate("/trip?pick=to")}
+            >
               <SearchIcon aria-hidden />从{stationName}去哪里？
             </button>
           )}

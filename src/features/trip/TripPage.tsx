@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import ArrowIcon from "@material-symbols/svg-400/outlined/north_east.svg?react";
 import HistoryIcon from "@material-symbols/svg-400/outlined/history.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star-fill.svg?react";
@@ -50,6 +50,16 @@ export function TripPage() {
   const [when, setWhen] = useState<When>("now");
   const [time, setTime] = useState("");
   const [picking, setPicking] = useState<{ end: "from" | "to"; anchor?: DOMRect }>();
+  const [params, setParams] = useSearchParams();
+  const toField = useRef<HTMLButtonElement>(null);
+
+  // 从看板的「去哪里」进来（/trip?pick=to）：直接打开终点选择并聚焦搜索框。
+  // 打开后去掉这个参数，返回或刷新时不会再自动弹出。
+  useEffect(() => {
+    if (params.get("pick") !== "to") return;
+    setPicking({ end: "to", anchor: toField.current?.getBoundingClientRect() });
+    setParams({}, { replace: true });
+  }, [params, setParams]);
 
   const search = (route: TripRoute) => {
     rememberTrip(route);
@@ -87,6 +97,7 @@ export function TripPage() {
               <Badges lines={fromInfo.lines} />
             </button>
             <button
+              ref={toField}
               type="button"
               className={`${styles.field} ${to ? "" : styles.empty}`}
               onClick={(e) =>
@@ -197,6 +208,7 @@ export function TripPage() {
         anchor={picking?.anchor}
         title={picking?.end === "from" ? "从哪里出发" : "去哪里"}
         onChoose={choose}
+        focusSearch
       />
     </Page>
   );

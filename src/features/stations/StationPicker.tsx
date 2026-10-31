@@ -29,6 +29,11 @@ interface StationPickerProps {
   title?: string;
   /** 选中一个车站时调用；省略时把它设为本站（看板的用法）。 */
   onChoose?: (station: HomeStation) => void;
+  /**
+   * 打开时把光标放进搜索框（手机上会弹出键盘）。行程里找目的地时用：打开就是为了搜索。
+   * 默认只有大屏这样做；手机上换本站多半是点常用车站，不弹键盘。
+   */
+  focusSearch?: boolean;
 }
 
 /** 选择器里的一个车站。 */
@@ -52,6 +57,7 @@ export function StationPicker({
   anchor,
   title = "选择车站",
   onChoose = setHomeStation,
+  focusSearch = variant === "popover",
 }: StationPickerProps) {
   return (
     <Overlay
@@ -62,7 +68,13 @@ export function StationPicker({
       labelledBy="station-picker-title"
       fill
     >
-      <PickerContent onClose={onClose} variant={variant} title={title} onChoose={onChoose} />
+      <PickerContent
+        onClose={onClose}
+        variant={variant}
+        title={title}
+        onChoose={onChoose}
+        focusSearch={focusSearch}
+      />
     </Overlay>
   );
 }
@@ -72,9 +84,11 @@ function PickerContent({
   variant,
   title,
   onChoose,
+  focusSearch,
 }: Pick<StationPickerProps, "onClose" | "variant"> & {
   title: string;
   onChoose: (station: HomeStation) => void;
+  focusSearch: boolean;
 }) {
   const home = useHomeStation();
   const favorites = useFavoriteStations();
@@ -156,7 +170,7 @@ function PickerContent({
             className={styles.close}
             aria-label={variant === "popover" ? "关闭" : "收起"}
             onClick={onClose}
-            data-autofocus={variant === "sheet" ? true : undefined}
+            data-autofocus={focusSearch ? undefined : true}
           >
             {variant === "popover" ? <CloseIcon aria-hidden /> : <CollapseIcon aria-hidden />}
           </button>
@@ -169,8 +183,7 @@ function PickerContent({
             placeholder="站名、站码或英文名"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            // 大屏直接聚焦搜索框；手机上不自动弹出键盘。
-            data-autofocus={variant === "popover" ? true : undefined}
+            data-autofocus={focusSearch ? true : undefined}
             aria-label="搜索车站"
           />
         </label>

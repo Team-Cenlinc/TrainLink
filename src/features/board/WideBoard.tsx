@@ -52,7 +52,7 @@ export function WideBoard({
             <StarIcon aria-hidden />
             常用车站
           </button>
-          <button type="button" className={styles.search} onClick={() => navigate("/trip")}>
+          <button type="button" className={styles.search} onClick={() => navigate("/trip?pick=to")}>
             <SearchIcon aria-hidden />从{stationName}去哪里？
           </button>
           <button
