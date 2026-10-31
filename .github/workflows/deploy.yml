@@ -1,0 +1,61 @@
+# 检查并发布到 GitHub Pages。
+# - 推送到 main：检查格式、单元测试与构建（含类型检查），通过后发布；
+# - Pull request：只做同样的检查，不发布；
+# - 也可以在 Actions 页面手动运行（只有在 main 上运行时才发布）。
+# 仓库设置：Pages 的 Source 选 GitHub Actions，自定义域名 trainlink.fetarute.info（见 README「部署」）。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 默认只读代码；发布任务另外申请 Pages 写入与 OIDC 令牌。
+permissions:
+  contents: read
+
+# 发布按顺序排队、不互相打断（Pages 官方建议）；PR 的检查有新提交时取消旧的那次。
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('check-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: 检查与构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # 与 package.json 的 engines 一致：Node 24（自带 npm 11）。
+      # 不开依赖缓存：发布流程每次干净安装，避免缓存被污染（setup-node 文档的建议）。
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    name: 发布
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
