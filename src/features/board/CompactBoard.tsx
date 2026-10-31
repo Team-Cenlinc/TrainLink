@@ -11,6 +11,7 @@ import { motion, useTransform } from "motion/react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { Segmented } from "@/components/Segmented.tsx";
 import { formatClock } from "@/lib/time.ts";
+import { StatusNotice } from "@/features/status/StatusNotice.tsx";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { CompactBar } from "./CompactBar.tsx";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
@@ -234,7 +235,13 @@ export function CompactBoard({
           {view === "line" ? (
             <LinePanel data={data} onSelectTrain={onSelectTrain} />
           ) : (
-            <DepartureList data={data} limit={rowsShown} />
+            <>
+              <StatusNotice
+                stationLineCodes={data.lines.map((l) => l.lineCode)}
+                includeTrains={false}
+              />
+              <DepartureList data={data} limit={rowsShown} />
+            </>
           )}
         </div>
       </motion.main>

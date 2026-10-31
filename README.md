@@ -28,6 +28,7 @@ npm run dev
 
 ```bash
 npm run typecheck   # 类型检查
+npm test            # 单元测试（Vitest，测试文件与源文件放在一起，*.test.ts）
 npm run build       # 类型检查并构建到 dist/
 npm run format      # Prettier 格式化
 npm run icons       # 重新生成 public/icons/ 下的 App 图标（几何定义在 scripts/build-icons.ts）

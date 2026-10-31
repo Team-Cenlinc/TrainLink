@@ -10,7 +10,7 @@ import {
  * 全局查询缓存，以及把它存进 localStorage 的设置。
  *
  * TanStack Query 的缓存只在内存里：刷新页面后看板先空白、显示「正在读取站牌…」，
- * 数据回来再整块出现，看起来会闪一下。这里把目录、GTFS 索引和站牌存到本地，
+ * 数据回来再整块出现，看起来会闪一下。这里把目录、GTFS 索引、站牌和运营通告存到本地，
  * 下次打开先显示上次的数据，同时在后台读新的（这些查询恢复后已过 staleTime，会立刻刷新）。
  * 列车位置与行程更新每 15 秒就变，旧数据没有参考价值，不保存。
  */
@@ -22,7 +22,7 @@ const maxAge = 24 * 60 * 60_000;
 const boardMaxAge = 2 * 60_000;
 
 /** 要保存的查询，按 queryKey 第一项区分。 */
-const persistedKeys = new Set(["catalog", "gtfs", "board"]);
+const persistedKeys = new Set(["catalog", "gtfs", "board", "alerts"]);
 
 export const queryClient = new QueryClient({
   defaultOptions: {

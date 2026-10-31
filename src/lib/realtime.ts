@@ -3,7 +3,8 @@ import { railApiBase } from "./railApi.ts";
 /**
  * GTFS-Realtime 实时数据：
  * - 行程更新（trip-updates）：每列车接下来各站的预计到发时刻与晚点；
- * - 车辆位置（vehicle-positions）：每列车每节车厢的满载率。
+ * - 车辆位置（vehicle-positions）：每列车每节车厢的满载率；
+ * - 通告（alerts）：线路停运、班次取消等状态，以及运营方发布的公告。
  * 数据是 protobuf 二进制；解码库只在第一次需要时加载（动态 import），不增加首屏体积。
  */
 
@@ -34,20 +35,95 @@ const toNumber = (value: LongLike): number | undefined => {
 /** stop_id 形如 survival:SURC:S:PTK:1，取出站码 PTK。 */
 const stationOfStop = (stopId: string | null | undefined) => stopId?.split(":S:")[1]?.split(":")[0];
 
-/** 读取并解码某服务器的一个 GTFS-RT 数据源（trip-updates 或 vehicle-positions）。 */
-async function fetchFeed(serverId: string, feedName: string, signal?: AbortSignal) {
-  const [response, bindings] = await Promise.all([
-    fetch(`${railApiBase}/v1/rail/servers/${encodeURIComponent(serverId)}/gtfs-rt/${feedName}`, {
-      signal,
-    }),
-    import("gtfs-realtime-bindings"),
-  ]);
-  if (!response.ok) throw new Error(`实时数据 ${feedName} 读取失败：${response.status}`);
+/** GTFS-RT 解码库，只在第一次需要时加载。 */
+async function loadRealtime() {
+  const bindings = await import("gtfs-realtime-bindings");
   // 这个库是 CommonJS，打包后命名导出可能挂在 default 上。
-  const realtime =
+  return (
     bindings.transit_realtime ??
-    (bindings as unknown as { default: typeof bindings }).default.transit_realtime;
-  return realtime.FeedMessage.decode(new Uint8Array(await response.arrayBuffer()));
+    (bindings as unknown as { default: typeof bindings }).default.transit_realtime
+  );
+}
+
+/** 解码一份 GTFS-RT 二进制数据。 */
+async function decodeFeed(bytes: Uint8Array) {
+  return (await loadRealtime()).FeedMessage.decode(bytes);
+}
+
+/** 读取某服务器的一个 GTFS-RT 数据源（trip-updates、vehicle-positions 或 alerts）的二进制内容。 */
+async function fetchFeedBytes(serverId: string, feedName: string, signal?: AbortSignal) {
+  const response = await fetch(
+    `${railApiBase}/v1/rail/servers/${encodeURIComponent(serverId)}/gtfs-rt/${feedName}`,
+    { signal },
+  );
+  if (!response.ok) throw new Error(`实时数据 ${feedName} 读取失败：${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/** 读取并解码某服务器的一个 GTFS-RT 数据源。 */
+async function fetchFeed(serverId: string, feedName: string, signal?: AbortSignal) {
+  return decodeFeed(await fetchFeedBytes(serverId, feedName, signal));
+}
+
+/** 一条运营通告：系统生成的线路状态（停运、班次取消），或运营方发布的公告。 */
+export interface ServiceAlert {
+  id: string;
+  title: string;
+  body?: string;
+  /** 涉及的线路码；为空表示全网通告。 */
+  lineCodes: string[];
+  /** 对运营的影响：停运、班次减少，或其他（公告、未说明）。 */
+  effect: AlertEffect;
+  /** 生效时段（毫秒）；没有时段表示一直生效，start / end 缺省表示不限。 */
+  activePeriods?: { start?: number; end?: number }[];
+}
+
+export type AlertEffect = "noService" | "reducedService" | "other";
+
+type Translated = { translation?: { text?: string | null; language?: string | null }[] | null };
+
+/** 多语言文字取中文（language 以 zh 开头），没有中文时取第一种。 */
+function chineseText(value: Translated | null | undefined): string | undefined {
+  const translations = value?.translation ?? [];
+  const zh = translations.find((t) => t.language?.startsWith("zh"));
+  return (zh ?? translations[0])?.text ?? undefined;
+}
+
+/** 解码通告数据源。route_id 形如 survival:SURC:DS，取出线路码 DS。 */
+export async function decodeAlerts(bytes: Uint8Array): Promise<ServiceAlert[]> {
+  const realtime = await loadRealtime();
+  const feed = realtime.FeedMessage.decode(bytes);
+  const { Effect } = realtime.Alert;
+  const effectOf = (effect: number | null | undefined): AlertEffect =>
+    effect === Effect.NO_SERVICE
+      ? "noService"
+      : effect === Effect.REDUCED_SERVICE
+        ? "reducedService"
+        : "other";
+  // 时段的 start / end 是秒；0 或缺省表示不限。
+  const msOf = (value: LongLike) => {
+    const seconds = toNumber(value);
+    return seconds ? seconds * 1000 : undefined;
+  };
+  return feed.entity.flatMap((entity) => {
+    const alert = entity.alert;
+    if (!alert) return [];
+    return [
+      {
+        id: entity.id,
+        title: chineseText(alert.headerText) ?? "",
+        body: chineseText(alert.descriptionText),
+        lineCodes: (alert.informedEntity ?? [])
+          .map((e) => e.routeId?.split(":")[2])
+          .filter((code): code is string => Boolean(code)),
+        effect: effectOf(alert.effect),
+        activePeriods: (alert.activePeriod ?? []).map((p) => ({
+          start: msOf(p.start as LongLike),
+          end: msOf(p.end as LongLike),
+        })),
+      },
+    ];
+  });
 }
 
 /**
@@ -72,6 +148,11 @@ export async function fetchCarLoads(
     );
   }
   return byTrain;
+}
+
+/** 读取某服务器当前的运营通告。 */
+export async function fetchAlerts(serverId: string, signal?: AbortSignal) {
+  return decodeAlerts(await fetchFeedBytes(serverId, "alerts", signal));
 }
 
 /** 读取某服务器的行程更新，按列车名索引。 */

@@ -6,6 +6,7 @@ import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
+import { StatusNotice } from "@/features/status/StatusNotice.tsx";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
 import { StationName, StationTags } from "./StationHeader.tsx";
@@ -79,6 +80,7 @@ export function WideBoard({
 
       <main className={styles.panel}>
         <section className={`${styles.column} ${styles.departures}`} aria-label="本站发车">
+          <StatusNotice stationLineCodes={data.lines.map((l) => l.lineCode)} includeTrains />
           <DepartureList data={data} limit={layout === "wide" ? 6 : 4} className={styles.groups} />
         </section>
 

@@ -1,0 +1,47 @@
+/* 同 DepartureGroup 的晚点标签：圆角 4，12 px 粗体，状态色实底配浅色字；图标 14 px 在文字前。 */
+.chip,
+.text {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip {
+  padding: 2px 6px 2px 4px;
+  border-radius: var(--radius-info);
+  font-size: 12px;
+  color: var(--status-text);
+}
+
+.chip svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.caution {
+  background: var(--status-caution);
+}
+
+.severe {
+  background: var(--status-error);
+}
+
+/* 不加底色的状态：13 px 文字，图标 16 px，与文字同色。 */
+.text {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.text svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.ok {
+  color: var(--status-ok);
+}

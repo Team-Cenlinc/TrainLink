@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { fetchGtfsIndex } from "./gtfs.ts";
 import { fetchBoard, fetchCatalog, fetchTrains } from "./railApi.ts";
-import { fetchCarLoads, fetchTripUpdates } from "./realtime.ts";
+import { fetchAlerts, fetchCarLoads, fetchTripUpdates } from "./realtime.ts";
 import type { HomeStation } from "./homeStation.ts";
 
 /**
@@ -82,6 +82,16 @@ export function useCarLoads(serverId: string, enabled: boolean) {
     refetchInterval: 15_000,
     staleTime: 10_000,
     enabled,
+  });
+}
+
+/** 运营通告（停运、班次取消与公告），变化不频繁，每分钟刷新一次。 */
+export function useAlerts(serverId: string) {
+  return useQuery({
+    queryKey: ["alerts", serverId],
+    queryFn: ({ signal }) => fetchAlerts(serverId, signal),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 }
 

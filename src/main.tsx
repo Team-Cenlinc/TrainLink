@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import { App } from "./App.tsx";
 import { BoardPage } from "./features/board/BoardPage.tsx";
 import { PlaceholderPage } from "./features/placeholder/PlaceholderPage.tsx";
+import { StatusPage } from "./features/status/StatusPage.tsx";
 import { persistOptions, queryClient } from "./lib/queryClient.ts";
 import "./styles/global.css";
 
@@ -16,7 +17,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <BoardPage /> },
       { path: "trip", element: <PlaceholderPage title="行程" /> },
-      { path: "status", element: <PlaceholderPage title="运行状态" /> },
+      { path: "status", element: <StatusPage /> },
       { path: "tickets", element: <PlaceholderPage title="车票" /> },
       { path: "settings", element: <PlaceholderPage title="设置" /> },
     ],

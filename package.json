@@ -12,6 +12,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "format": "NODE_OPTIONS=--experimental-strip-types prettier --write .",
     "format:check": "NODE_OPTIONS=--experimental-strip-types prettier --check .",
     "icons": "NODE_OPTIONS=--experimental-strip-types node scripts/build-icons.ts"
@@ -37,6 +39,7 @@
     "sharp": "^0.35.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "vite-plugin-svgr": "^5.2.0"
+    "vite-plugin-svgr": "^5.2.0",
+    "vitest": "^5.0.5"
   }
 }

@@ -1,0 +1,49 @@
+/* 运行提示：与发车卡片同样的白底与 20 px 圆角，一行：状态标签、标题、「另有 N 项」、箭头。 */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-bottom: 20px;
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+}
+
+.notice:active {
+  transform: scale(0.98);
+}
+
+/* 线路名与说明按基线同一行，放不下时说明换到下一行。 */
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+}
+
+.lineName {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.detail {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.more {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: var(--muted);
+}
