@@ -12,6 +12,7 @@ import { serviceTypeOf } from "@/features/board/departures.ts";
 import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import type { RailCatalog } from "@/lib/railApi.ts";
+import { useSettings } from "@/lib/settings.ts";
 import { minutesBetween, transferCount } from "./journeyText.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
 import { changeSeconds, type RideLeg } from "./planner.ts";
@@ -25,9 +26,6 @@ import styles from "./JourneyGuide.module.css";
  * 乘坐指南的几块内容，手机上的乘坐指南页与桌面「行程方案」右栏共用：
  * 概况（用时、换乘、起终点）与操作（收藏、提醒、分享），以及按顺序的时间线。
  */
-
-/** 提醒提前几分钟。 */
-const remindMinutes = 5;
 
 /** 起止时刻「11:12 → 11:25」，用作标题。 */
 export function JourneyTimes({ journey }: { journey: LiveJourney }) {
@@ -94,6 +92,7 @@ function Actions({
   const note = noteOf?.key === key ? noteOf.text : undefined;
   const setNote = (text: string | undefined) => setNoteOf(text ? { key, text } : undefined);
   const issueTicket = useIssueTicket();
+  const { remindMinutes } = useSettings();
   const firstRide = journey.legs.find((l): l is LiveLeg & RideLeg => l.kind === "ride");
   const summary = `${clockOf(journey.live.departure)} ${name(route.from.stationCode)} → ${clockOf(journey.live.arrival)} ${name(route.to.stationCode)}`;
 

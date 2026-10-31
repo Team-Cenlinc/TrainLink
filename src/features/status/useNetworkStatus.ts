@@ -1,6 +1,7 @@
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useAlerts, useCatalog, useNow, useTrains, useTripUpdates } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
+import { useShownOperators } from "@/lib/settings.ts";
 import { buildNetworkStatus } from "./networkStatus.ts";
 
 /**
@@ -18,6 +19,7 @@ export function useNetworkStatus(includeTrains = true) {
   const alerts = useAlerts(serverId);
   const trains = useTrains(includeTrains);
   const tripUpdates = useTripUpdates(serverId, includeTrains);
+  const shown = useShownOperators();
   // 读取失败时 TanStack Query 仍留着上一次的数据，但那已经不新了，按读不到处理。
   const trainList = includeTrains && !trains.isError ? trains.data?.trains : undefined;
   const tripMap = includeTrains && !tripUpdates.isError ? tripUpdates.data : undefined;
@@ -28,7 +30,10 @@ export function useNetworkStatus(includeTrains = true) {
   const status =
     catalog.data && alerts.data
       ? buildNetworkStatus({
-          lines: catalog.data.lines.filter((l) => l.serverId === serverId),
+          // 本服务器上、设置里显示的运营方的线路。
+          lines: catalog.data.lines.filter(
+            (l) => l.serverId === serverId && shown.byId(l.operatorId),
+          ),
           operators: catalog.data.operators,
           alerts: alerts.data,
           trains: trainList,

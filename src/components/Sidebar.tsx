@@ -50,40 +50,43 @@ export function Sidebar() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>常用车站</h2>
-        {favorites.map((favorite) => {
-          const station = findStation(
-            catalog.data,
-            favorite.serverId,
-            favorite.operatorCode,
-            favorite.stationCode,
-          );
-          const current = sameStation(favorite, home);
-          return (
-            <button
-              key={`${favorite.operatorCode}:${favorite.stationCode}`}
-              type="button"
-              className={`${styles.station} ${current ? styles.currentStation : ""}`}
-              aria-current={current || undefined}
-              onClick={() => {
-                setHomeStation(favorite);
-                navigate("/");
-              }}
-            >
-              <span>{station?.name ?? favorite.stationCode}</span>
-              <span className={styles.badges}>
-                {station &&
-                  servingLines(station).map((line) => (
-                    <ServiceBadge
-                      key={line.lineId}
-                      lineCode={line.lineCode}
-                      lineColor={line.color}
-                      size="s"
-                    />
-                  ))}
-              </span>
-            </button>
-          );
-        })}
+        {/* 只列当前服务器上的常用车站。 */}
+        {favorites
+          .filter((f) => f.serverId === home.serverId)
+          .map((favorite) => {
+            const station = findStation(
+              catalog.data,
+              favorite.serverId,
+              favorite.operatorCode,
+              favorite.stationCode,
+            );
+            const current = sameStation(favorite, home);
+            return (
+              <button
+                key={`${favorite.operatorCode}:${favorite.stationCode}`}
+                type="button"
+                className={`${styles.station} ${current ? styles.currentStation : ""}`}
+                aria-current={current || undefined}
+                onClick={() => {
+                  setHomeStation(favorite);
+                  navigate("/");
+                }}
+              >
+                <span>{station?.name ?? favorite.stationCode}</span>
+                <span className={styles.badges}>
+                  {station &&
+                    servingLines(station).map((line) => (
+                      <ServiceBadge
+                        key={line.lineId}
+                        lineCode={line.lineCode}
+                        lineColor={line.color}
+                        size="s"
+                      />
+                    ))}
+                </span>
+              </button>
+            );
+          })}
       </section>
     </aside>
   );

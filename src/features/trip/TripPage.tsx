@@ -48,9 +48,10 @@ export function TripPage() {
   const navigate = useNavigate();
   const layout = useLayout();
   const home = useHomeStation();
-  const favorites = useFavoriteStations();
-  const recent = useRecentTrips();
-  const saved = useSavedTrips();
+  // 常用车站与最近、收藏的行程只列当前服务器上的（服务器在设置里切换）。
+  const favorites = useFavoriteStations().filter((f) => f.serverId === home.serverId);
+  const recent = useRecentTrips().filter((r) => r.from.serverId === home.serverId);
+  const saved = useSavedTrips().filter((r) => r.from.serverId === home.serverId);
   const catalog = useCatalog();
   const [from, setFrom] = useState<HomeStation>(home);
   const [to, setTo] = useState<HomeStation>();

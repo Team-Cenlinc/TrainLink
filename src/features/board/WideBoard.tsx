@@ -19,6 +19,7 @@ interface WideBoardProps {
   layout: Exclude<Layout, "compact">;
   onInfo: PanelOpener;
   onPickStation: PanelOpener;
+  onSearchStation: PanelOpener;
   onChooseLine: (lineCode: string) => void;
   onSelectTrain: TrainSelect;
 }
@@ -35,6 +36,7 @@ export function WideBoard({
   layout,
   onInfo,
   onPickStation,
+  onSearchStation,
   onChooseLine,
   onSelectTrain,
 }: WideBoardProps) {
@@ -54,6 +56,14 @@ export function WideBoard({
           </button>
           <button type="button" className={styles.search} onClick={() => navigate("/trip?pick=to")}>
             <SearchIcon aria-hidden />从{stationName}去哪里？
+          </button>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="搜索车站"
+            onClick={onSearchStation}
+          >
+            <SearchIcon aria-hidden />
           </button>
           <button
             type="button"

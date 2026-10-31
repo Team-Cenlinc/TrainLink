@@ -71,10 +71,23 @@ function localStorageOrUndefined(): Storage | undefined {
   }
 }
 
+/** 本地缓存在 localStorage 里的 key。 */
+const cacheKey = "trainlink:query-cache";
+
+/** 清除数据缓存（设置页「清除本地数据」）：删掉本地存的那份，内存里的查询全部重置并重新读取。 */
+export async function clearQueryCache() {
+  try {
+    localStorage.removeItem(cacheKey);
+  } catch {
+    // 存储不可用时本来就没有本地缓存。
+  }
+  await queryClient.resetQueries();
+}
+
 export const persistOptions: Omit<PersistQueryClientOptions, "queryClient"> = {
   persister: createAsyncStoragePersister({
     storage: localStorageOrUndefined(),
-    key: "trainlink:query-cache",
+    key: cacheKey,
     throttleTime: 2_000,
     serialize: (client) => JSON.stringify(client, replacer),
     deserialize: (text) =>

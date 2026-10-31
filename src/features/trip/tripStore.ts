@@ -70,6 +70,15 @@ export function toggleSavedTrip(route: TripRoute) {
   notify();
 }
 
+/** 清空最近与收藏的行程（设置页「清除本地数据」）。 */
+export function clearTrips() {
+  recent = [];
+  saved = [];
+  save(recentKey, recent);
+  save(savedKey, saved);
+  notify();
+}
+
 export function useRecentTrips(): TripRoute[] {
   return useSyncExternalStore(subscribe, () => recent);
 }

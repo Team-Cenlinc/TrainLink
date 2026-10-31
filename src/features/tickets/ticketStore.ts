@@ -100,6 +100,13 @@ export function updateTicket(ticket: Ticket) {
   notify();
 }
 
+/** 清空票夹（设置页「清除本地数据」）。 */
+export function clearTickets() {
+  tickets = [];
+  save();
+  notify();
+}
+
 export function useTickets(): Ticket[] {
   return useSyncExternalStore(subscribe, () => tickets);
 }

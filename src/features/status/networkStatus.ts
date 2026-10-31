@@ -59,6 +59,7 @@ function isActive(alert: ServiceAlert, now: number): boolean {
 }
 
 export function buildNetworkStatus(input: {
+  /** 要列出的线路（本服务器、设置里显示的运营方）。 */
   lines: RailLine[];
   /** 运营方目录：线路只有 operatorId，通告与列车用的是运营方码；不同运营方可能有同码的线路。 */
   operators: RailOperator[];
@@ -104,13 +105,19 @@ export function buildNetworkStatus(input: {
     return { ...base, state: "normal" };
   });
   const quiet = (s: LineStatus) => severity[s.state] >= severity.noTrains;
+  const shown = new Set(statuses.map((s) => `${s.operatorCode}:${s.line.code}`));
   return {
     attention: statuses
       .filter((s) => !quiet(s))
       .sort((a, b) => severity[a.state] - severity[b.state]),
     others: statuses.filter(quiet),
     delaysKnown: Boolean(input.trains && input.tripUpdates),
-    bulletins: alerts.filter((a) => a.effect === "other" || a.lines.length === 0),
+    // 一般公告只列与这里的线路有关的（设置里隐藏的运营方的线路不在 lines 里）；全网通告照列。
+    bulletins: alerts.filter(
+      (a) =>
+        a.lines.length === 0 ||
+        (a.effect === "other" && a.lines.some((l) => shown.has(`${l.operatorCode}:${l.lineCode}`))),
+    ),
   };
 }
 

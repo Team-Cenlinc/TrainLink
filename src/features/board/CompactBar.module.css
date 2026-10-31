@@ -14,21 +14,40 @@
   gap: 10px;
 }
 
+/* 站名优先完整显示，太长时截断；右边的按钮永远不被挤走。 */
 .title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   font-size: 20px;
   font-weight: 900;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+/*
+ * 编号标签占站名与按钮之间剩下的宽度：只留一行高、放不下的换到第二行并被裁掉，
+ * 所以只显示放得下的那几枚，不会露出半截。
+ */
 .tags {
-  flex-wrap: nowrap;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 24px;
+  overflow: hidden;
 }
 
-.spacer {
-  flex: 1;
+/*
+ * 换行容器的第一项永远留在第一行：垫一个零宽、一行高的项（抵掉它后面的间距），
+ * 第一枚标签放不下时也能整枚换到被裁掉的第二行。
+ */
+.tags::before {
+  content: "";
+  height: 24px;
+  margin-right: -6px;
 }
 
 .iconButton {
+  flex: none;
   display: grid;
   place-items: center;
   width: 44px;

@@ -15,7 +15,9 @@ import { WideBoard } from "./WideBoard.tsx";
  * anchor 是触发按钮（或列车卡片）的位置，大屏弹出卡片据此定位。
  */
 type OpenPanel =
-  | { kind: "info" | "picker"; anchor?: DOMRect }
+  | { kind: "info"; anchor?: DOMRect }
+  /** search：从右上角🔍打开，光标直接放进搜索框。 */
+  | { kind: "picker"; anchor?: DOMRect; search?: boolean }
   | { kind: "train"; trainName: string; anchor?: DOMRect }
   | null;
 
@@ -39,6 +41,15 @@ export function BoardPage() {
   );
   const openPicker = useCallback<PanelOpener>(
     (event) => setPanel({ kind: "picker", anchor: event.currentTarget.getBoundingClientRect() }),
+    [],
+  );
+  const openStationSearch = useCallback<PanelOpener>(
+    (event) =>
+      setPanel({
+        kind: "picker",
+        anchor: event.currentTarget.getBoundingClientRect(),
+        search: true,
+      }),
     [],
   );
   const openTrain = useCallback<TrainSelect>(
@@ -70,6 +81,7 @@ export function BoardPage() {
           onViewChange={setView}
           onInfo={openInfo}
           onPickStation={openPicker}
+          onSearchStation={openStationSearch}
           onChooseLine={chooseLine}
           onSelectTrain={openTrain}
         />
@@ -79,6 +91,7 @@ export function BoardPage() {
           layout={layout}
           onInfo={openInfo}
           onPickStation={openPicker}
+          onSearchStation={openStationSearch}
           onChooseLine={chooseLine}
           onSelectTrain={openTrain}
         />
@@ -111,6 +124,8 @@ export function BoardPage() {
         variant={variant}
         open={panel?.kind === "picker"}
         anchor={panel?.anchor}
+        // 从🔍打开时一定先聚焦搜索框；从「常用车站」打开时按默认（手机先看常用车站）。
+        focusSearch={(panel?.kind === "picker" && panel.search) || undefined}
         onClose={closePanel}
       />
     </>

@@ -55,8 +55,12 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/*
+ * 深色：「跟随系统」（<html> 不带 data-theme）时随系统；设置里选了深色（data-theme="dark"）时
+ * 不论系统都用；选了浅色（data-theme="light"）时不随系统变深。两处的值相同，改一处要同步另一处。
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --canvas: #111416;
     --surface: #1a1e20;
     --surface-raised: #24292b;
@@ -79,4 +83,33 @@
     --floating-shadow: 0 0 58px -20px rgb(0 0 0 / 0.72);
     --control-shadow: 0 5px 15px rgb(0 0 0 / 0.45);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #111416;
+  --surface: #1a1e20;
+  --surface-raised: #24292b;
+  --paper: #1a1e20;
+  --text: #eef0ef;
+  --muted: #b2b8b9;
+  --border: #3d474a;
+  --action: #eef0ef;
+  --action-text: #1b2022;
+  --hero: #24292b;
+  --hero-text: #eef0ef;
+  --status-ok: #4fcb8a;
+  --status-caution: #f0b84a;
+  --status-error: #ff8c84;
+  --status-text: #1b2022;
+  --info: #155575;
+  --focus: #6cb8ec;
+  --exit: #7a5a16;
+  --exit-text: #f4f6f5;
+  --floating-shadow: 0 0 58px -20px rgb(0 0 0 / 0.72);
+  --control-shadow: 0 5px 15px rgb(0 0 0 / 0.45);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }

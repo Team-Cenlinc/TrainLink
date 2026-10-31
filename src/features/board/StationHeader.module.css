@@ -17,6 +17,12 @@
   min-height: 44px;
 }
 
+/* 右上角：搜索车站、车站信息。 */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
 .textButton {
   display: inline-flex;
   align-items: center;

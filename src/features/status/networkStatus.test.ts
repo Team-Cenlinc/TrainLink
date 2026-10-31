@@ -48,6 +48,22 @@ function alert(overrides: Partial<ServiceAlert>): ServiceAlert {
 }
 
 describe("buildNetworkStatus", () => {
+  it("通告只列与显示的线路有关的：设置里隐藏的运营方的线路不在 lines 里，它们的通告也不列；全网通告照列", () => {
+    const status = buildNetworkStatus({
+      operators,
+      lines: [line("MT")],
+      alerts: [
+        alert({ id: "mt", title: "大都会线新车", lines: on("MT") }),
+        alert({ id: "sm", title: "单轨线检修", lines: [{ operatorCode: "PUAT", lineCode: "SM" }] }),
+        alert({ id: "all", title: "全网通告" }),
+      ],
+      trains: [],
+      now,
+    });
+
+    expect(status.bulletins.map((a) => a.id)).toEqual(["mt", "all"]);
+  });
+
   it("线路收到停运通告时列在「需要留意」，状态为暂停服务", () => {
     const status = buildNetworkStatus({
       operators,

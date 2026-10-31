@@ -5,6 +5,9 @@ interface ImportMetaEnv {
   readonly VITE_RAIL_API_BASE?: string;
 }
 
+/** App 版本号，构建时由 vite.config.ts 从 package.json 写入。 */
+declare const __APP_VERSION__: string;
+
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }

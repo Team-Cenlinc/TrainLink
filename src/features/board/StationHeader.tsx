@@ -2,6 +2,7 @@ import type { CSSProperties, PointerEvent, Ref } from "react";
 import { motion, useTransform, type MotionValue } from "motion/react";
 import InfoIcon from "@material-symbols/svg-400/outlined/info.svg?react";
 import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react";
+import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
@@ -24,6 +25,8 @@ interface StationHeaderProps {
   onInfo: PanelOpener;
   /** 「常用车站」：打开车站选择。 */
   onPickStation: PanelOpener;
+  /** 右上角🔍：打开车站选择并聚焦搜索框。 */
+  onSearchStation: PanelOpener;
   /** 在色块上按下即开始拖动面板（下拉）。 */
   onDragStart: (event: PointerEvent) => void;
   /** 面板从默认推上的进度（0–1）。 */
@@ -65,6 +68,7 @@ export function StationHeader({
   clock,
   onInfo,
   onPickStation,
+  onSearchStation,
   onDragStart,
   up,
   down,
@@ -99,9 +103,24 @@ export function StationHeader({
           <StarIcon aria-hidden />
           常用车站
         </button>
-        <button type="button" className={styles.iconButton} aria-label="车站信息" onClick={onInfo}>
-          <InfoIcon aria-hidden />
-        </button>
+        <span className={styles.actions}>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="搜索车站"
+            onClick={onSearchStation}
+          >
+            <SearchIcon aria-hidden />
+          </button>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="车站信息"
+            onClick={onInfo}
+          >
+            <InfoIcon aria-hidden />
+          </button>
+        </span>
       </motion.div>
 
       <motion.div

@@ -3,6 +3,7 @@ import { lineKey } from "@/lib/gtfs.ts";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useBoard, useCarLoads, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
+import { useShownOperators } from "@/lib/settings.ts";
 import {
   blueMapUrl,
   findStation,
@@ -39,7 +40,11 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
   const lines = useMemo(() => (station ? servingLines(station) : []), [station]);
   const lineOrders = gtfs.data?.lineOrders;
   // 有站序数据（GTFS 里有车次）的线路才能画列车位置；停运检修的线路没有。
-  const orderedLines = lines.filter((l) => lineOrders?.has(lineKey(l.operatorCode, l.lineCode)));
+  // 全线视图只列设置里显示的运营方的线路；本站的线路全被隐藏时照常全列，免得线路视图空着。
+  const shown = useShownOperators();
+  const drawable = lines.filter((l) => lineOrders?.has(lineKey(l.operatorCode, l.lineCode)));
+  const shownLines = drawable.filter((l) => shown.byCode(home.serverId, l.operatorCode));
+  const orderedLines = shownLines.length > 0 ? shownLines : drawable;
   const primaryLine =
     orderedLines.find((l) => l.lineCode === preferredLine) ?? orderedLines[0] ?? lines[0];
   const strip =

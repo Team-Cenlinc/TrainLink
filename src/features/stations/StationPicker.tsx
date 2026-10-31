@@ -17,6 +17,7 @@ import {
 } from "@/lib/homeStation.ts";
 import { useCatalog, useGtfs } from "@/lib/queries.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
+import { useShownOperators } from "@/lib/settings.ts";
 import { servingLines } from "@/lib/station.ts";
 import styles from "./StationPicker.module.css";
 
@@ -94,6 +95,7 @@ function PickerContent({
   const favorites = useFavoriteStations();
   const catalog = useCatalog();
   const gtfs = useGtfs(home.serverId);
+  const shown = useShownOperators();
   const [query, setQuery] = useState("");
 
   // 车站条目与按线路的分组只在数据变化时重算。
@@ -101,7 +103,10 @@ function PickerContent({
     const data = catalog.data;
     if (!data) return { entries: [] as Entry[], groups: [] };
     const operatorCode = new Map(data.operators.map((o) => [o.id, o.code]));
-    const entries: Entry[] = data.stations.map((s) => ({
+    // 只列本站所在服务器、设置里显示的运营方的车站与线路。
+    const listed = (item: { serverId: string; operatorId: string }) =>
+      item.serverId === home.serverId && shown.byId(item.operatorId);
+    const entries: Entry[] = data.stations.filter(listed).map((s) => ({
       key: s.id,
       ref: {
         serverId: s.serverId,
@@ -116,7 +121,7 @@ function PickerContent({
       entries.find((e) => e.ref.operatorCode === op && e.ref.stationCode === code);
 
     // 每条线路按 GTFS 站序列出车站；没有站序时按 catalog 中停靠该线的车站排列。
-    const groups = data.lines.map((line) => {
+    const groups = data.lines.filter(listed).map((line) => {
       const op = operatorCode.get(line.operatorId) ?? "";
       const order = gtfs.data?.lineOrders.get(lineKey(op, line.code));
       const stations = order
@@ -125,7 +130,7 @@ function PickerContent({
       return { line, stations };
     });
     return { entries, groups: groups.filter((g) => g.stations.length > 0) };
-  }, [catalog.data, gtfs.data]);
+  }, [catalog.data, gtfs.data, home.serverId, shown]);
 
   const isFavorite = (e: Entry) => favorites.some((f) => sameStation(f, e.ref));
   const choose = (e: Entry) => {

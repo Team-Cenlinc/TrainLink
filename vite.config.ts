@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -14,8 +15,16 @@ const railApiProxy = {
   "/v1/rail": { target: railApiOrigin, changeOrigin: true },
 };
 
+/** App 版本号（package.json），设置页「关于」里显示。 */
+const { version } = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+) as {
+  version: string;
+};
+
 export default defineConfig({
   plugins: [react(), svgr()],
+  define: { __APP_VERSION__: JSON.stringify(version) },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

@@ -1,6 +1,7 @@
 import type { CSSProperties, Ref } from "react";
 import { motion, useTransform, type MotionValue } from "motion/react";
 import InfoIcon from "@material-symbols/svg-400/outlined/info.svg?react";
+import RouteIcon from "@material-symbols/svg-400/outlined/route.svg?react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
@@ -15,7 +16,10 @@ interface CompactBarProps {
   lines: RailStationLine[];
   /** 面板从默认推上的进度（0–1）。 */
   up: MotionValue<number>;
-  onSearch: () => void;
+  /** 规划行程（去哪里）。 */
+  onTrip: () => void;
+  /** 搜索车站（与色块右上角的🔍相同）。 */
+  onSearchStation: PanelOpener;
   onInfo: PanelOpener;
   barRef: Ref<HTMLDivElement>;
 }
@@ -23,8 +27,9 @@ interface CompactBarProps {
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 /**
- * 面板推上后的收起标题栏：一行「站名 + 编号」，右侧搜索与车站信息。
- * 搜索框此时已滚出视野，所以搜索按钮只在这里出现。
+ * 面板推上后的收起标题栏：一行「站名 + 编号」，右侧规划行程、搜索车站与车站信息。
+ * 「去哪里」搜索框此时已滚出视野，规划行程用与「行程」标签相同的路线图标；
+ * 🔍 与色块右上角的一样，是搜索车站。
  *
  * 动效：只在推上行程的后 45% 出现（大站名在前 60% 已淡出），并从下方 8 px 升到原位，
  * 两个标题依次交接，不会叠在一起。背景透明：后面的色块本来就是同一颜色。
@@ -34,7 +39,8 @@ export function CompactBar({
   stationCode,
   lines,
   up,
-  onSearch,
+  onTrip,
+  onSearchStation,
   onInfo,
   barRef,
 }: CompactBarProps) {
@@ -51,12 +57,14 @@ export function CompactBar({
       <motion.div className={styles.content} style={{ opacity, y }} inert={!shown}>
         <span className={styles.title}>{name}</span>
         <StationTags lines={lines} stationCode={stationCode} className={styles.tags} />
-        <span className={styles.spacer} />
+        <button type="button" className={styles.iconButton} aria-label="规划行程" onClick={onTrip}>
+          <RouteIcon aria-hidden />
+        </button>
         <button
           type="button"
           className={styles.iconButton}
-          aria-label="搜索去哪里"
-          onClick={onSearch}
+          aria-label="搜索车站"
+          onClick={onSearchStation}
         >
           <SearchIcon aria-hidden />
         </button>

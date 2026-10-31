@@ -43,6 +43,7 @@ interface CompactBoardProps {
   onViewChange: (view: BoardView) => void;
   onInfo: PanelOpener;
   onPickStation: PanelOpener;
+  onSearchStation: PanelOpener;
   onChooseLine: (lineCode: string) => void;
   onSelectTrain: TrainSelect;
 }
@@ -58,6 +59,7 @@ export function CompactBoard({
   onViewChange,
   onInfo,
   onPickStation,
+  onSearchStation,
   onChooseLine,
   onSelectTrain,
 }: CompactBoardProps) {
@@ -147,6 +149,7 @@ export function CompactBoard({
         clock={formatClock(data.now, timeZone)}
         onInfo={onInfo}
         onPickStation={onPickStation}
+        onSearchStation={onSearchStation}
         onDragStart={startDrag}
         up={up}
         down={down}
@@ -159,7 +162,8 @@ export function CompactBoard({
         stationCode={home.stationCode}
         lines={lines}
         up={up}
-        onSearch={() => navigate("/trip?pick=to")}
+        onTrip={() => navigate("/trip?pick=to")}
+        onSearchStation={onSearchStation}
         onInfo={onInfo}
         barRef={barRef}
       />
