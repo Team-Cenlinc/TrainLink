@@ -7,7 +7,7 @@ import {
   type PointerEvent,
 } from "react";
 import { useNavigate } from "react-router";
-import { motion, useTransform } from "motion/react";
+import { motion, useReducedMotion, useTransform } from "motion/react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { Segmented } from "@/components/Segmented.tsx";
 import { formatClock } from "@/lib/time.ts";
@@ -63,6 +63,7 @@ export function CompactBoard({
   onChooseLine,
   onSelectTrain,
 }: CompactBoardProps) {
+  const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { home, station, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
 
@@ -70,6 +71,7 @@ export function CompactBoard({
   const titleRef = useRef<HTMLDivElement>(null);
   const contextRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [detents, setDetents] = useState<Detents | null>(null);
 
   useLayoutEffect(() => {
@@ -139,7 +141,8 @@ export function CompactBoard({
   };
 
   return (
-    <div className={styles.page}>
+    // data-fixed-page：整页固定不滚动，文档也锁住（见 global.css）。
+    <div className={styles.page} data-fixed-page>
       <StationHeader
         station={station}
         stationCode={home.stationCode}
@@ -202,7 +205,10 @@ export function CompactBoard({
           />
         </div>
 
-        <div className={`${styles.scroll} ${detent === "expanded" ? styles.scrollable : ""}`}>
+        <div
+          ref={scrollRef}
+          className={`${styles.scroll} ${detent === "expanded" ? styles.scrollable : ""}`}
+        >
           {view === "station" && (
             <button
               type="button"
@@ -220,8 +226,9 @@ export function CompactBoard({
               value={view}
               onChange={(next) => {
                 onViewChange(next);
-                // 整条线需要更多空间，切到「线路」时把面板推上。
-                if (next === "line") goTo("expanded");
+                // 面板停在用户放的位置，不跟着切换自己推上去（想看整条线再往上拖）。
+                // 线路视图打开时自己把本站滚到中间；切回车站时从列表开头看起。
+                if (next === "station") scrollRef.current?.scrollTo({ top: 0 });
               }}
             />
             {view === "line" && (
@@ -243,14 +250,25 @@ export function CompactBoard({
             )}
           </div>
 
-          {view === "line" ? (
-            <LinePanel data={data} onSelectTrain={onSelectTrain} />
-          ) : (
-            <>
-              <StatusNotice stationLineCodes={data.lines.map((l) => l.lineCode)} />
-              <DepartureList data={data} limit={rowsShown} />
-            </>
-          )}
+          {/*
+            切换「车站 / 线路」时内容顺着分段控制的方向滑入并淡入：切到右边的「线路」从右边来，
+            切回「车站」从左边来。只做进场，旧内容直接换掉，不让两份内容叠在一起。
+          */}
+          <motion.div
+            key={view}
+            initial={reduceMotion ? false : { opacity: 0, x: view === "line" ? 24 : -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+          >
+            {view === "line" ? (
+              <LinePanel data={data} onSelectTrain={onSelectTrain} />
+            ) : (
+              <>
+                <StatusNotice stationLineCodes={data.lines.map((l) => l.lineCode)} />
+                <DepartureList data={data} limit={rowsShown} />
+              </>
+            )}
+          </motion.div>
         </div>
       </motion.main>
     </div>

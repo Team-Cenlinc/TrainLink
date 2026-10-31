@@ -47,7 +47,8 @@ export function WideBoard({
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
 
   return (
-    <div className={`${styles.page} ${styles[layout]}`} style={style}>
+    // data-fixed-page：整页固定不滚动，文档也锁住（见 global.css）。
+    <div className={`${styles.page} ${styles[layout]}`} style={style} data-fixed-page>
       <header className={styles.hero}>
         <div className={styles.topbar}>
           <button type="button" className={styles.textButton} onClick={onPickStation}>

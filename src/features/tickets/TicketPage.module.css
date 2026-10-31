@@ -148,16 +148,36 @@
 /*
  * 撕开后票身下沿的锯齿：与面板底色相同的一排三角，盖在票脚下沿，连两侧外框一起切成锯齿。
  * round 让齿数取整、按宽度微调齿距，两端都停在完整的齿上。
+ * 撕线本身就是这排锯齿：没撕时票根顶边的白齿（.stubSeam）正好填在这些三角里。
  */
-.teeth {
+.teeth,
+.stubSeam {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1px;
   height: 8px;
-  background: conic-gradient(from -45deg at 50% 100%, transparent 90deg, var(--canvas) 0) 0 0 / 16px
-    8px;
-  background-repeat: round no-repeat;
+  /*
+   * 一格 16×8：折线以下的部分（两侧向上的半个三角）。用 SVG 遮罩画，边缘干净；
+   * 用 conic-gradient 画的话，在小数像素位置上锯齿带顶沿会多出一条细灰线，像一道虚线。
+   */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M0 0L8 8L16 0V8H0Z'/%3E%3C/svg%3E")
+    0 0 / 16px 8px round no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M0 0L8 8L16 0V8H0Z'/%3E%3C/svg%3E")
+    0 0 / 16px 8px round no-repeat;
+}
+
+/*
+ * 票身下沿多盖 1 px（形状高 9 px，最下面一行整条铺满，画在同一条路径里）：
+ * 撕开后票身底边落在小数像素上时，不透出一条深色细线。锯齿本身仍是上面 8 px，与票根的白齿对齐。
+ */
+.teeth {
+  bottom: -1px;
+  height: 9px;
+  background: var(--canvas);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 9'%3E%3Cpath d='M0 0L8 8L16 0V9H0Z'/%3E%3C/svg%3E")
+    0 0 / 16px 9px round no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 9'%3E%3Cpath d='M0 0L8 8L16 0V9H0Z'/%3E%3C/svg%3E")
+    0 0 / 16px 9px round no-repeat;
 }
 
 .band {
@@ -227,7 +247,8 @@
 }
 
 /*
- * 票根：二维码与刷新倒计时。上沿是撕线（3 px 虚线），两端各一个半圆缺口（同纸质车票）。
+ * 票根：二维码与刷新倒计时。上沿就是撕线：一排锯齿，与票身票脚的锯齿咬合在一起。
+ * 撕下时沿锯齿分开：票身留下向下的齿，票根带走向上的齿。
  * 撕下时以左上角为轴翻落（动画见 ticketMotion.ts）。
  */
 .stub {
@@ -237,30 +258,23 @@
   gap: 16px;
   padding: 20px;
   border: 3px solid var(--text);
-  border-top: 3px dashed var(--text);
+  border-top: 0;
   border-radius: 0 0 var(--radius-group) var(--radius-group);
   background: var(--paper);
+  /* 纸色往上多铺 1 px：两段的边缘落在同一个小数像素上时，交界处不透出一条深色细线。 */
+  box-shadow: 0 -1px 0 var(--paper);
   transform-origin: left top;
 }
 
-.stub::before,
-.stub::after {
-  content: "";
-  position: absolute;
-  top: -14px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--canvas);
-  border: 3px solid var(--text);
-}
-
-.stub::before {
-  left: -15px;
-}
-
-.stub::after {
-  right: -15px;
+/*
+ * 票根顶边向上的白齿：与 .teeth 同一形状、同样宽度与齿距，只是三角用纸色，
+ * 叠在票脚最下面那 8 px 上，正好填满票身锯齿之间的空隙，两排齿咬合成一条锯齿撕线。
+ */
+.stubSeam {
+  top: -8px;
+  left: -3px;
+  right: -3px;
+  background: var(--paper);
 }
 
 /*

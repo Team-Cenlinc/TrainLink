@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import ArrowIcon from "@material-symbols/svg-400/outlined/north_east.svg?react";
 import HistoryIcon from "@material-symbols/svg-400/outlined/history.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star-fill.svg?react";
@@ -47,6 +48,7 @@ const whenOptions = [
 export function TripPage() {
   const navigate = useNavigate();
   const layout = useLayout();
+  const reduceMotion = useReducedMotion();
   const home = useHomeStation();
   // 常用车站与最近、收藏的行程只列当前服务器上的（服务器在设置里切换）。
   const favorites = useFavoriteStations().filter((f) => f.serverId === home.serverId);
@@ -159,15 +161,32 @@ export function TripPage() {
     >
       <div className={styles.when}>
         <Segmented label="出发时间" options={whenOptions} value={when} onChange={changeWhen} />
-        {when === "at" && (
-          <input
-            type="time"
-            className={styles.time}
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            aria-label="出发时刻"
-          />
-        )}
+        {/*
+          指定时间时在切换条下面多一行，切换条本身的宽度不变。这一行展开、收起时高度一起过渡，
+          下面的内容平滑地让开；收起时连同上面 10 px 的间距一起收掉，不留一下跳动。
+        */}
+        <AnimatePresence initial={false}>
+          {when === "at" && (
+            <motion.div
+              key="time"
+              className={styles.timeReveal}
+              initial={{ height: 0, marginTop: -10, opacity: 0 }}
+              animate={{ height: "auto", marginTop: 0, opacity: 1 }}
+              exit={{ height: 0, marginTop: -10, opacity: 0 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.24, ease: [0.2, 0, 0, 1] }}
+            >
+              <label className={styles.timeRow}>
+                出发时刻
+                <input
+                  type="time"
+                  className={styles.time}
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+              </label>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {to && (
           <button type="button" className={styles.go} onClick={() => search({ from, to })}>
             查询

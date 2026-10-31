@@ -18,6 +18,35 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * 整页固定、只在内部滚动的页面（看板）：文档本身不滚动也不回弹。
+ * iOS Safari 即使文档没有可滚动的内容也会整页回弹：手指在色块、标签栏上拖，
+ * 或面板内容不够长时，滑动会传给文档，固定定位的标签栏跟着被拖走，状态栏下也会出现滚动模糊。
+ */
+html:has([data-fixed-page]),
+html:has([data-fixed-page]) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*
+ * 换页（标签栏、侧边栏的 NavLink 带 viewTransition）：浏览器的视图过渡，页面整体淡入淡出 180 ms。
+ * 标签栏与侧边栏有自己的 view-transition-name，单独成一层，不跟着页面闪。
+ * 减少动态效果时直接换页。
+ */
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
 button {
   font: inherit;
   color: inherit;

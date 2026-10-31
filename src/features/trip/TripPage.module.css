@@ -92,26 +92,52 @@
   cursor: default;
 }
 
-/* 出发时间：分段控制；指定时间时后面跟一个时刻输入；选好终点后有「查询」按钮。 */
+/*
+ * 出发时间：分段控制占满一行；指定时间时下面多一行时刻输入；选好终点后再一行「查询」。
+ * 每样各占一行，分段控制的宽度不随出现的控件变化。
+ */
 .when {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
   margin-bottom: 28px;
 }
 
-.time {
-  height: 44px;
-  padding: 0 12px;
-  border: 0;
+/* 展开、收起「出发时刻」时裁掉还没露出来的部分。 */
+.timeReveal {
+  overflow: hidden;
+}
+
+/* 「出发时刻」一行：左边说明，右边时刻；白底圆角，与分段控制同宽。 */
+.timeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 4px 6px 4px 16px;
   border-radius: var(--radius-control);
   background: var(--paper);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.time {
+  height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control-inner);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
   color: var(--text);
   font: inherit;
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 800;
+}
+
+/* 焦点框画在输入框里面：外层为了展开动画一直裁切，画在外面会被裁掉。 */
+.time:focus-visible {
+  outline-offset: -3px;
 }
 
 .go {
@@ -128,9 +154,8 @@
   transform: scale(0.97);
 }
 
-/* 查询不了时的一句说明（例如起点和终点相同），占满一行。 */
+/* 查询不了时的一句说明（例如起点和终点相同）。 */
 .hint {
-  flex-basis: 100%;
   margin: 0;
   color: var(--muted);
   font-size: 13px;

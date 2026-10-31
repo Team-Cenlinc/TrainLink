@@ -252,6 +252,8 @@ function TicketView({ id }: { id?: string }) {
 
               {!ticket.exit && (
                 <div ref={stub} className={styles.stub}>
+                  {/* 票根顶边向上的齿，与票身的锯齿咬合成撕线（见样式说明）。 */}
+                  <span className={styles.stubSeam} aria-hidden />
                   <div className={`${styles.qr} ${live ? "" : styles.qrOff}`}>
                     {/* 每 30 秒换码：新码叠在旧码上淡入，旧码淡出。 */}
                     <AnimatePresence initial={false} mode="popLayout">

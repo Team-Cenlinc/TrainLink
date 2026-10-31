@@ -1,4 +1,6 @@
 .sidebar {
+  /* 换页的视图过渡里单独成一层：页面淡入淡出时侧边栏留在原处（见 global.css）。 */
+  view-transition-name: sidebar;
   position: fixed;
   top: 0;
   bottom: 0;

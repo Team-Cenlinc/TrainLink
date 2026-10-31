@@ -36,6 +36,8 @@ export function Sidebar() {
             key={to}
             to={to}
             end={to === "/"}
+            // 换页时淡入淡出（浏览器的视图过渡，见 global.css）。
+            viewTransition
             className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ""}`}
           >
             {({ isActive }) => (

@@ -1,4 +1,5 @@
 .track {
+  position: relative;
   display: flex;
   flex: 1;
   padding: 4px;
@@ -7,18 +8,39 @@
 }
 
 .option {
+  position: relative;
   flex: 1;
   height: 36px;
   border-radius: var(--radius-control-inner);
   color: var(--muted);
   font-size: 14px;
   font-weight: 700;
-  transition: background-color 150ms ease-out;
+  transition: color 150ms ease-out;
 }
 
-/* 选中项用抬高一层的表面：浅色下接近白，深色下比轨道更亮，不会显得凹陷。 */
 .selected {
-  background: var(--surface-raised);
   color: var(--text);
+}
+
+/*
+ * 滑块：选中项下面抬高一层的表面（浅色下接近白，深色下比轨道更亮，不会显得凹陷）。
+ * 宽度是一格，按 --index 横向平移到选中项下面；换选时用 transform 过渡滑过去。
+ */
+.thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / var(--count));
+  border-radius: var(--radius-control-inner);
+  background: var(--surface-raised);
   box-shadow: var(--control-shadow);
+  transform: translateX(calc(var(--index) * 100%));
+  transition: transform 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb {
+    transition: none;
+  }
 }
