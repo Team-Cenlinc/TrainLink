@@ -3,6 +3,10 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
+  /*
+   * 面板灰：Safari 给浏览器栏着色时会参考贴边固定元素的底色，与 theme-color 一致用面板灰
+   *（为什么不跟线路色，见 lib/useTopColor.ts）。面板与色块各自有底色，这里露不出来。
+   */
   background: var(--canvas);
 }
 
@@ -48,16 +52,16 @@
   background: var(--border);
 }
 
+/*
+ * 内容区：面板在哪个位置都能上下滚动；拖动面板用顶部的拖动条与色块。
+ * 底部留白另加 --offscreen（面板此刻在屏幕外的那截高度），最后一项才滚得进视野。
+ */
 .scroll {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-  padding: 0 16px calc(var(--safe-bottom) + 110px);
-}
-
-.scrollable {
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 0 16px calc(var(--safe-bottom) + 110px + var(--offscreen, 0px));
 }
 
 .tripEntry {

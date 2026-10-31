@@ -6,6 +6,7 @@ import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
+import { useTopColor } from "@/lib/useTopColor.ts";
 import { StatusNotice } from "@/features/status/StatusNotice.tsx";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
@@ -44,6 +45,8 @@ export function WideBoard({
   const { home, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
   const isTransfer = lines.length > 1;
   const color = isTransfer ? fallbackLineColor : (primaryLine?.color ?? fallbackLineColor);
+  // 从主屏打开时状态栏与色块同色（见 useTopColor）；车站数据还没到时不改，免得先闪一下默认深色。
+  useTopColor(data.station ? color : undefined);
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
 
   return (

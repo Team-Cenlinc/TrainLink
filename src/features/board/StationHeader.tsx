@@ -8,6 +8,7 @@ import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
 import type { StripStop } from "@/lib/station.ts";
+import { useTopColor } from "@/lib/useTopColor.ts";
 import type { PanelOpener } from "./BoardPage.tsx";
 import { useShown } from "./useShown.ts";
 import styles from "./StationHeader.module.css";
@@ -77,6 +78,8 @@ export function StationHeader({
 }: StationHeaderProps) {
   const isTransfer = lines.length > 1;
   const color = isTransfer ? fallbackLineColor : (lines[0]?.color ?? fallbackLineColor);
+  // 从主屏打开时状态栏与色块同色（见 useTopColor）；车站数据还没到时不改，免得先闪一下默认深色。
+  useTopColor(station ? color : undefined);
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
   const position = station?.position;
 

@@ -6,10 +6,28 @@
   box-sizing: border-box;
 }
 
+/*
+ * 文档背景是面板的浅灰：Safari 网页里状态栏与底部工具栏都是这个灰（theme-color、贴边的固定页面底色也是它）。
+ * 不跟每页标题色的原因见 lib/useTopColor.ts。
+ * body 不铺底色（Safari 会改取 body 的颜色），页面内容的底色由各页自己给。
+ * 关掉整页回弹，免得拉过头时露出不同颜色的一截。
+ */
+html {
+  background: var(--canvas);
+  overscroll-behavior-y: none;
+}
+
+/*
+ * 从主屏以网页 App 打开（状态栏透明，见 index.html）：状态栏下的滚动边缘渐变取文档背景色，
+ * 用顶部颜色，与标题色块同色看不出来。代价是 iOS 26 视口少一截时，屏幕最底下那条也是这个颜色。
+ */
+html[data-standalone] {
+  background: var(--top-color, var(--canvas));
+}
+
 html,
 body {
   margin: 0;
-  background: var(--canvas);
   color: var(--text);
   font-family: var(--font-sc);
   -webkit-font-smoothing: antialiased;

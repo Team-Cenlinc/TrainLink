@@ -14,6 +14,7 @@ import { TripPage } from "./features/trip/TripPage.tsx";
 import { centerFontMetrics } from "./lib/fontMetrics.ts";
 import { persistOptions, queryClient } from "./lib/queryClient.ts";
 import { applyTheme, readSettings } from "./lib/settings.ts";
+import { restoreTopColor } from "./lib/useTopColor.ts";
 import "./styles/global.css";
 
 /** 五个标签各对应一个路由，共用 App 外壳。 */
@@ -36,6 +37,8 @@ const router = createBrowserRouter([
 
 // 设置里的外观在第一次渲染前就写上，不会先闪一下系统配色。
 applyTheme(readSettings().theme);
+// 上次的顶部颜色也在第一次渲染前设上（见 lib/useTopColor.ts）。
+restoreTopColor();
 // 文字在标签、按钮里上下居中（见 lib/fontMetrics.ts）；不等它，字体规则到了再生效。
 void centerFontMetrics();
 

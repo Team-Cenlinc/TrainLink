@@ -7,7 +7,7 @@ import {
   type PointerEvent,
 } from "react";
 import { useNavigate } from "react-router";
-import { motion, useReducedMotion, useTransform } from "motion/react";
+import { motion, useReducedMotion, useTransform, type MotionStyle } from "motion/react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { Segmented } from "@/components/Segmented.tsx";
 import { formatClock } from "@/lib/time.ts";
@@ -119,6 +119,12 @@ export function CompactBoard({
     const d = detentsRef.current;
     return d ? progress(v - d.normal, d.peek - d.normal) : 0;
   });
+  // 面板此刻在屏幕外的那截高度（总高按推上时算）：内容区底部补上同样高的留白，最后一项也能滚进视野。
+  // 跟着面板实时位置走：推上时留白随面板一起减少，列表底部在屏幕上不动，不会因留白突然变少而跳一下。
+  const offscreen = useTransform(y, (v) => {
+    const d = detentsRef.current;
+    return `${d ? Math.max(0, v - d.expanded) : 0}px`;
+  });
   // 面板升到色块上方时阴影加深，表达它在色块之上。
   const sheetShadow = useTransform(up, (p) => `0 -10px 30px rgb(0 0 0 / ${(0.14 * p).toFixed(3)})`);
 
@@ -205,9 +211,11 @@ export function CompactBoard({
           />
         </div>
 
-        <div
+        {/* 内容区在面板的每个位置都能滚动，底部留白见上面的 offscreen。 */}
+        <motion.div
           ref={scrollRef}
-          className={`${styles.scroll} ${detent === "expanded" ? styles.scrollable : ""}`}
+          className={styles.scroll}
+          style={{ "--offscreen": offscreen } as MotionStyle}
         >
           {view === "station" && (
             <button
@@ -269,7 +277,7 @@ export function CompactBoard({
               </>
             )}
           </motion.div>
-        </div>
+        </motion.div>
       </motion.main>
     </div>
   );
