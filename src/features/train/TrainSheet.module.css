@@ -226,11 +226,21 @@
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
-/* 直通：途经线路的小色标，按运行顺序。 */
+/* 直通说明：标题下一行，13 px 粗体，前面是目标线路色的小方块。 */
 .through {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin: -10px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.through i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
 
 /* 列车不停本站：在原本「距本站」的位置说明一句。 */

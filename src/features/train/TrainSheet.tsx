@@ -1,4 +1,4 @@
-import { Fragment, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import CollapseIcon from "@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react";
 import { Overlay } from "@/components/Overlay.tsx";
@@ -89,21 +89,18 @@ function Content({
         </button>
       </header>
 
+      {/* 跨线直通：紧贴标题说明在哪一站起转入哪条线路，色块是那条线路的颜色。 */}
+      {detail.throughAt.map((through) => (
+        <p key={through.stationName} className={styles.through}>
+          <i style={{ background: through.line.color ?? fallbackLineColor }} aria-hidden />
+          {through.stationName}起直通 {through.line.lineCode} {through.line.lineName}
+        </p>
+      ))}
+
       <p className={styles.meta}>
         {detail.delayMinutes && (
           <span className={`${styles.chip} ${detail.delayMinutes >= 5 ? styles.severe : ""}`}>
             晚点 {detail.delayMinutes} 分
-          </span>
-        )}
-        {detail.through && (
-          <span className={styles.through}>
-            {detail.through.map((l, i) => (
-              <Fragment key={l.lineId}>
-                {i > 0 && <span aria-hidden>→</span>}
-                <ServiceBadge lineCode={l.lineCode} lineColor={l.color} size="s" />
-              </Fragment>
-            ))}
-            直通
           </span>
         )}
         {detail.cars && <span>{detail.cars.length} 节</span>}

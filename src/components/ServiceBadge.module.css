@@ -8,10 +8,15 @@
   overflow: hidden;
 }
 
-/* text-box 去掉字体上下留白，线路码在色块里光学居中。 */
+/*
+ * text-box 去掉字体上下留白，线路码在色块里光学居中。
+ * 最小宽度 2.4 字宽：两个字母的线路码（MT、IS、WS…）色块一样宽，并排时不会参差。
+ */
 .code {
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 2.4em;
   font-family: var(--font-display);
   font-weight: 800;
   letter-spacing: -0.01em;

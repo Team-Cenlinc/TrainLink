@@ -120,21 +120,26 @@
   white-space: nowrap;
 }
 
-.code {
-  padding: 0 4px;
-  border: 1.5px solid var(--line);
+/* 站码、「本站」与旁边的小号线路色牌同高 22 px，一行里的小标签上下边对齐。 */
+.code,
+.here {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 5px;
   border-radius: var(--radius-info);
+  font-size: 11px;
+}
+
+.code {
+  border: 1.5px solid var(--line);
   font-family: var(--font-display);
-  font-size: 10px;
   font-weight: 800;
 }
 
 .here {
-  padding: 0 4px;
-  border-radius: var(--radius-info);
   background: var(--action);
   color: var(--action-text);
-  font-size: 10px;
   font-weight: 700;
 }
 
@@ -196,8 +201,30 @@
     var(--control-shadow);
 }
 
-.train:active {
+/* 卡片里每列车一段，各自是按钮。单车卡片按下时整张缩一点；合并卡片只给按下的那一段加底色。 */
+.entry {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: center;
+}
+
+.train:not(.combined):active {
   transform: scale(0.97);
+}
+
+.combined .entry:active .cardBody {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* 合并卡片：只有第一段标题保留上圆角，后面几段的标题直接接在上一段车厢行下面。 */
+.entry + .entry .cardHead {
+  border-radius: 0;
+}
+
+.entry:last-child .cardBody {
+  border-radius: 0 0 var(--radius-info) var(--radius-info);
 }
 
 .left {
@@ -228,6 +255,17 @@
 .left .tail {
   left: calc(100% + 3px);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+/* 合并卡片里第二列车起的晚点标签：放在车厢行里，代替列车图标。 */
+.delayInline {
+  padding: 0 4px;
+  border-radius: var(--radius-info);
+  background: var(--status-caution);
+  color: var(--status-text);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .delay {

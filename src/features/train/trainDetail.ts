@@ -33,8 +33,8 @@ export interface TrainDetail {
   headsign?: string;
   delayMinutes?: number;
   cars?: CarLoad[];
-  /** 跨线直通的车次：按运行顺序经过的线路（至少两条）；不直通时为 undefined。 */
-  through?: RailStationLine[];
+  /** 前方的跨线直通：在哪一站起转入哪条线路，按运行顺序；已经过的换线站不再列出。 */
+  throughAt: { stationName: string; line: RailStationLine }[];
   /** 这趟车不经停本站时，本站站名（例如快车通过的站、短交路到不了的站）。 */
   notStopping?: string;
   /** 当前区间：停在某站时只有 at，行驶中为 from → to。 */
@@ -110,9 +110,6 @@ export function buildTrainDetail(input: {
     const station = findStation(catalog, serverId, line.operatorCode, order[index] ?? "");
     return station?.lines.find((l) => l.lineCode === lineCode && !l.viaStationCode) ?? line;
   };
-  const lineSequence = order
-    .map((_, index) => lineAt(index))
-    .filter((l, index, all) => index === 0 || l.lineCode !== all[index - 1]?.lineCode);
 
   // 在停站序里的位置：停在某个停靠站上，或者在 ahead 这一站之前的区间里。
   // ahead 依次看下一节点、实时数据里第一个还没到时刻的站、当前站的下一站。
@@ -167,7 +164,12 @@ export function buildTrainDetail(input: {
     headsign: input.headsign,
     delayMinutes: delayMinutes >= 1 ? delayMinutes : undefined,
     cars: input.carLoads?.map(loadOfRatio) ?? departure?.cars?.map(carLoad),
-    through: lineSequence.length > 1 ? lineSequence : undefined,
+    throughAt: stops
+      .filter(
+        (stop, i) =>
+          stop.kind !== "passed" && i > 0 && stop.line.lineCode !== stops[i - 1]?.line.lineCode,
+      )
+      .map((stop) => ({ stationName: stop.name, line: stop.line })),
     notStopping:
       order.length > 0 && !order.includes(input.homeStationCode)
         ? nameOf(input.homeStationCode)

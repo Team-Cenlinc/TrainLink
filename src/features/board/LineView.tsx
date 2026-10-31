@@ -10,7 +10,7 @@ import styles from "./LineView.module.css";
 
 /** 每站一行的高度；列车位置按行换算成纵坐标。 */
 const rowHeight = 72;
-/** 列车卡片高度（标题 36 + 正文 28），用于避让同一侧的相邻卡片。 */
+/** 一列车在卡片里占的高度（标题 36 + 正文 28）；合并卡片按车数叠加。用于避让同一侧的相邻卡片。 */
 const cardHeight = 64;
 const cardGap = 6;
 
@@ -153,10 +153,10 @@ export function LineView({
         </ol>
         <span className={styles.line} aria-hidden />
 
-        {placed.map(({ train, top, anchor }) => (
+        {placed.map(({ trains, top, anchor }) => (
           <TrainCard
-            key={train.name}
-            train={train}
+            key={trains[0]!.name}
+            trains={trains}
             top={top}
             anchor={anchor}
             onSelect={onSelectTrain}
@@ -168,21 +168,31 @@ export function LineView({
 }
 
 /**
- * 同一侧卡片的避让：重叠的卡片合成一组，整组以各车真实位置的平均值为中心排开，
- * 并限制在线路图范围内（不会挤到最后一站下面）。引线仍指向每列车的真实位置。
+ * 同一侧卡片的摆放：
+ * 1. 同一侧、同一位置（同停一站或同在一个区间）的几列车合成一张卡片，每列车一段，都留在那一站旁边；
+ * 2. 仍然重叠的卡片合成一组，整组以各卡片真实位置的平均值为中心排开，
+ *    并限制在线路图范围内（不会挤到最后一站下面）。位置三角仍指向每张卡片的真实位置。
  */
 function placeColumn(trains: LineTrain[], height: number) {
-  type Item = { train: LineTrain; anchor: number };
+  type Item = { trains: LineTrain[]; anchor: number };
   type Group = { items: Item[]; top: number };
-  const size = (g: Group) => g.items.length * cardHeight + (g.items.length - 1) * cardGap;
+  const itemHeight = (item: Item) => item.trains.length * cardHeight;
+  const size = (g: Group) =>
+    g.items.reduce((sum, item) => sum + itemHeight(item), 0) + (g.items.length - 1) * cardGap;
   const clamp = (g: Group) => {
     g.top = Math.min(Math.max(g.top, 0), height - size(g));
   };
 
-  const groups: Group[] = [];
+  const items: Item[] = [];
   for (const train of [...trains].sort((a, b) => a.slot - b.slot)) {
-    const anchor = train.slot * rowHeight + rowHeight / 2;
-    const group: Group = { items: [{ train, anchor }], top: anchor - cardHeight / 2 };
+    const previous = items.at(-1);
+    if (previous && previous.trains[0]!.slot === train.slot) previous.trains.push(train);
+    else items.push({ trains: [train], anchor: train.slot * rowHeight + rowHeight / 2 });
+  }
+
+  const groups: Group[] = [];
+  for (const item of items) {
+    const group: Group = { items: [item], top: item.anchor - itemHeight(item) / 2 };
     clamp(group);
     groups.push(group);
     // 与上一组重叠就合并，并重新居中；合并后可能又碰到更上一组，所以循环。
@@ -191,63 +201,101 @@ function placeColumn(trains: LineTrain[], height: number) {
       const a = groups[groups.length - 2]!;
       if (a.top + size(a) + cardGap <= b.top) break;
       a.items.push(...b.items);
-      const mean = a.items.reduce((sum, item) => sum + item.anchor, 0) / a.items.length;
+      const mean = a.items.reduce((sum, i) => sum + i.anchor, 0) / a.items.length;
       a.top = mean - size(a) / 2;
       clamp(a);
       groups.pop();
     }
   }
 
-  return groups.flatMap((g) =>
-    g.items.map((item, i) => ({ ...item, top: g.top + i * (cardHeight + cardGap) })),
-  );
+  return groups.flatMap((g) => {
+    let top = g.top;
+    return g.items.map((item) => {
+      const placed = { ...item, top };
+      top += itemHeight(item) + cardGap;
+      return placed;
+    });
+  });
 }
 
 /** 位置三角离卡片上下边缘至少留这么多，卡片被挪开时也不会超出卡片范围。 */
 const tailInset = 12;
 
-/** 列车卡片是按钮：点开列车详情。 */
+/**
+ * 列车卡片。同一位置的几列车合成一张卡片，每列车一段（标题 + 车厢），各自是一个按钮，点开那列车的详情；
+ * 卡片外侧只有一个位置三角。
+ */
 function TrainCard({
-  train,
+  trains,
   top,
   anchor,
   onSelect,
 }: {
-  train: LineTrain;
+  trains: LineTrain[];
   top: number;
   anchor: number;
   onSelect?: TrainSelect;
 }) {
-  const side = train.direction === "toStart" ? styles.left : styles.right;
-  const label = `${train.serviceType}，往${train.headsign ?? "未知终点"}${
-    train.cars ? `，${train.cars.length} 节` : ""
-  }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
+  const side = trains[0]!.direction === "toStart" ? styles.left : styles.right;
+  const combined = trains.length > 1;
   return (
-    <button
-      type="button"
-      className={`${styles.train} ${side}`}
+    <div
+      className={`${styles.train} ${side} ${combined ? styles.combined : ""}`}
       style={{ top }}
-      aria-label={`${label}，查看列车详情`}
-      onClick={(event) => onSelect?.(train.name, event.currentTarget.getBoundingClientRect())}
+      role={combined ? "group" : undefined}
+      aria-label={combined ? `同一位置的 ${trains.length} 列车` : undefined}
     >
       {/* 位置三角：在卡片外侧，指向列车在线路上的真实位置。 */}
       <span
         className={styles.tail}
         style={{
-          top: Math.min(Math.max(anchor - top, tailInset), cardHeight - tailInset),
+          top: Math.min(Math.max(anchor - top, tailInset), trains.length * cardHeight - tailInset),
         }}
         aria-hidden
       />
-      {train.delayMinutes !== undefined && (
-        <span className={styles.delay}>+{train.delayMinutes} 分</span>
-      )}
+      {trains.map((train, i) => (
+        <TrainEntry key={train.name} train={train} delayInline={i > 0} onSelect={onSelect} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 卡片里的一列车：种别与终点、车厢拥挤度。晚点标签一般浮在卡片上方；
+ * 合并卡片里第二列车起放进车厢那一行，代替列车图标，免得盖住上一段。
+ */
+function TrainEntry({
+  train,
+  delayInline,
+  onSelect,
+}: {
+  train: LineTrain;
+  delayInline: boolean;
+  onSelect?: TrainSelect;
+}) {
+  const label = `${train.serviceType}，往${train.headsign ?? "未知终点"}${
+    train.cars ? `，${train.cars.length} 节` : ""
+  }${train.delayMinutes ? `，晚点 ${train.delayMinutes} 分` : ""}`;
+  const delay = train.delayMinutes !== undefined && (
+    <span className={delayInline ? styles.delayInline : styles.delay}>
+      +{train.delayMinutes} 分
+    </span>
+  );
+  return (
+    <button
+      type="button"
+      className={styles.entry}
+      aria-label={`${label}，查看列车详情`}
+      onClick={(event) => onSelect?.(train.name, event.currentTarget.getBoundingClientRect())}
+    >
+      {!delayInline && delay}
       <span className={styles.cardHead}>
         <span className={styles.cardType}>{train.serviceType}</span>
         <span className={styles.cardDest}>{train.headsign ?? "—"}</span>
       </span>
       <span className={styles.cardBody}>
         {train.cars && <Cars loads={train.cars} />}
-        <TrainIcon aria-hidden />
+        {delayInline && delay ? delay : <TrainIcon aria-hidden />}
       </span>
     </button>
   );
