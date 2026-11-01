@@ -65,6 +65,24 @@
   transform: scale(0.96);
 }
 
+.go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  margin-top: 12px;
+  border-radius: var(--radius-control);
+  background: var(--exit);
+  color: var(--exit-text);
+  font-size: 17px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.go:active {
+  transform: scale(0.98);
+}
+
 .note {
   margin: 10px 0 0;
   font-size: 13px;

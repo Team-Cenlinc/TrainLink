@@ -1,4 +1,4 @@
-import type { Connection, Timetable } from "./timetable.ts";
+import { changeSecondsAt, type Connection, type Timetable } from "./timetable.ts";
 
 /**
  * 行程规划：Connection Scan Algorithm。连接按出发时刻排好，从出发时刻起扫一遍，
@@ -23,6 +23,8 @@ export interface RideLeg {
   arrival: number;
   /** 乘几站（经过的区间数）。 */
   stops: number;
+  /** 在下车站换乘至少要留几秒（各站不同，见 timetable.ts 的 changeSecondsAt）。 */
+  changeSeconds: number;
 }
 
 /** 站外换乘：从一个车站步行到另一个车站。 */
@@ -57,10 +59,12 @@ export interface JourneyQuery {
    * 按时刻表已经开出、实际晚点还没开的车照样能坐。
    */
   delays?: Map<string, number>;
+  /**
+   * 第一段乘车只能坐这一班（找回某个选中的方案用）。不限制时，后面的快车追上来同时到达，
+   * 规划总是选晚出发的那班，坐的这一班就找不回来了。
+   */
+  firstTripId?: string;
 }
-
-/** 同站换乘至少留出的秒数（下车、换站台、上车）。 */
-export const changeSeconds = 120;
 
 /** 晚点的车最多往回找多久（时刻表上已经开出、实际还没开的车）。 */
 const maxLookBackSeconds = 3600;
@@ -174,16 +178,21 @@ function earliestArrival(
     if (!boarded.has(c.vehicle)) {
       // 按预计出发判断：已经开走的车坐不上，晚点的车等得到。
       const departs = c.departure + delayOf(c.tripId);
-      if (departs >= query.departAfter && (ready.get(c.from) ?? Infinity) <= departs) {
+      // 指定了第一段车次时，从起点（或起点步行过去）上的第一班车只能是它。
+      const prevStep = readyBy.get(c.from);
+      const firstRide = !prevStep || (prevStep.kind === "walk" && !prevStep.prev);
+      const allowed = !query.firstTripId || !firstRide || c.tripId === query.firstTripId;
+      if (allowed && departs >= query.departAfter && (ready.get(c.from) ?? Infinity) <= departs) {
         boarded.set(c.vehicle, { enter: c, prev: readyBy.get(c.from) });
       }
     }
     const ride = boarded.get(c.vehicle);
     if (!ride) continue;
     const improves = c.arrival < (earliest.get(c.to) ?? Infinity);
-    if (!improves && c.arrival + changeSeconds >= (ready.get(c.to) ?? Infinity)) continue;
+    const readyAt = c.arrival + changeSecondsAt(timetable, c.to);
+    if (!improves && readyAt >= (ready.get(c.to) ?? Infinity)) continue;
     const step: Step = { kind: "ride", enter: ride.enter, exit: c, prev: ride.prev };
-    reach(c.to, c.arrival, c.arrival + changeSeconds, step);
+    reach(c.to, c.arrival, readyAt, step);
     // 晚到的车站步行出去也只会更晚，只在最早到达变早时才算步行。
     if (improves) walkFrom(c.to, c.arrival, step);
   }
@@ -200,7 +209,7 @@ function earliestArrival(
         arrival: step.arrival,
       });
     } else {
-      legs.unshift(rideLeg(connections, step.enter, step.exit));
+      legs.unshift(rideLeg(timetable, step.enter, step.exit));
     }
   }
   // 开头的步行往后挪，正好赶上第一段乘车：出发时刻是「最晚几点出门」，而不是查询时刻。
@@ -229,7 +238,8 @@ function firstDepartingAt(connections: Connection[], time: number): number {
 }
 
 /** 从上车段到下车段拼成一段乘车：数一数中间有几个区间，记下经过的线路。 */
-function rideLeg(connections: Connection[], enter: Connection, exit: Connection): RideLeg {
+function rideLeg(timetable: Timetable, enter: Connection, exit: Connection): RideLeg {
+  const { connections } = timetable;
   // 这列车在两段之间的区间，出发时刻都在上车与下车之间，只看这一小段连接。
   const ridden: Connection[] = [];
   for (let i = firstDepartingAt(connections, enter.departure); i < connections.length; i++) {
@@ -250,5 +260,6 @@ function rideLeg(connections: Connection[], enter: Connection, exit: Connection)
     departure: enter.departure,
     arrival: exit.arrival,
     stops: ridden.length,
+    changeSeconds: changeSecondsAt(timetable, exit.to),
   };
 }

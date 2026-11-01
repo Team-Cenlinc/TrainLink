@@ -35,6 +35,22 @@ export interface Timetable {
   connections: Connection[];
   /** 站外步行换乘（transfers.txt 里 transfer_type 2 的两站之间），以出发站索引。 */
   walks: Map<string, Walk[]>;
+  /** 同站换乘至少几秒，与通用的 defaultChangeSeconds 不同的车站才有（见 changeSecondsAt）。 */
+  changes: Map<string, number>;
+}
+
+/** 同站换乘至少留出的秒数（下车、换站台、上车），车站没有另外规定时用它。 */
+export const defaultChangeSeconds = 120;
+
+/**
+ * 各运营方的同站换乘时间。SURcentral（SURC）是 TramTrain，车站小、站台挨着，1 分钟就换得过来。
+ * GTFS 换乘表里给了某站的最短换乘时间时以那个为准。
+ */
+const operatorChangeSeconds: Record<string, number> = { SURC: 60 };
+
+/** 在某站下车后换乘，至少要留几秒。 */
+export function changeSecondsAt(timetable: Timetable, station: string): number {
+  return timetable.changes.get(station) ?? defaultChangeSeconds;
 }
 
 /** "08:05:30" → 秒数；GTFS 允许 24 点以后的时刻。 */
@@ -61,12 +77,16 @@ export function buildTimetable(files: {
     ]),
   );
 
+  // 每个车站属于哪个运营方（站台 stop_id 形如 survival:SURC:S:PTK:1）。
+  const operatorOf = new Map<string, string>();
   const byTrip = new Map<
     string,
     { seq: number; stopId: string; arrival: number; departure: number }[]
   >();
   for (const st of parseCsv(files.stopTimes)) {
     const tripId = st.trip_id ?? "";
+    const stopId = st.stop_id ?? "";
+    operatorOf.set(stationAndPlatform(stopId).station, stopId.split(":")[1] ?? "");
     const list = byTrip.get(tripId) ?? [];
     list.push({
       seq: Number(st.stop_sequence),
@@ -112,17 +132,27 @@ export function buildTimetable(files: {
   }
   connections.sort((a, b) => a.departure - b.departure);
 
-  // 两个车站之间的步行换乘；同一车站内的换乘（以及直通车次的 type 4）不在这里。
+  // 同站换乘时间：先按运营方，GTFS 换乘表里同站的一行（transfer_type 2）再覆盖。
+  const changes = new Map<string, number>();
+  for (const [station, operator] of operatorOf) {
+    const seconds = operatorChangeSeconds[operator];
+    if (seconds !== undefined) changes.set(station, seconds);
+  }
+  // 两个车站之间的步行换乘；直通车次的 type 4 不在这里。
   const walks = new Map<string, Walk[]>();
   for (const t of parseCsv(files.transfers ?? "")) {
     if (t.transfer_type !== "2") continue;
     const from = stationAndPlatform(t.from_stop_id ?? "").station;
     const to = stationAndPlatform(t.to_stop_id ?? "").station;
-    if (!from || !to || from === to) continue;
+    if (!from || !to) continue;
+    if (from === to) {
+      if (t.min_transfer_time) changes.set(from, Number(t.min_transfer_time));
+      continue;
+    }
     walks.set(from, [
       ...(walks.get(from) ?? []),
       { to, seconds: Number(t.min_transfer_time) || 0 },
     ]);
   }
-  return { connections, walks };
+  return { connections, walks, changes };
 }

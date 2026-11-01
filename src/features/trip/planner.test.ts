@@ -626,4 +626,63 @@ describe("planJourneys", () => {
 
     expect(journey?.departure).toBe(at("08:06"));
   });
+
+  describe("站内换乘时间按车站取", () => {
+    // P1 坐 MT 08:10 到 X；X 换 WS：08:11 一班（只差 1 分钟）、08:20 一班。
+    const trips = [
+      {
+        id: "M1",
+        line: "MT",
+        headsign: "X",
+        stops: [
+          ["P1", "08:00"],
+          ["X", "08:10"],
+        ] as [string, string][],
+      },
+      {
+        id: "W1",
+        line: "WS",
+        headsign: "Q",
+        stops: [
+          ["X", "08:11"],
+          ["Q", "08:20"],
+        ] as [string, string][],
+      },
+      {
+        id: "W2",
+        line: "WS",
+        headsign: "Q",
+        stops: [
+          ["X", "08:20"],
+          ["Q", "08:29"],
+        ] as [string, string][],
+      },
+    ];
+    const plan = (options: Parameters<typeof gtfsFiles>[2]) =>
+      planJourneys(buildTimetable(gtfsFiles(trips, [], options)), {
+        from: "P1",
+        to: "Q",
+        departAfter: at("07:55"),
+      })[0];
+
+    it("SURC（TramTrain，车站小）站内换乘 1 分钟就够：赶得上 08:11 的车", () => {
+      const journey = plan({ operator: "SURC" });
+      expect(journey?.arrival).toBe(at("08:20"));
+      // 记在下车的那一段上，乘坐指南与「换乘可能赶不上」都按它判断。
+      expect(journey?.legs[0]).toMatchObject({ kind: "ride", changeSeconds: 60 });
+    });
+
+    it("其他运营方仍按 2 分钟", () => {
+      expect(plan({ operator: "PUAT" })?.arrival).toBe(at("08:29"));
+    });
+
+    it("GTFS 换乘表里写了同站的最短换乘时间时以它为准", () => {
+      expect(
+        plan({ operator: "SURC", minTransfers: [{ station: "X", seconds: 180 }] })?.arrival,
+      ).toBe(at("08:29"));
+      expect(
+        plan({ operator: "PUAT", minTransfers: [{ station: "X", seconds: 60 }] })?.arrival,
+      ).toBe(at("08:20"));
+    });
+  });
 });

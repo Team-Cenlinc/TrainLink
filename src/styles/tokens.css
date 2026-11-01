@@ -53,6 +53,12 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /*
+   * 页面底部要给浮动的东西让出的高度：标签栏（底边 10 + 高约 73）再留一点空，
+   * 乘车中时标签栏上面还有一条迷你条（见 global.css 的 data-ride-bar）。内容滚到底时最后一项不被盖住。
+   */
+  --bottom-chrome: calc(var(--safe-bottom) + 96px);
 }
 
 /*

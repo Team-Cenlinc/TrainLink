@@ -12,7 +12,7 @@ import stateStyles from "./TicketPage.module.css";
 
 /**
  * 票夹：生成过的仿真车票。可用的（未入站、已入站）在前，用过和失效的放在「历史」。
- * 车票在乘坐指南里点「车票」生成；全部是仿真，不能用于真实乘车。
+ * 车票是区间票（两站之间当天任意班次），在乘坐指南或乘车 GO 里取；全部是仿真，不能用于真实乘车。
  */
 export function TicketsPage() {
   const tickets = useTickets();
@@ -33,7 +33,10 @@ export function TicketsPage() {
               {name(ticket, ticket.from.stationCode)} → {name(ticket, ticket.to.stationCode)}
             </span>
             <span className={`${styles.meta} num`}>
-              {clockOf(ticket.departure)} — {clockOf(ticket.arrival)} · {ticket.id}
+              {ticket.departure !== undefined && ticket.arrival !== undefined
+                ? `${clockOf(ticket.departure)} — ${clockOf(ticket.arrival)}`
+                : "当日有效"}{" "}
+              · {ticket.id}
             </span>
           </span>
           <span className={`${stateStyles.state} ${stateStyles[state]}`}>{stateLabel[state]}</span>

@@ -26,6 +26,16 @@ const isPass = (value: unknown) => {
   return p === undefined || (typeof p?.station === "string" && typeof p.at === "number");
 };
 
+const isOptionalNumber = (value: unknown) => value === undefined || typeof value === "number";
+
+const isRide = (value: unknown) => {
+  const r = value as Loose<NonNullable<Ticket["ride"]>> | null | undefined;
+  return (
+    r === undefined ||
+    (typeof r?.date === "string" && isOptionalNumber(r.departure) && typeof r.tripId === "string")
+  );
+};
+
 /** 逐张检查字段：本地存储可能被旧版本或手动改坏，坏的那张跳过，不让整个票夹打不开。 */
 function isTicket(value: unknown): value is Ticket {
   const t = value as Loose<Ticket> | null;
@@ -33,14 +43,15 @@ function isTicket(value: unknown): value is Ticket {
     typeof t?.id === "string" &&
     isStation(t.from) &&
     isStation(t.to) &&
-    typeof t.departure === "number" &&
-    typeof t.arrival === "number" &&
+    isOptionalNumber(t.departure) &&
+    isOptionalNumber(t.arrival) &&
     Array.isArray(t.lineCodes) &&
     t.lineCodes.every((code) => typeof code === "string") &&
     typeof t.issuedAt === "number" &&
     typeof t.validUntil === "number" &&
     isPass(t.entry) &&
-    isPass(t.exit)
+    isPass(t.exit) &&
+    isRide(t.ride)
   );
 }
 

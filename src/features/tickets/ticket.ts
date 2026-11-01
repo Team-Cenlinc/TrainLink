@@ -1,20 +1,22 @@
 import type { HomeStation } from "@/lib/homeStation.ts";
-import { clockOf, serviceClock } from "@/features/trip/serviceDay.ts";
+import { serviceClock, serviceDate } from "@/features/trip/serviceDay.ts";
 
 /**
  * 仿真车票（不接入任何真实系统，仅供体验）：仿照 JR 东日本 TrainTime / えきねっと Q チケ 的二维码数字票。
- * 一张票对应一段行程，当天有效；在起点「模拟进站」、在终点「模拟出站」，用过即作废。
+ * 区间票：一张票对应两站之间，当天（到次日 04:00）任意班次都能坐，不绑定车次；
+ * 在起点「模拟进站」、在终点「模拟出站」，用过即作废。
  * 纯函数，不涉及 React；票夹的保存在 ticketStore.ts。
  */
 
 export interface Ticket {
-  /** 票号，例如 TL-1031-1218-7Q2K（运营日、出发时刻、由出票时刻换算的后缀）。 */
+  /** 票号，例如 TL-1031-PTK-NTA-7Q2K（运营日、起终点、由出票时刻换算的后缀）。 */
   id: string;
   from: HomeStation;
   to: HomeStation;
-  /** 计划出发与到达，运营日内的秒数。 */
-  departure: number;
-  arrival: number;
+  /** 旧版本按班次出的票才有：计划出发与到达，运营日内的秒数。区间票没有。 */
+  departure?: number;
+  arrival?: number;
+  /** 两站之间要坐的线路（出票时那个方案的），票面色带用。 */
   lineCodes: string[];
   /** 出票时刻（毫秒）。 */
   issuedAt: number;
@@ -24,6 +26,16 @@ export interface Ticket {
   entry?: GatePass;
   /** 模拟出站：车站与时刻。出站后这张票就用过了。 */
   exit?: GatePass;
+  /**
+   * 出票时选的方案：那一天（"2026-10-31"）、计划出发时刻与第一段乘车的车次。
+   * 票不绑定它（换坐别的班次照样能用），只是进站后据此直接接着乘车 GO。旧版本的票、只步行的方案没有。
+   */
+  ride?: {
+    date: string;
+    /** 区间票之前的一版没有（出发时刻在票上的 departure）。 */
+    departure?: number;
+    tripId: string;
+  };
 }
 
 export interface GatePass {
@@ -43,7 +55,7 @@ const dayEndHour = 4;
 
 export function issueTicket(input: {
   route: { from: HomeStation; to: HomeStation };
-  journey: { departure: number; arrival: number; lineCodes: string[] };
+  journey: { departure: number; arrival: number; lineCodes: string[]; tripId?: string };
   now: number;
   dayStart: number;
   timeZone: string;
@@ -63,15 +75,21 @@ export function issueTicket(input: {
     .format(validUntil - 16 * 3600_000)
     .replace("-", "");
   const suffix = (input.now % 36 ** 4).toString(36).toUpperCase().padStart(4, "0");
+  const { from, to } = input.route;
   return {
-    id: `TL-${date}-${clockOf(input.journey.departure).replace(":", "")}-${suffix}`,
-    from: input.route.from,
-    to: input.route.to,
-    departure: input.journey.departure,
-    arrival: input.journey.arrival,
+    id: `TL-${date}-${from.stationCode}-${to.stationCode}-${suffix}`,
+    from,
+    to,
     lineCodes: input.journey.lineCodes,
     issuedAt: input.now,
     validUntil,
+    ...(input.journey.tripId && {
+      ride: {
+        date: serviceDate(input.dayStart, input.timeZone),
+        departure: input.journey.departure,
+        tripId: input.journey.tripId,
+      },
+    }),
   };
 }
 
@@ -90,6 +108,32 @@ export function ticketState(ticket: Ticket, now: number): TicketState {
   if (ticket.exit) return "exited";
   if (now > ticket.validUntil) return "expired";
   return ticket.entry ? "entered" : "unused";
+}
+
+/** 两张票（或一张票与一段行程）是不是同一段区间：同一台服务器上的同一对起终点。 */
+export function sameSection(
+  a: { from: HomeStation; to: HomeStation },
+  b: { from: HomeStation; to: HomeStation },
+): boolean {
+  return (
+    a.from.serverId === b.from.serverId &&
+    a.from.stationCode === b.from.stationCode &&
+    a.to.stationCode === b.to.stationCode
+  );
+}
+
+/**
+ * 这一段区间（起终点）能用的票：还没出站、到乘车那一刻也还没失效。不看班次，区间票哪一班都能坐。
+ * @param at 乘车的时刻（毫秒）：今天的票次日 04:00 失效，明天的行程就用不了它。
+ */
+export function ticketFor(
+  tickets: Ticket[],
+  route: { from: HomeStation; to: HomeStation },
+  at: number,
+): Ticket | undefined {
+  return tickets.find(
+    (t) => sameSection(t, route) && ["unused", "entered"].includes(ticketState(t, at)),
+  );
 }
 
 /** 模拟进站：只能在这张票的起点。 */

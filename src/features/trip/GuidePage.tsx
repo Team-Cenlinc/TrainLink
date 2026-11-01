@@ -45,6 +45,7 @@ export function GuidePage() {
             dayStart={dayStart}
             name={name}
             tone="hero"
+            goHref={`/trip/go?${params}`}
           />
         )
       }

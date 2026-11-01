@@ -161,9 +161,36 @@
   min-width: 0;
 }
 
-.chevron {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  fill: var(--text);
+/*
+ * 方案右下角的「GO」：直接开始乘车。压在说明那一行的右端（说明给它让出位置），
+ * 与乘坐指南里的 GO 同色（黄色）。
+ */
+.row {
+  position: relative;
+}
+
+.go {
+  position: absolute;
+  right: 0;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  background: var(--exit);
+  color: var(--exit-text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.go:active {
+  transform: scale(0.96);
+}
+
+.withGo .notes {
+  padding-right: 64px;
 }

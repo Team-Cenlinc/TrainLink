@@ -92,7 +92,7 @@
   flex: 1;
   overflow: clip;
   margin-top: -24px;
-  padding: 24px 16px 120px;
+  padding: 24px 16px var(--bottom-chrome);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--canvas);
   container-type: inline-size;

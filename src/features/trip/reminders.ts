@@ -21,6 +21,16 @@ export function useReminder(key: string): boolean {
   return useSyncExternalStore(subscribe, () => timers.has(key));
 }
 
+/** 这几个提醒里有没有还没响的（一组提醒，例如 GO 的各段下车提醒）。 */
+export function useAnyReminder(keys: string[]): boolean {
+  return useSyncExternalStore(subscribe, () => keys.some((key) => timers.has(key)));
+}
+
+/** 取消一组提醒（key 以 prefix 开头的），例如某趟乘车 GO 的各段下车提醒。 */
+export function clearReminders(prefix: string) {
+  for (const key of [...timers.keys()]) if (key.startsWith(prefix)) clearReminder(key);
+}
+
 export function clearReminder(key: string) {
   window.clearTimeout(timers.get(key));
   timers.delete(key);

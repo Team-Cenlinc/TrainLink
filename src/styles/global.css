@@ -33,6 +33,11 @@ html {
   pointer-events: none;
 }
 
+/* 「乘车中」迷你条显示时（RideBar），页面底部再多让出它的高度。 */
+html[data-ride-bar] {
+  --bottom-chrome: calc(var(--safe-bottom) + 160px);
+}
+
 html,
 body {
   margin: 0;

@@ -94,6 +94,25 @@ export function isSavedTrip(routes: TripRoute[], route: TripRoute): boolean {
 /** 车站写进网址：SURC:PTK（服务器跟随本站）。 */
 export const stationParam = (s: HomeStation) => `${s.operatorCode}:${s.stationCode}`;
 
+/**
+ * 乘坐指南（guide）或乘车 GO（go）的网址：按日期、出发时刻与第一段车次找回同一个方案，
+ * 车次取消或时刻表变了不会换成别的车。只步行的方案没有车次。
+ */
+export function journeyHref(
+  page: "guide" | "go",
+  ends: { from: HomeStation; to: HomeStation },
+  journey: { date: string; departure: number; tripId?: string },
+): string {
+  const query = new URLSearchParams({
+    from: stationParam(ends.from),
+    to: stationParam(ends.to),
+    date: journey.date,
+    dep: String(journey.departure),
+  });
+  if (journey.tripId) query.set("trip", journey.tripId);
+  return `/trip/${page}?${query}`;
+}
+
 export function stationFromParam(value: string | null, serverId: string): HomeStation | undefined {
   const [operatorCode, stationCode] = value?.split(":") ?? [];
   return operatorCode && stationCode ? { serverId, operatorCode, stationCode } : undefined;

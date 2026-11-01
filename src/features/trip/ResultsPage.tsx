@@ -1,5 +1,4 @@
 import { Link, useSearchParams } from "react-router";
-import ChevronIcon from "@material-symbols/svg-400/outlined/chevron_right.svg?react";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
 import { useHomeStation, type HomeStation } from "@/lib/homeStation.ts";
 import { useLayout } from "@/lib/useLayout.ts";
@@ -11,7 +10,7 @@ import { LegStrip } from "./LegStrip.tsx";
 import type { LiveJourney } from "./live.ts";
 import { clockOf, secondsOfClock } from "./serviceDay.ts";
 import { stationInfo } from "./stations.ts";
-import { isSavedTrip, stationFromParam, stationParam, useSavedTrips } from "./tripStore.ts";
+import { isSavedTrip, journeyHref, stationFromParam, useSavedTrips } from "./tripStore.ts";
 import { useJourneys } from "./useJourneys.ts";
 import styles from "./ResultsPage.module.css";
 
@@ -44,18 +43,16 @@ export function ResultsPage() {
   const selectedDep = depParam ? Number(depParam) : undefined;
   const selected =
     journeys?.find((j) => j.departure === selectedDep) ?? (split ? journeys?.[0] : undefined);
-  // 乘坐指南按日期、出发时刻与第一段车次找回这个方案，车次取消或时刻表变了不会换成别的车。
-  const guideHref = (journey: LiveJourney, ends: { from: HomeStation; to: HomeStation }) => {
-    const query = new URLSearchParams({
-      from: stationParam(ends.from),
-      to: stationParam(ends.to),
+  const guideHref = (
+    journey: LiveJourney,
+    ends: { from: HomeStation; to: HomeStation },
+    page: "guide" | "go" = "guide",
+  ) =>
+    journeyHref(page, ends, {
       date,
-      dep: String(journey.departure),
+      departure: journey.departure,
+      tripId: journey.legs.find((l) => l.kind === "ride")?.tripId,
     });
-    const tripId = journey.legs.find((l) => l.kind === "ride")?.tripId;
-    if (tripId) query.set("trip", tripId);
-    return `/trip/guide?${query}`;
-  };
   const select = (journey: LiveJourney) =>
     setParams(
       (current) => {
@@ -74,6 +71,7 @@ export function ResultsPage() {
             key={journey.departure}
             journey={journey}
             href={guideHref(journey, { from, to })}
+            goHref={guideHref(journey, { from, to }, "go")}
             onSelect={split ? () => select(journey) : undefined}
             selected={split && journey === selected}
             nowSeconds={nowSeconds}
@@ -127,6 +125,7 @@ export function ResultsPage() {
                 dayStart={dayStart}
                 name={name}
                 tone="card"
+                goHref={guideHref(selected, { from, to }, "go")}
               />
               <Timeline
                 journey={selected}
@@ -150,6 +149,7 @@ export function ResultsPage() {
 function JourneyRow({
   journey,
   href,
+  goHref,
   onSelect,
   selected,
   nowSeconds,
@@ -158,6 +158,8 @@ function JourneyRow({
 }: {
   journey: LiveJourney;
   href: string;
+  /** 乘车 GO：手机上方案右下角一个「GO」，不用先进乘坐指南（点方案其余地方照旧进指南）。 */
+  goHref: string;
   /** 桌面：点方案在右栏显示指南，不跳页。 */
   onSelect?: () => void;
   selected: boolean;
@@ -206,20 +208,27 @@ function JourneyRow({
 
       <span className={styles.notes}>
         <span>{notes.join(" · ")}</span>
-        {!onSelect && <ChevronIcon className={styles.chevron} aria-hidden />}
       </span>
     </>
   );
   return (
-    <li className={selected ? styles.selected : undefined}>
+    <li
+      className={`${styles.row} ${onSelect ? "" : styles.withGo} ${selected ? styles.selected : ""}`}
+    >
       {onSelect ? (
         <button type="button" className={styles.journey} aria-pressed={selected} onClick={onSelect}>
           {content}
         </button>
       ) : (
-        <Link to={href} className={styles.journey}>
-          {content}
-        </Link>
+        <>
+          <Link to={href} className={styles.journey}>
+            {content}
+          </Link>
+          {/* 放在方案链接外面（链接里不能再套链接），压在右下角那一行上。 */}
+          <Link to={goHref} className={styles.go} aria-label="GO · 开始乘车">
+            GO
+          </Link>
+        </>
       )}
     </li>
   );

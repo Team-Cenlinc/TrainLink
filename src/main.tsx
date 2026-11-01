@@ -8,6 +8,7 @@ import { SettingsPage } from "./features/settings/SettingsPage.tsx";
 import { StatusPage } from "./features/status/StatusPage.tsx";
 import { TicketPage } from "./features/tickets/TicketPage.tsx";
 import { TicketsPage } from "./features/tickets/TicketsPage.tsx";
+import { GoPage } from "./features/trip/GoPage.tsx";
 import { GuidePage } from "./features/trip/GuidePage.tsx";
 import { ResultsPage } from "./features/trip/ResultsPage.tsx";
 import { TripPage } from "./features/trip/TripPage.tsx";
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
       { path: "trip", element: <TripPage /> },
       { path: "trip/results", element: <ResultsPage /> },
       { path: "trip/guide", element: <GuidePage /> },
+      { path: "trip/go", element: <GoPage /> },
       { path: "status", element: <StatusPage /> },
       { path: "tickets", element: <TicketsPage /> },
       { path: "tickets/:id", element: <TicketPage /> },

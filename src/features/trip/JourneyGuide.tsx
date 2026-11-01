@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from "react";
+import { Link, useNavigate } from "react-router";
 import BellIcon from "@material-symbols/svg-400/outlined/notifications.svg?react";
 import BellOnIcon from "@material-symbols/svg-400/outlined/notifications_active.svg?react";
 import ShareIcon from "@material-symbols/svg-400/outlined/share.svg?react";
@@ -9,13 +10,15 @@ import TransferIcon from "@material-symbols/svg-400/outlined/transfer_within_a_s
 import WalkIcon from "@material-symbols/svg-400/outlined/directions_walk.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { serviceTypeOf } from "@/features/board/departures.ts";
+import { ticketFor } from "@/features/tickets/ticket.ts";
+import { useTickets } from "@/features/tickets/ticketStore.ts";
 import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import type { RailCatalog } from "@/lib/railApi.ts";
 import { useSettings } from "@/lib/settings.ts";
 import { minutesBetween, transferCount } from "./journeyText.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
-import { changeSeconds, type RideLeg } from "./planner.ts";
+import type { RideLeg } from "./planner.ts";
 import { clearReminder, setReminder, useReminder, type ReminderResult } from "./reminders.ts";
 import { clockOf } from "./serviceDay.ts";
 import { lineOf } from "./stations.ts";
@@ -49,10 +52,13 @@ export function GuideSummary({
   dayStart,
   name,
   tone,
+  goHref,
 }: {
   journey: LiveJourney;
   route: TripRoute;
   saved: boolean;
+  /** 乘车 GO 页面的地址（带着找回这个方案的参数）。 */
+  goHref: string;
   /** 方案所在运营日 0 点的绝对时刻（毫秒），用来算提醒的时刻。 */
   dayStart: number;
   name: (code: string) => string;
@@ -67,6 +73,10 @@ export function GuideSummary({
         {name(route.to.stationCode)}
       </p>
       <Actions journey={journey} route={route} saved={saved} dayStart={dayStart} name={name} />
+      {/* 乘车 GO：跟着这趟行程走，实时提示该在哪上车、还有几站、在哪下车换乘。 */}
+      <Link className={styles.go} to={goHref}>
+        GO · 开始乘车
+      </Link>
     </div>
   );
 }
@@ -92,6 +102,9 @@ function Actions({
   const note = noteOf?.key === key ? noteOf.text : undefined;
   const setNote = (text: string | undefined) => setNoteOf(text ? { key, text } : undefined);
   const issueTicket = useIssueTicket();
+  const navigate = useNavigate();
+  // 区间票：这两站之间当天已经有能用的票，就打开它，不再出一张。
+  const ticket = ticketFor(useTickets(), route, dayStart + journey.live.departure * 1000);
   const { remindMinutes } = useSettings();
   const firstRide = journey.legs.find((l): l is LiveLeg & RideLeg => l.kind === "ride");
   const summary = `${clockOf(journey.live.departure)} ${name(route.from.stationCode)} → ${clockOf(journey.live.arrival)} ${name(route.to.stationCode)}`;
@@ -154,11 +167,13 @@ function Actions({
           <ShareIcon aria-hidden />
           分享
         </button>
-        {/* 生成这段行程的仿真车票（不接入真实系统），放进票夹并打开。 */}
+        {/* 这段区间的仿真车票（不接入真实系统）：已有能用的就打开，没有就出一张区间票放进票夹并打开。 */}
         <button
           type="button"
           className={styles.action}
-          onClick={() => issueTicket(route, journey, dayStart)}
+          onClick={() =>
+            ticket ? navigate(`/tickets/${ticket.id}`) : issueTicket(route, journey, dayStart)
+          }
         >
           <TicketIcon aria-hidden />
           车票
@@ -176,8 +191,8 @@ type Item =
       time: number;
       planned: number;
       role: "start" | "change" | "end";
-      /** 同站换乘：到站后离下一班开车还有几秒。换乘写在这一站里，不另起一行。 */
-      changeSeconds?: number;
+      /** 同站换乘：到站后离下一班开车还有几秒，与这一站至少要留的秒数。换乘写在这一站里，不另起一行。 */
+      change?: { seconds: number; minimum: number };
     }
   | { kind: "ride"; leg: LiveLeg & RideLeg; showTime: boolean }
   | { kind: "walk"; seconds: number; to: string };
@@ -209,7 +224,10 @@ function timelineItems(legs: LiveLeg[]): Item[] {
         time: leg.live.arrival,
         planned: leg.arrival,
         role: next ? "change" : "end",
-        changeSeconds: next?.kind === "ride" ? next.live.departure - leg.live.arrival : undefined,
+        change:
+          next?.kind === "ride"
+            ? { seconds: next.live.departure - leg.live.arrival, minimum: leg.changeSeconds }
+            : undefined,
       });
     } else {
       if (!previous) {
@@ -286,8 +304,12 @@ export function Timeline({
               </span>
               <span className={styles.stationText}>
                 <span className={styles.stationName}>{name(item.code)}</span>
-                {item.changeSeconds !== undefined && (
-                  <ChangeNote arrival={item.time} departure={item.time + item.changeSeconds} />
+                {item.change && (
+                  <ChangeNote
+                    arrival={item.time}
+                    departure={item.time + item.change.seconds}
+                    minimum={item.change.minimum}
+                  />
                 )}
               </span>
             </li>
@@ -346,14 +368,22 @@ export function Timeline({
 }
 
 /**
- * 同站换乘的说明：「站内换乘 · 3 分钟」。不足 2 分钟（规划时要求的最少换乘时间）用琥珀色，
- * 写「只有 1 分钟」，与行程方案里「换乘可能赶不上」一致。
+ * 同站换乘的说明：「站内换乘 · 3 分钟」。不足这一站要求的最少换乘时间（minimum，多数站 2 分钟，
+ * SURC 1 分钟）用琥珀色，写「只有 1 分钟」，与行程方案里「换乘可能赶不上」一致。
  */
-function ChangeNote({ arrival, departure }: { arrival: number; departure: number }) {
+function ChangeNote({
+  arrival,
+  departure,
+  minimum,
+}: {
+  arrival: number;
+  departure: number;
+  minimum: number;
+}) {
   // 分钟数按页面上写出来的两个时刻相减（11:46 → 11:49 是 3 分钟），不按秒数取整，免得对不上。
   const minutes = Math.max(0, Math.floor(departure / 60) - Math.floor(arrival / 60));
   const seconds = departure - arrival;
-  const tight = seconds < changeSeconds;
+  const tight = seconds < minimum;
   return (
     <span className={`${styles.changeNote} ${tight ? styles.tight : ""}`}>
       <TransferIcon aria-hidden />

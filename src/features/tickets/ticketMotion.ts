@@ -10,8 +10,9 @@
 export interface TicketParts {
   /** 定位容器：检票钳与纸屑相对它摆放。 */
   stage: HTMLElement;
-  slot: HTMLElement;
-  /** 出票时裁切在出票口那一行，票从这里送出来（裁切由调用方用样式控制）。 */
+  /** 出票口的唇边（只在出票时有）：票的前沿从它下面滑出来，送完淡出。 */
+  lip: HTMLElement | null;
+  /** 出票时裁切在票的上沿，票从这一条线下面送出来（裁切由调用方用样式控制）。 */
   feed: HTMLElement;
   /** 送纸动画作用在这一层。 */
   ticket: HTMLElement;
@@ -19,6 +20,8 @@ export interface TicketParts {
   jolt: HTMLElement;
   hole: HTMLElement;
   stub: HTMLElement | null;
+  /** 没撕时票身下沿的白齿（撕线）；已经撕过的票没有。 */
+  tearLine: HTMLElement | null;
   teeth: HTMLElement;
   jaw: HTMLElement;
   chad: HTMLElement;
@@ -41,20 +44,15 @@ function buzz(pattern: number | number[]) {
 }
 
 /**
- * 出票：出票口从中间展开，票分四段送出（每段之间停一下，像步进电机一格一格进纸），
- * 送完后离开滚轮，往下掉一点、略歪一下再停稳；出票口淡出。共约 1.8 秒。
+ * 出票：票从上沿的出票口分四段送出（每段之间停一下，像步进电机一格一格进纸），
+ * 送完后离开滚轮，往下掉一点、略歪一下再停稳。出票口只是一条与面板同色、往下渐隐的唇边：
+ * 票的前沿（深色外框）从它下面慢慢显现，不会凭空冒出一道黑线；送完唇边淡出。共约 1.7 秒。
  */
 export async function playPrint(p: TicketParts, reduce: boolean) {
   if (reduce) {
     await p.ticket.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 }).finished;
     return;
   }
-  p.slot.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
-    duration: 160,
-    easing: easeOut,
-    fill: "forwards",
-  });
-  await wait(140);
   const at = (percent: number, offset: number, moving = false) => ({
     transform: `translateY(${percent}%)`,
     offset,
@@ -74,7 +72,12 @@ export async function playPrint(p: TicketParts, reduce: boolean) {
     ],
     { duration: 1150, fill: "forwards" },
   ).finished;
-  p.jolt.animate(
+  p.lip?.animate([{ opacity: 1 }, { opacity: 0 }], {
+    duration: 240,
+    easing: "ease-out",
+    fill: "forwards",
+  });
+  await p.jolt.animate(
     [
       { transform: "translateY(0) rotate(0)" },
       { transform: "translateY(10px) rotate(-0.7deg)", offset: 0.4 },
@@ -82,12 +85,7 @@ export async function playPrint(p: TicketParts, reduce: boolean) {
       { transform: "translateY(0) rotate(0)" },
     ],
     { duration: 560, easing: "ease-out" },
-  );
-  await p.slot.animate([{ opacity: 1 }, { opacity: 0 }], {
-    duration: 260,
-    delay: 380,
-    fill: "forwards",
-  }).finished;
+  ).finished;
 }
 
 /**
@@ -154,34 +152,63 @@ export async function playPunch(p: TicketParts, reduce: boolean, onImpact: () =>
 }
 
 /**
- * 出站撕票根：裂口从右往左一段一段推进（每段之间停一下，是撕纸的阻力），
- * 票根以左上角为轴随之下垂，票身下沿的锯齿跟着露出；撕到头时票根脱离，
- * 票身像绷紧的纸松开一样往上一弹；票根按重力加速、翻转着落出画面，
- * 它原来占的位置同时收起。共约 1.5 秒。
+ * 出站撕票根：像手捏着票根右端往下拽。裂口从右往左一段一段推进（每段之间停一下，是撕纸的阻力）；
+ * 裂口左边还连着，右边已经撕开、垂下来：票根绕着裂口那一点转，角度越撕越大，撕到头时右端垂下约 40 px，
+ * 中间露出一道楔形的缝。票根压在票身下面，绕裂口转时左段翘起的部分藏在票身后面，看起来仍连着。
+ * 票身这边，裂口右边的白齿（撕线）换成撕开后的锯齿。撕到头时票根脱离，
+ * 票身像绷紧的纸松开一样往上一弹；票根接着刚才的角度按重力加速、翻转着落出画面，
+ * 它原来占的位置同时收起。共约 1.7 秒。
  */
 export async function playTear(p: TicketParts, reduce: boolean) {
   const stub = p.stub;
   if (!stub) return;
   if (reduce) {
     p.teeth.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, fill: "forwards" });
+    p.tearLine?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" });
     await stub.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" })
       .finished;
     return;
   }
   buzz([6, 60, 6, 60, 10]);
-  const torn = (inset: number, offset: number) => ({
-    clipPath: `inset(0 0 0 ${inset}%)`,
-    opacity: 1,
-    offset,
-  });
-  p.teeth.animate(
-    [torn(100, 0), torn(72, 0.22), torn(72, 0.32), torn(42, 0.58), torn(42, 0.68), torn(0, 1)],
-    { duration: 560, easing: "ease-in", fill: "forwards" },
-  );
-  const sag = (deg: number, offset: number) => ({ transform: `rotate(${deg}deg)`, offset });
+
+  // 裂口位置（占宽度的比例，1 = 右端）与票根转角，按时间进度排开；停顿的两段位置不变、角度微增（在使劲）。
+  const steps = [
+    { at: 0, front: 1, angle: 0 },
+    { at: 0.22, front: 0.72, angle: 3 },
+    { at: 0.32, front: 0.72, angle: 3.4 },
+    { at: 0.58, front: 0.42, angle: 5.2 },
+    { at: 0.68, front: 0.42, angle: 5.6 },
+    { at: 1, front: 0, angle: 7 },
+  ];
+  const tearing = { duration: 700, easing: "ease-in", fill: "forwards" } as const;
+
+  // 票身这边：裂口右边露出锯齿、左边留着白齿。用一张一半透明一半不透明、两倍宽的渐变遮罩，
+  // 横向推它，透明与不透明的分界就落在裂口上（不用 clip-path：齿形已经用了它）。
+  const reveal = (el: HTMLElement | null, hiddenFirst: boolean) => {
+    if (!el) return;
+    el.style.maskImage = `linear-gradient(to right, ${
+      hiddenFirst ? "transparent 50%, #000 50%" : "#000 50%, transparent 50%"
+    })`;
+    el.style.maskSize = "200% 100%";
+    el.animate(
+      steps.map((s) => ({
+        maskPosition: `${(1 - s.front) * 100}% 0`,
+        opacity: 1,
+        offset: s.at,
+      })),
+      tearing,
+    );
+  };
+  reveal(p.teeth, true);
+  reveal(p.tearLine, false);
+
+  // 票根绕裂口那一点（顶边上，距左端 front × 宽度）转：先挪到那一点、转、再挪回来。
+  const width = stub.offsetWidth;
+  const pivot = (front: number, angle: number) =>
+    `translateX(${front * width}px) rotate(${angle}deg) translateX(${-front * width}px)`;
   await stub.animate(
-    [sag(0, 0), sag(1, 0.22), sag(1.1, 0.32), sag(2, 0.58), sag(2.1, 0.68), sag(3, 1)],
-    { duration: 560, easing: "ease-in", fill: "forwards" },
+    steps.map((s) => ({ transform: pivot(s.front, s.angle), offset: s.at })),
+    tearing,
   ).finished;
 
   p.jolt.animate(
@@ -199,12 +226,13 @@ export async function playTear(p: TicketParts, reduce: boolean) {
     easing: "cubic-bezier(0.4, 0, 0.2, 1)",
     fill: "forwards",
   });
+  // 接着撕完时的角度（裂口已到左端，等于绕左上角转了 7°）往下掉。
   await stub.animate(
     [
-      { transform: "translate(0, 0) rotate(3deg)", opacity: 1 },
-      { transform: "translate(16px, 40px) rotate(9deg)", opacity: 1, offset: 0.25 },
-      { transform: "translate(40px, 430px) rotate(26deg)", opacity: 1, offset: 0.9 },
-      { transform: "translate(44px, 470px) rotate(28deg)", opacity: 0 },
+      { transform: "translate(0, 0) rotate(7deg)", opacity: 1 },
+      { transform: "translate(14px, 44px) rotate(12deg)", opacity: 1, offset: 0.25 },
+      { transform: "translate(40px, 430px) rotate(28deg)", opacity: 1, offset: 0.9 },
+      { transform: "translate(44px, 470px) rotate(30deg)", opacity: 0 },
     ],
     { duration: 950, easing: gravity, fill: "forwards" },
   ).finished;

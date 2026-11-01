@@ -27,6 +27,7 @@ export function useIssueTicket() {
         lineCodes: [
           ...new Set(journey.legs.flatMap((l) => (l.kind === "ride" ? l.lineCodes : []))),
         ],
+        tripId: journey.legs.find((l) => l.kind === "ride")?.tripId,
       },
       now,
       dayStart,

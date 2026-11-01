@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { enterGate, exitGate, issueTicket, qrPayload, ticketState } from "./ticket.ts";
+import {
+  enterGate,
+  exitGate,
+  issueTicket,
+  qrPayload,
+  ticketFor,
+  ticketState,
+  type Ticket,
+} from "./ticket.ts";
 
 /** 运营日 0 点（上海时间 2026-10-31 00:00）。 */
 const dayStart = Date.UTC(2026, 9, 30, 16);
@@ -17,6 +25,7 @@ function newTicket(now = dayStart + 12 * hour) {
       departure: 12 * 3600 + 18 * 60,
       arrival: 12 * 3600 + 36 * 60,
       lineCodes: ["MT", "WS"],
+      tripId: "survival:SURC:MT:T:M1",
     },
     now,
     dayStart,
@@ -25,12 +34,54 @@ function newTicket(now = dayStart + 12 * hour) {
 }
 
 describe("仿真车票", () => {
-  it("新出的票是「未入站」，有票号，当天运营结束（次日 04:00）前有效", () => {
+  it("区间票：新出的票「未入站」，票号带日期与起终点，当天运营结束（次日 04:00）前任意班次都能坐", () => {
     const ticket = newTicket();
 
     expect(ticketState(ticket, dayStart + 13 * hour)).toBe("unused");
-    expect(ticket.id).toMatch(/^TL-1031-1218-[0-9A-Z]{4}$/);
+    expect(ticket.id).toMatch(/^TL-1031-PTK-NTA-[0-9A-Z]{4}$/);
     expect(ticket.validUntil).toBe(dayStart + 28 * hour);
+    // 不绑定班次：票上没有出发、到达时刻。
+    expect(ticket).not.toHaveProperty("departure");
+    expect(ticket).not.toHaveProperty("arrival");
+  });
+
+  it("记下出票时选的方案（那一天、出发时刻、第一段车次）：进站后直接接着乘车 GO", () => {
+    expect(newTicket().ride).toEqual({
+      date: "2026-10-31",
+      departure: 12 * 3600 + 18 * 60,
+      tripId: "survival:SURC:MT:T:M1",
+    });
+  });
+
+  it("找这一段区间能用的票：起终点相同、还没出站也没失效；不看班次", () => {
+    const now = dayStart + 13 * hour;
+    const fresh = newTicket();
+    const used = {
+      ...newTicket(),
+      id: "used",
+      entry: { station: "PTK", at: now },
+      exit: { station: "NTA", at: now },
+    };
+    const other: Ticket = { ...newTicket(), id: "other", to: station("HHU") };
+    const route = { from: station("PTK"), to: station("NTA") };
+
+    expect(ticketFor([used, other, fresh], route, now)?.id).toBe(fresh.id);
+    expect(ticketFor([used, other], route, now)).toBeUndefined();
+    expect(ticketFor([fresh], route, dayStart + 29 * hour)).toBeUndefined();
+  });
+
+  it("找票看服务器：另一台服务器上站码相同的票不算", () => {
+    const route = {
+      from: { ...station("PTK"), serverId: "creative" },
+      to: { ...station("NTA"), serverId: "creative" },
+    };
+    expect(ticketFor([newTicket()], route, dayStart + 13 * hour)).toBeUndefined();
+  });
+
+  it("按乘车的时刻判断：明天的行程不用今天就失效的票", () => {
+    const route = { from: station("PTK"), to: station("NTA") };
+    // 今天的票次日 04:00 失效；明天中午的车用不了它。
+    expect(ticketFor([newTicket()], route, dayStart + 36 * hour)).toBeUndefined();
   });
 
   it("只能在起点进站：进站后状态变「已入站」，记下车站与时刻；在别的站进站被拒绝", () => {
@@ -96,7 +147,7 @@ describe("仿真车票", () => {
     });
 
     expect(ticket.validUntil).toBe(dayStart + 4 * hour);
-    expect(ticket.id).toMatch(/^TL-1030-0030-/);
+    expect(ticket.id).toMatch(/^TL-1030-/);
   });
 
   it("提前买明天的票：日期与有效期都按行程那一天算", () => {
@@ -108,7 +159,7 @@ describe("仿真车票", () => {
       timeZone: "Asia/Shanghai",
     });
 
-    expect(ticket.id).toMatch(/^TL-1031-0900-/);
+    expect(ticket.id).toMatch(/^TL-1031-/);
     expect(ticket.validUntil).toBe(dayStart + 28 * hour);
   });
 

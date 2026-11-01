@@ -49,7 +49,7 @@
 /* ---------- 票面：v06 虚拟车票（3 px 深色外框、顶部线路色带、撕线、深色票脚） ---------- */
 
 /*
- * 出票台：出票口、票、检票钳与纸屑都在这里定位（动作见 ticketMotion.ts）。
+ * 出票台：票、检票钳与纸屑都在这里定位（动作见 ticketMotion.ts）。
  * 不裁切：撕下的票根、纸屑往下落，检票钳从右边滑进来，超出的部分由页面面板裁掉。
  */
 .stage {
@@ -57,29 +57,28 @@
   padding-top: 8px;
 }
 
-/* 出票口：票上方一条深色缝，出票时从中间展开，送完淡出。 */
-.slot {
+/* 出票口的唇边：盖在出票口下面一段，面板底色往下渐隐到透明，票的前沿从这里慢慢显现。 */
+.lip {
   position: absolute;
-  top: 2px;
+  top: 8px;
   left: -8px;
   right: -8px;
   z-index: 1;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--text);
-  transform: scaleX(0);
+  height: 36px;
+  background: linear-gradient(to bottom, var(--canvas) 20%, transparent);
+  pointer-events: none;
 }
 
 .feed {
   position: relative;
 }
 
-/* 出票时只裁出票口那一条上沿（左右与下方不裁，送完落下的那一震不会被切掉）。 */
+/* 出票时只裁上沿，票从这条线下面送出来（左右与下方不裁，送完落下的那一震不会被切掉）。 */
 .feeding {
   clip-path: inset(0 -100vw -100vh);
 }
 
-/* 还没送出的票停在出票口上方（被 .feeding 裁掉看不见）。 */
+/* 还没送出的票停在上沿以上（被 .feeding 裁掉看不见）。 */
 .unprinted {
   transform: translateY(-110%);
 }
@@ -131,9 +130,13 @@
   flex-direction: column;
 }
 
-/* 票身连同撕开后的锯齿：锯齿要盖住票身的外框，所以放在票身外面这一层。 */
+/*
+ * 票身连同撕线与撕开后的锯齿：锯齿要盖住票身的外框，所以放在票身外面这一层。
+ * 压在票根上面：撕的时候票根绕裂口转，左段翘起的部分藏在票身后面（见 ticketMotion.ts 的 playTear）。
+ */
 .bodyWrap {
   position: relative;
+  z-index: 1;
 }
 
 .body {
@@ -147,37 +150,35 @@
 
 /*
  * 撕开后票身下沿的锯齿：与面板底色相同的一排三角，盖在票脚下沿，连两侧外框一起切成锯齿。
- * round 让齿数取整、按宽度微调齿距，两端都停在完整的齿上。
  * 撕线本身就是这排锯齿：没撕时票根顶边的白齿（.stubSeam）正好填在这些三角里。
+ * 齿形是一个整排的 clip-path 多边形（TicketPage 的 useSawtooth 按宽度算）：
+ * 平铺的遮罩在小数像素的拼接处会透出一条条细竖线。
  */
 .teeth,
-.stubSeam {
+.stubSeam,
+.tearLine {
   position: absolute;
   left: 0;
   right: 0;
   height: 8px;
-  /*
-   * 一格 16×8：折线以下的部分（两侧向上的半个三角）。用 SVG 遮罩画，边缘干净；
-   * 用 conic-gradient 画的话，在小数像素位置上锯齿带顶沿会多出一条细灰线，像一道虚线。
-   */
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M0 0L8 8L16 0V8H0Z'/%3E%3C/svg%3E")
-    0 0 / 16px 8px round no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M0 0L8 8L16 0V8H0Z'/%3E%3C/svg%3E")
-    0 0 / 16px 8px round no-repeat;
+}
+
+/* 没撕时票身下沿的白齿（票根的纸），在外框以内，与票根顶边的白齿位置相同；票根本身压在票身下面。 */
+.tearLine {
+  bottom: 0;
+  left: 3px;
+  right: 3px;
+  background: var(--paper);
 }
 
 /*
- * 票身下沿多盖 1 px（形状高 9 px，最下面一行整条铺满，画在同一条路径里）：
+ * 票身下沿多盖 1 px（形状高 9 px，最下面一行整条铺满，画在同一个多边形里）：
  * 撕开后票身底边落在小数像素上时，不透出一条深色细线。锯齿本身仍是上面 8 px，与票根的白齿对齐。
  */
 .teeth {
   bottom: -1px;
   height: 9px;
   background: var(--canvas);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 9'%3E%3Cpath d='M0 0L8 8L16 0V9H0Z'/%3E%3C/svg%3E")
-    0 0 / 16px 9px round no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 9'%3E%3Cpath d='M0 0L8 8L16 0V9H0Z'/%3E%3C/svg%3E")
-    0 0 / 16px 9px round no-repeat;
 }
 
 .band {
@@ -199,17 +200,19 @@
   padding: 18px 20px 16px;
 }
 
+/* 票头：左边运营方名字（中文），右边「仿真车票」。 */
 .brand {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   margin: 0;
-  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 900;
 }
 
 .brand span {
-  font-family: var(--font-sc);
+  flex: none;
   font-size: 12px;
   font-weight: 700;
 }
@@ -267,13 +270,11 @@
 }
 
 /*
- * 票根顶边向上的白齿：与 .teeth 同一形状、同样宽度与齿距，只是三角用纸色，
- * 叠在票脚最下面那 8 px 上，正好填满票身锯齿之间的空隙，两排齿咬合成一条锯齿撕线。
+ * 票根顶边向上的白齿：与 .tearLine 同样的形状与位置（外框以内）。没撕时藏在票身下面，
+ * 由票身那排白齿代为显示；撕的时候票根垂下来，它跟着票根露出，就是票根上撕开的那道齿边。
  */
 .stubSeam {
   top: -8px;
-  left: -3px;
-  right: -3px;
   background: var(--paper);
 }
 
@@ -296,10 +297,11 @@
 }
 
 /* 二维码：白底 + 3 px 深色框，深色模式下仍是白底黑码，扫码器才读得出来。 */
+/* 边长默认屏宽的一半、最多 200；手机上按可用高度收放（--qr-size，见 TicketPage 的 useFitQr）。 */
 .qr {
   position: relative;
   flex: none;
-  width: min(48vw, 200px);
+  width: var(--qr-size, min(48vw, 200px));
   padding: 6px;
   border: 3px solid var(--text);
   border-radius: var(--radius-control);
@@ -411,6 +413,38 @@
   transform: scale(0.98);
 }
 
+/* 闸机按钮一行：模拟进出站占满，已入站时右边多一个 GO。收起时裁掉，高度降到 0 的过程中不露出半截。 */
+.gateRow {
+  display: flex;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.gateRow .gateButton {
+  flex: 1;
+}
+
+/* 已入站：接着乘车 GO。与闸机按钮同高，深色，跟「模拟出站」区分开。 */
+.goButton {
+  flex: none;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  border-radius: var(--radius-control);
+  background: var(--action);
+  color: var(--action-text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.goButton:active {
+  transform: scale(0.98);
+}
+
 /* 动作进行中：按钮留在原处（焦点不丢），只是暂时不响应。 */
 .gateButton[aria-disabled="true"] {
   opacity: 0.6;
@@ -418,12 +452,29 @@
 }
 
 /* 闸机结果的播报区一直在（读屏软件才会读出第一次的结果）；没有内容时不占位置。 */
+.status {
+  margin-top: -10px;
+}
+
 .status:empty {
   position: absolute;
 }
 
 .status:focus {
   outline: none;
+}
+
+/*
+ * 展开时裁掉结果，高度从 0 长起来的过程中不露出半截。与上面按钮的间距（10 px）也算在展开的高度里
+ *（.status 用负边距抵掉容器的间距），出现时不会先跳出一截空白。
+ */
+.gateResultWrap {
+  overflow: hidden;
+}
+
+/* 用外边距而不是容器的内边距：高度为 0 时内边距仍占位置，外边距随裁切一起收起。 */
+.gateResultWrap > p {
+  margin-top: 10px;
 }
 
 .gateResult {
@@ -448,4 +499,44 @@
   margin: 0 4px;
   font-size: 13px;
   color: var(--muted);
+}
+
+/*
+ * 矮屏（iPhone SE 这类，高 ≤ 740）：二维码缩到下限仍放不下整张票，票面再收紧一点——
+ * 色带、内边距、行距与大字都小一档，闸机按钮矮一点。票的结构不变。
+ */
+@media (max-height: 740px) {
+  .band {
+    height: 8px;
+  }
+
+  .face {
+    gap: 4px;
+    padding: 12px 18px;
+  }
+
+  .route {
+    font-size: 24px;
+  }
+
+  .times {
+    font-size: 28px;
+  }
+
+  .foot {
+    padding: 8px 18px;
+  }
+
+  .stub {
+    padding: 14px 18px;
+  }
+
+  .gate {
+    margin-top: 12px;
+  }
+
+  .gateButton,
+  .goButton {
+    height: 48px;
+  }
 }

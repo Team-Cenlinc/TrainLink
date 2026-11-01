@@ -1,0 +1,274 @@
+/* 读屏播报（见 GoPage）：看不见，只给读屏软件。 */
+.announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 大字下面那一行：哪班车、几分后开、在哪下车。 */
+.detail {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+/* ---------- 整趟进度 ---------- */
+
+.progress {
+  margin: 4px 4px 20px;
+}
+
+/* 各段按预计时长分段，段与段之间留 3 px 缝；圆点标出现在走到哪。 */
+.bar {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  height: 10px;
+}
+
+.segment,
+.walkSegment {
+  flex-basis: 0;
+  border-radius: 5px;
+}
+
+.segment {
+  background: var(--line);
+}
+
+/* 步行：灰色虚线。 */
+.walkSegment {
+  background: repeating-linear-gradient(to right, var(--muted) 0 6px, transparent 6px 10px);
+  background-size: 100% 4px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.marker {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 4px solid var(--text);
+  border-radius: 50%;
+  background: var(--paper);
+  transition: left 1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker {
+    transition: none;
+  }
+}
+
+.ends {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+/* ---------- 车票、下车提醒 ---------- */
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.tool svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.tool[aria-pressed="true"] {
+  background: var(--exit);
+  color: var(--exit-text);
+}
+
+.tool:active {
+  transform: scale(0.97);
+}
+
+.note {
+  flex-basis: 100%;
+  margin: 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- 接下来 ---------- */
+
+.leg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.walkIcon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: var(--muted);
+}
+
+.legMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.legMeta {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.end {
+  width: 100%;
+  height: 52px;
+  margin-top: 24px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.end:active {
+  transform: scale(0.98);
+}
+
+/* 进度条下面中间：「实时位置」带一个绿点；「按时刻表推算」是灰字。 */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--status-ok);
+}
+
+.live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---------- 本段各站 ---------- */
+
+.stop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stopName {
+  flex: 1;
+  min-width: 0;
+}
+
+.stopTime {
+  flex: none;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+/* 已经过的站变淡。 */
+.passed {
+  opacity: 0.4;
+}
+
+/* 下一站：加粗、时刻用正文色。 */
+.next {
+  font-weight: 900;
+}
+
+.next .stopTime {
+  color: var(--text);
+}
+
+.tag,
+.alight {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: var(--radius-info);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tag {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.alight {
+  background: var(--exit);
+  color: var(--exit-text);
+}
+
+/* ---------- 同时只能一趟 GO ---------- */
+
+.conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  border-radius: var(--radius-group);
+  background: var(--paper);
+}
+
+.conflictText {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.replace,
+.back {
+  height: 52px;
+  border-radius: var(--radius-control);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.replace {
+  background: var(--exit);
+  color: var(--exit-text);
+}
+
+.back {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}

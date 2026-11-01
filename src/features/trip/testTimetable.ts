@@ -1,6 +1,7 @@
 /**
  * 测试用的小型 GTFS：用几行描述写出车次，生成与真实 GTFS 包相同格式的 CSV 文本。
  * 站码直接写（P1、P2…），站台默认 1 号；时刻写成 "08:05" 或 "24:05:30"。
+ * 车站默认属于测试用的运营方 TST（站内换乘按通用的 2 分钟）；要测 SURC 的规则时传 operator。
  */
 
 export interface TripSpec {
@@ -21,10 +22,20 @@ export interface WalkSpec {
   seconds: number;
 }
 
-const stopId = (code: string, platform = "1") => `survival:SURC:S:${code}:${platform}`;
+export interface MinTransfer {
+  /** 同一个车站内换乘至少几秒（GTFS transfers.txt 里起终点同站、transfer_type 2 的一行）。 */
+  station: string;
+  seconds: number;
+}
+
 const time = (t: string) => (t.split(":").length === 2 ? `${t}:00` : t);
 
-export function gtfsFiles(trips: TripSpec[], walks: WalkSpec[] = []) {
+export function gtfsFiles(
+  trips: TripSpec[],
+  walks: WalkSpec[] = [],
+  { operator = "TST", minTransfers = [] }: { operator?: string; minTransfers?: MinTransfer[] } = {},
+) {
+  const stopId = (code: string, platform = "1") => `survival:${operator}:S:${code}:${platform}`;
   const stations = new Set(trips.flatMap((t) => t.stops.map(([code]) => code)));
   const platforms = new Set(trips.flatMap((t) => t.stops.map(([code, , p]) => stopId(code, p))));
   const tripId = (t: TripSpec) =>
@@ -38,10 +49,10 @@ export function gtfsFiles(trips: TripSpec[], walks: WalkSpec[] = []) {
     ].join("\n"),
     stops: [
       "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,platform_code",
-      ...[...stations].map((code) => `survival:SURC:S:${code},${code},0,0,1,,`),
+      ...[...stations].map((code) => `survival:${operator}:S:${code},${code},0,0,1,,`),
       ...[...platforms].map((id) => {
         const [, , , code, platform] = id.split(":");
-        return `${id},${code},0,0,0,survival:SURC:S:${code},${platform}`;
+        return `${id},${code},0,0,0,survival:${operator}:S:${code},${platform}`;
       }),
     ].join("\n"),
     stopTimes: [
@@ -55,7 +66,13 @@ export function gtfsFiles(trips: TripSpec[], walks: WalkSpec[] = []) {
     ].join("\n"),
     transfers: [
       "from_stop_id,to_stop_id,transfer_type,min_transfer_time,from_trip_id,to_trip_id",
-      ...walks.map((w) => `survival:SURC:S:${w.from},survival:SURC:S:${w.to},2,${w.seconds},,`),
+      ...walks.map(
+        (w) => `survival:${operator}:S:${w.from},survival:${operator}:S:${w.to},2,${w.seconds},,`,
+      ),
+      ...minTransfers.map(
+        (m) =>
+          `survival:${operator}:S:${m.station},survival:${operator}:S:${m.station},2,${m.seconds},,`,
+      ),
     ].join("\n"),
   };
 }

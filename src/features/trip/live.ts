@@ -1,16 +1,10 @@
 import type { TripRealtime } from "@/lib/realtime.ts";
-import {
-  changeSeconds,
-  planJourneys,
-  type Journey,
-  type JourneyQuery,
-  type Leg,
-} from "./planner.ts";
+import { planJourneys, type Journey, type JourneyQuery, type Leg } from "./planner.ts";
 import type { Timetable } from "./timetable.ts";
 
 /**
  * 把实时数据套到规划好的行程上：各段乘车的预计出发、到达，整个行程的预计到达与晚点，
- * 以及换乘是否可能赶不上。纯函数；时刻仍是「运营日 0 点起的秒数」。
+ * 以及换乘是否可能赶不上（按各站的最短换乘时间）。纯函数；时刻仍是「运营日 0 点起的秒数」。
  */
 
 export interface LiveTimes {
@@ -26,7 +20,7 @@ export interface LiveJourney extends Journey {
   live: LiveTimes;
   /** 预计到达比计划晚几分钟（不足 1 分钟为 0）。 */
   delayMinutes: number;
-  /** 某次换乘预计留不出 2 分钟。 */
+  /** 某次换乘预计留不出那一站的最短换乘时间。 */
   riskyChange: boolean;
 }
 
@@ -78,12 +72,14 @@ export function applyRealtime(
     leg.live = { departure: next.live.departure - leg.seconds, arrival: next.live.departure };
   }
 
-  // 每段乘车之前要能赶上：前一段是乘车要留出换乘时间；前一段是步行，走到就能上车。
+  // 每段乘车之前要能赶上：前一段是乘车要留出那一站的换乘时间；前一段是步行，走到就能上车。
   const riskyChange = legs.some((leg, i) => {
     const previous = legs[i - 1];
     if (leg.kind !== "ride" || !previous) return false;
     const readyAt =
-      previous.kind === "ride" ? previous.live.arrival + changeSeconds : previous.live.arrival;
+      previous.kind === "ride"
+        ? previous.live.arrival + previous.changeSeconds
+        : previous.live.arrival;
     return readyAt > leg.live.departure;
   });
 
@@ -150,8 +146,9 @@ export function findJourney(
     from: selected.from,
     to: selected.to,
     departAfter: selected.departure,
-    // 同一时刻起找几个：晚点的车可能排在前面。
+    // 同一时刻起找几个：晚点的车可能排在前面。第一段只坐选中的那班（被后面快车追上也找得回来）。
     count: 3,
+    firstTripId: selected.tripId,
     ...realtimeQuery(realtime),
   }).find((j) => j.departure === selected.departure && firstTrip(j) === selected.tripId);
   return {

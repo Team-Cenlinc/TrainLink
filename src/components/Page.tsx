@@ -14,6 +14,7 @@ import styles from "./Page.module.css";
 export function Page({
   title,
   back,
+  backTo = "/",
   hero,
   narrow = false,
   children,
@@ -25,6 +26,10 @@ export function Page({
    * 大标题留给内容。省略时是一级页面，没有返回按钮。
    */
   back?: string;
+  /**
+   * 返回时没有上一页（从分享链接或主屏直接打开这一页）就去这里，不离开 App。默认看板。
+   */
+  backTo?: string;
   /** 标题下面的内容（概况、起终点卡片等）。 */
   hero?: ReactNode;
   /** 面板内容限宽 760（单栏的列表页，例如行程）；大屏上列表不会拉得太长。 */
@@ -53,7 +58,12 @@ export function Page({
               type="button"
               className={styles.back}
               aria-label="返回"
-              onClick={() => navigate(-1)}
+              // React Router 在 history.state 里记着这是 App 里的第几页：第 0 页没有可退的。
+              onClick={() =>
+                (window.history.state as { idx?: number } | null)?.idx
+                  ? navigate(-1)
+                  : navigate(backTo, { replace: true })
+              }
             >
               <BackIcon aria-hidden />
             </button>

@@ -1,0 +1,110 @@
+/*
+ * 乘车中迷你条：悬浮在标签栏正上方，同宽、同样的圆角与阴影，深色（与标题块同色），
+ * 像音乐 App 的迷你播放条。桌面没有标签栏，放在右下角。
+ */
+.bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 91px);
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(calc(100% - 28px), 420px);
+  min-height: 56px;
+  padding: 8px 10px 8px 16px;
+  border-radius: var(--radius-group);
+  background: var(--hero);
+  color: var(--hero-text);
+  box-shadow: var(--floating-shadow);
+  text-decoration: none;
+  view-transition-name: ride-bar;
+}
+
+.bar:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
+@media (min-width: 1280px) {
+  .bar {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    transform: none;
+    width: 360px;
+  }
+
+  .bar:active {
+    transform: scale(0.98);
+  }
+}
+
+/* 在走的一趟：绿点轻轻呼吸；到了就不动。 */
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--status-ok);
+  animation: breathe 2s ease-in-out infinite;
+}
+
+.done {
+  animation: none;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title,
+.detail {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.detail {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.go {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: var(--radius-info);
+  background: var(--exit);
+  color: var(--exit-text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}

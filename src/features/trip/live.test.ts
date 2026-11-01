@@ -269,6 +269,39 @@ describe("findJourney", () => {
   );
   const route = { from: "P1", to: "P2" };
 
+  it("坐的车被后面的快车追上、同时到达：照样找回坐的这一班（不然乘车 GO 会突然「找不到这个班次」）", () => {
+    const overtaken = buildTimetable(
+      gtfsFiles([
+        {
+          id: "L1",
+          line: "MT",
+          headsign: "P3",
+          stops: [
+            ["P1", "08:00"],
+            ["P2", "08:10"],
+            ["P3", "08:20"],
+          ],
+        },
+        {
+          id: "E1",
+          line: "MT",
+          headsign: "P3",
+          stops: [
+            ["P1", "08:05"],
+            ["P3", "08:20"],
+          ],
+        },
+      ]),
+    );
+    const found = findJourney(
+      overtaken,
+      { from: "P1", to: "P3", departure: at("08:00"), tripId: "survival:SURC:MT:T:L1" },
+      new Map(),
+      dayStart,
+    );
+    expect(found.journey?.departure).toBe(at("08:00"));
+  });
+
   it("按出发时刻与第一段车次找回选中的方案", () => {
     const found = findJourney(
       line,
