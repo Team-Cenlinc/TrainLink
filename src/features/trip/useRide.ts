@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
-import { useCatalog, useNow, useTripRealtime } from "@/lib/queries.ts";
+import { useCatalog, useNow, useTrains, useTripRealtime } from "@/lib/queries.ts";
+import { isStopped, stationOfNode } from "@/features/board/linePositions.ts";
 import type { TripRealtime } from "@/lib/realtime.ts";
 import { stationName } from "./journeyText.ts";
 import type { LiveJourney } from "./live.ts";
 import { useTimetable } from "./queries.ts";
-import { liveStops, plannedStops, rideStatus, rideText } from "./ride.ts";
+import { liveStops, plannedStops, rideStatus, rideText, type TrainPosition } from "./ride.ts";
 import { lineOf } from "./stations.ts";
 import { stationFromParam } from "./tripStore.ts";
 import { useJourney } from "./useJourneys.ts";
@@ -51,6 +52,8 @@ export function useRide(params: URLSearchParams) {
   const serverId = from?.serverId ?? home.serverId;
   const timetable = useTimetable(serverId);
   const realtime = useTripRealtime(serverId).data ?? noRealtime;
+  // 在线列车的位置：判断是不是正停在站上（同列车详情）。
+  const trains = useTrains(true).data?.trains;
   const now = Math.floor((useNow(5_000) - dayStart) / 1000);
   const name = (code: string) => stationName(catalog.data, serverId, code);
 
@@ -61,7 +64,18 @@ export function useRide(params: URLSearchParams) {
     // 方案对象每次实时数据更新都是新的，按它的身份（出发时刻与车次）判断换没换。
     [journeyKey(journey), timetable.data],
   );
-  const stops = planned.map((p) => liveStops(p, realtime, dayStart, now));
+  const positions = new Map<string, TrainPosition>();
+  for (const stop of planned.flat()) {
+    if (positions.has(stop.tripId)) continue;
+    const trainName = realtime.get(stop.tripId)?.trainName;
+    const train = trainName && trains?.find((t) => t.serverId === serverId && t.name === trainName);
+    if (train) {
+      positions.set(stop.tripId, {
+        stoppedAt: isStopped(train) ? stationOfNode(train.currentNode) : undefined,
+      });
+    }
+  }
+  const stops = planned.map((p) => liveStops(p, realtime, dayStart, now, positions));
   const status = journey ? rideStatus(journey, stops, now) : undefined;
   const text = journey && status ? rideText(status, journey, name) : undefined;
   // 此刻这一段有没有实时数据（列车位置）：没有时是按时刻表推算的。

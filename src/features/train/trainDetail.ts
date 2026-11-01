@@ -4,6 +4,7 @@ import { findStation } from "@/lib/station.ts";
 import { serviceTypeOf } from "@/features/board/departures.ts";
 import {
   carLoad,
+  isStopped,
   loadOfRatio,
   trainSection,
   type CarLoad,
@@ -54,9 +55,6 @@ export interface TrainDetail {
   position: { afterIndex: number; dwelling: boolean };
 }
 
-/** 停车判定：低于这个速度（方块/秒）就算停在当前站。 */
-const dwellSpeed = 0.5;
-
 export function buildTrainDetail(input: {
   train: RailTrain;
   /**
@@ -86,7 +84,7 @@ export function buildTrainDetail(input: {
 
   // 物理位置：当前节点与下一节点所在的站（可能是快车通过不停的站）；与看板线路图同一套判断。
   const { current, from, to } = trainSection(train, order);
-  const stopped = train.speedBlocksPerSecond < dwellSpeed || !train.nextNode;
+  const stopped = isStopped(train);
   const stopTimeAt = new Map((tripUpdate?.stops ?? []).map((s) => [s.stationCode, s]));
   const last = order.length - 1;
 

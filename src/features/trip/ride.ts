@@ -42,10 +42,14 @@ export function plannedStops(timetable: Timetable, leg: LiveLeg): PlannedStop[] 
     .sort((a, b) => a.departure - b.departure);
   const first = rides[0];
   if (!first) return [];
-  // 列车开进上车站的那一段（始发站没有）：停站从这时开始。
-  const into = timetable.connections.find(
-    (c) => c.tripId === first.tripId && c.to === leg.from && c.arrival <= first.departure,
-  );
+  // 列车开进上车站的那一段（始发站没有）：停站从这时开始。按同一列车找（在直通的交接站上车时，
+  // 列车是以前一段车次进站的）；环线会多次经过同一站，取开车前最近的一次。
+  const into = timetable.connections
+    .filter((c) => c.vehicle === first.vehicle && c.to === leg.from && c.arrival <= first.departure)
+    .reduce<(typeof rides)[number] | undefined>(
+      (latest, c) => (!latest || c.arrival > latest.arrival ? c : latest),
+      undefined,
+    );
   return [
     {
       station: leg.from,
@@ -63,24 +67,37 @@ export function plannedStops(timetable: Timetable, leg: LiveLeg): PlannedStop[] 
   ];
 }
 
+/** 列车停在站上时，这一趟预计到这一站最多还差多少秒（早到）；差得更多就是别的车次停在这里。 */
+const earlyArrival = 120;
+
+/** 列车此刻的位置（来自在线列车）：停在哪个车站上；开着或停在区间里时没有 stoppedAt。 */
+export interface TrainPosition {
+  stoppedAt?: string;
+}
+
 /**
  * 套上实时数据：各站预计到站、开车时刻，列车开过了没有、是不是正停着。
  * 列车位置：一个车次的实时数据从当前（或刚离开）的站列起，所以排在它列出的第一站之前的站已经过了；
  * 列表可能只到接下来几站，后面没列出的站不能当成经过了，按时刻判断。
+ * 停站：有在线列车的位置时按位置（停在这一站上，同列车详情），晚开、早到都对；
+ * 没有位置但有实时数据时，只有它列出的第一站（当前站）才可能是停着的——刚开过的站还列着时，
+ * 列车还在去下一站的路上，不能因为预计到站时刻过了就当成到了；都没有时按时刻推算。
  * @param dayStart 运营日 0 点的绝对时刻（毫秒）
  * @param now 现在（运营日内的秒数）
+ * @param positions 车次 → 列车位置（只有能对上在线列车的车次）
  */
 export function liveStops(
   planned: PlannedStop[],
   realtime: Map<string, TripRealtime>,
   dayStart: number,
   now: number,
+  positions: Map<string, TrainPosition> = new Map(),
 ): RideStop[] {
   // 实时数据还列着的、排得最前的一站：它之前的站都过了。
   const firstListed = planned.findIndex((s) => realtime.get(s.tripId)?.stops.has(s.station));
   const last = planned.length - 1;
   const seconds = (epoch: number) => Math.round((epoch - dayStart) / 1000);
-  return planned.map((s, i) => {
+  const times = planned.map((s, i) => {
     const rt = realtime.get(s.tripId);
     const predicted = rt?.stops.get(s.station);
     const delay = rt?.delaySeconds ?? 0;
@@ -93,13 +110,35 @@ export function liveStops(
         : predicted?.departure !== undefined
           ? seconds(predicted.departure)
           : arrival + (s.departure - s.arrival);
-    const passed = i < firstListed || departure <= now;
+    return { arrival, departure, passed: i < firstListed || departure <= now };
+  });
+  // 列车停着的那一站（下车站不算：到了就是到了）：是它停着的站，并且是实时数据里的当前站
+  // 或按时刻还没开过（环线会多次经过同一站，按这个挑出这一圈的）；这一趟预计到这一站也不能还早——
+  // 同一列车可能还在跑上一个车次（往返线反方向经过同一站），那时它停在这里不是这一趟。
+  const stoppedAt = planned.findIndex(
+    (s, i) =>
+      i < last &&
+      positions.get(s.tripId)?.stoppedAt === s.station &&
+      (i === firstListed || !times[i]!.passed) &&
+      times[i]!.arrival <= now + earlyArrival,
+  );
+  return planned.map((s, i) => {
+    const { arrival, departure } = times[i]!;
+    const position = positions.get(s.tripId);
+    if (position) {
+      // 停在下车站上就是到了。
+      const reached = i === last && position.stoppedAt === s.station;
+      const passed = stoppedAt >= 0 ? i < stoppedAt : times[i]!.passed || reached;
+      return { station: s.station, arrival, departure, passed, dwelling: i === stoppedAt };
+    }
+    const { passed } = times[i]!;
+    const current = realtime.has(s.tripId) ? i === firstListed : true;
     return {
       station: s.station,
       arrival,
       departure,
       passed,
-      dwelling: !passed && arrival <= now,
+      dwelling: !passed && current && arrival <= now,
     };
   });
 }
@@ -111,8 +150,9 @@ export function legStops(
   realtime: Map<string, TripRealtime>,
   dayStart: number,
   now: number,
+  positions?: Map<string, TrainPosition>,
 ): RideStop[] {
-  return liveStops(plannedStops(timetable, leg), realtime, dayStart, now);
+  return liveStops(plannedStops(timetable, leg), realtime, dayStart, now, positions);
 }
 
 export type RideStatus = (
@@ -261,10 +301,10 @@ export function rideText(
 export type CollapsedItem = { kind: "row"; index: number } | { kind: "gap"; count: number };
 
 /**
- * 本段各站收起时留下哪几站：还没上车时是上车站；车上是刚过的站与下一站；总是留下车站。
- * 跳过的站收成一段（「经过 N 站」），开头跳过的也算一段。
- * @param count 行数（上车站加经过的各站）
- * @param next 第一个还没到的站的下标
+ * 本段各站收起时留下哪几站：还没上车时是上车站；车上是刚开过的站与下一站（或正停着的站）；
+ * 总是留下车站。跳过的站收成一段（「展开另 N 站」），开头跳过的也算一段。
+ * @param count 这一段的站数（legStops 的长度，含上车站与下车站）
+ * @param next 第一个列车还没开过的站的下标
  */
 export function collapsedStops({
   count,

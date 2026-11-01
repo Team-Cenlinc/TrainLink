@@ -178,6 +178,8 @@ export interface TripRealtime {
   /** 整个车次已取消。 */
   cancelled: boolean;
   delaySeconds?: number;
+  /** 跑这个车次的列车名（对上在线列车的位置）。 */
+  trainName?: string;
   /** 各站预计到发时刻（毫秒），以站码索引。 */
   stops: Map<string, { arrival?: number; departure?: number }>;
 }
@@ -303,6 +305,7 @@ export async function decodeTripFeed(bytes: Uint8Array): Promise<TripFeed> {
       byTrip.set(tripId, {
         cancelled: update.trip.scheduleRelationship === CANCELED,
         delaySeconds: update.delay ?? undefined,
+        trainName: update.vehicle?.id ?? undefined,
         stops: new Map(
           stops.map((s) => [s.stationCode, { arrival: s.arrival, departure: s.departure }]),
         ),

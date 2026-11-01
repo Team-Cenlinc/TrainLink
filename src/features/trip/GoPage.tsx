@@ -550,14 +550,16 @@ function AlightReminders({
 }
 
 /**
- * 开着 GO 页面时，变成「下一站下车」的那一刻振动一下；每段只振一次。
- * 打开页面（或刷新）时已经是这个状态的不振：那不是刚发生的。
+ * 开着 GO 页面时，前一站开车（下一站就下车）的那一刻振动一下，与下车提醒同一时刻；每段只振一次。
+ * 列车还停在前一站时不振。打开页面（或刷新）时已经是这个状态的不振：那不是刚发生的。
  */
 function useAlightBuzz(status: RideStatus | undefined) {
   const buzzed = useRef(new Set<string>());
   const seen = useRef(false);
   const key =
-    status?.kind === "ride" && status.stopsLeft === 1 ? `alight-${status.legIndex}` : undefined;
+    status?.kind === "ride" && status.stopsLeft === 1 && !status.dwellingAt
+      ? `alight-${status.legIndex}`
+      : undefined;
   useEffect(() => {
     if (!status) return;
     const first = !seen.current;

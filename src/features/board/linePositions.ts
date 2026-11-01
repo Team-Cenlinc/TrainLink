@@ -106,8 +106,13 @@ export function carLoad(car: RailCar): CarLoad {
   return loadOfRatio(car.seats > 0 ? car.occupied / car.seats : 0);
 }
 
-/** 停车判定：低于这个速度（方块/秒）且当前节点是车站，就画在车站上。 */
+/** 停车判定：低于这个速度（方块/秒），或者没有下一节点。 */
 const dwellSpeed = 0.5;
+
+/** 列车停着（看板线路图、列车详情、乘车 GO 共用）：停在车站节点上时，配合 stationOfNode 就是停在哪站。 */
+export function isStopped(train: Pick<RailTrain, "speedBlocksPerSecond" | "nextNode">): boolean {
+  return train.speedBlocksPerSecond < dwellSpeed || !train.nextNode;
+}
 
 /** 交路沿这条线的运行方向：取交路里相邻两个在这条线上的站比较先后；看不出时为 undefined。 */
 function routeDirection(routeStops: string[] | undefined, order: string[]) {
@@ -153,7 +158,7 @@ export function placeTrain(input: {
         (towardsIndex >= 0 && towardsIndex < known ? "toStart" : "toEnd"));
   const step = direction === "toEnd" ? 1 : -1;
 
-  const stopped = train.speedBlocksPerSecond < dwellSpeed || !train.nextNode;
+  const stopped = isStopped(train);
   const servesCurrent = !routeStops || (current !== undefined && routeStops.includes(current));
   if (stopped && currentIndex >= 0 && servesCurrent) return { slot: currentIndex, direction };
 
