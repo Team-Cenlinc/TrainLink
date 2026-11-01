@@ -8,7 +8,7 @@ export interface TripSpec {
   id: string;
   line: string;
   headsign: string;
-  /** 按站序：[站码, 时刻] 或 [站码, 时刻, 站台]。到发同一时刻。 */
+  /** 按站序：[站码, 时刻] 或 [站码, 时刻, 站台]。时刻写 "08:03" 是到发同一时刻，"08:03-08:05" 是停站两分钟。 */
   stops: [string, string, string?][];
   /** 跨线直通的后一段：trip_id 写成 base~2，与 GTFS 包一致。 */
   leg?: number;
@@ -58,10 +58,10 @@ export function gtfsFiles(
     stopTimes: [
       "trip_id,arrival_time,departure_time,stop_sequence,stop_id",
       ...trips.flatMap((t) =>
-        t.stops.map(
-          ([code, at, platform], i) =>
-            `${tripId(t)},${time(at)},${time(at)},${i},${stopId(code, platform)}`,
-        ),
+        t.stops.map(([code, at, platform], i) => {
+          const [arrival, departure = arrival] = at.split("-") as [string, string?];
+          return `${tripId(t)},${time(arrival)},${time(departure)},${i},${stopId(code, platform)}`;
+        }),
       ),
     ].join("\n"),
     transfers: [

@@ -120,7 +120,8 @@ function Actions({
     const result: ReminderResult = await setReminder(
       key,
       fireAt,
-      `${remindMinutes} 分钟后出发`,
+      // 标题带上哪班车：锁屏上不用点开就知道要坐哪一班。
+      `${remindMinutes} 分钟后出发${firstRide ? ` · ${firstRide.lineCode} 往 ${firstRide.headsign}` : ""}`,
       `${summary}${firstRide?.platform ? `，${firstRide.platform} 号站台上车` : ""}`,
     );
     setNote(

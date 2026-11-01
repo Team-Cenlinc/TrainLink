@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import BellIcon from "@material-symbols/svg-400/outlined/notifications.svg?react";
 import BellOnIcon from "@material-symbols/svg-400/outlined/notifications_active.svg?react";
@@ -6,6 +6,14 @@ import TicketIcon from "@material-symbols/svg-400/outlined/confirmation_number.s
 import WalkIcon from "@material-symbols/svg-400/outlined/directions_walk.svg?react";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
+import {
+  GapRow,
+  StopList,
+  StopRow,
+  StopStatus,
+  StopTag,
+  TrainRow,
+} from "@/components/StopList.tsx";
 import { sameSection, ticketFor } from "@/features/tickets/ticket.ts";
 import { TicketSheet } from "@/features/tickets/TicketSheet.tsx";
 import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
@@ -15,7 +23,14 @@ import { useCatalog } from "@/lib/queries.ts";
 import { stationName } from "./journeyText.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
 import { clearReminder, setReminder, useAnyReminder, type ReminderResult } from "./reminders.ts";
-import { alightReminderAt, rideText, type RideStatus, type RideStop } from "./ride.ts";
+import {
+  alightReminderAt,
+  collapsedStops,
+  rideText,
+  type CollapsedItem,
+  type RideStatus,
+  type RideStop,
+} from "./ride.ts";
 import {
   endRide,
   rideKey,
@@ -120,10 +135,12 @@ export function GoPage() {
             />
           </div>
           {(status.kind === "ride" || status.kind === "wait") && (
-            <LegStops
+            <LegDiagram
               leg={journey.legs[status.legIndex]!}
               stops={stops[status.legIndex] ?? []}
+              boarded={status.kind === "ride"}
               name={name}
+              lineColor={lineColorOf}
             />
           )}
           {status.kind !== "arrived" && (
@@ -191,35 +208,129 @@ function Progress({
   );
 }
 
+/** 本段各站收起与否：每人自己的偏好，存在这台设备上（读不到就展开）。 */
+const collapseKey = "trainlink.goStopsCollapsed";
+
+function useCollapsed(): [boolean, (value: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(collapseKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const set = (value: boolean) => {
+    setCollapsed(value);
+    try {
+      localStorage.setItem(collapseKey, value ? "1" : "0");
+    } catch {
+      // 存不下就只在这次打开时有效。
+    }
+  };
+  return [collapsed, set];
+}
+
 /**
- * 这一段经过的各站：已经过的变淡，下一站加粗，最后一站写「下车」。时刻是预计到站。
- * 等车时（还没上车）也列出来，先看看要坐几站。
+ * 这一段的各站，画法同列车详情的停靠站（见 StopList）：上车站在最上面、下车站在最下面（粗环），
+ * 右边是预计时刻。列车开过的那截线变灰；列车停在站上时站点圆填深色、写「停靠中」，
+ * 行驶中在刚开过的站与前方的站之间插一行 ▼。还没上车时标出上车站。
+ * 可以收起：只留上车站（还没上车时）、刚开过的站、列车停着或前方的站与下车站，跳过的站收成虚线一段。
  */
-function LegStops({
+function LegDiagram({
   leg,
   stops,
+  boarded,
   name,
+  lineColor,
 }: {
   leg: LiveLeg;
+  /** 这一段的各站（上车站在前，见 ride.ts）。 */
   stops: RideStop[];
+  /** 已经上车（列车开出上车站了）。 */
+  boarded: boolean;
   name: (code: string) => string;
+  lineColor: (lineCode: string) => string;
 }) {
-  if (leg.kind !== "ride" || stops.length === 0) return null;
+  const [collapsed, setCollapsed] = useCollapsed();
+  if (leg.kind !== "ride" || stops.length < 2) return null;
+  // 第一个列车还没开过的站：它正停着，或列车正开往它。
   const next = stops.findIndex((s) => !s.passed);
+  const last = stops.length - 1;
+  const folded = collapsedStops({ count: stops.length, next, boarded });
+  // 只有中间有站可收时才给收起按钮。
+  const collapsible = folded.some((item) => item.kind === "gap");
+  const items: CollapsedItem[] = collapsed
+    ? folded
+    : stops.map((_, index) => ({ kind: "row" as const, index }));
+  const moving = boarded && next > 0 && !stops[next]!.dwelling;
+
   return (
-    <Group title="本段各站" count={stops.length}>
-      {stops.map((stop, i) => (
-        <li
-          key={`${stop.station}-${i}`}
-          className={`${styles.stop} ${stop.passed ? styles.passed : ""} ${i === next ? styles.next : ""}`}
-          aria-current={i === next ? "step" : undefined}
+    <Group
+      title="本段各站"
+      count={last}
+      action={
+        collapsible && (
+          <button
+            type="button"
+            className={styles.toggle}
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? "展开" : "收起"}
+          </button>
+        )
+      }
+    >
+      <li className={styles.diagram}>
+        <StopList
+          style={{ "--line": lineColor(leg.lineCode) } as CSSProperties}
+          label={`${leg.lineCode} 往 ${leg.headsign}，${name(leg.from)} 到 ${name(leg.to)}`}
         >
-          <span className={styles.stopName}>{name(stop.station)}</span>
-          {i === next && i < stops.length - 1 && <span className={styles.tag}>下一站</span>}
-          {i === stops.length - 1 && <span className={styles.alight}>下车</span>}
-          <span className={`${styles.stopTime} num`}>{clockOf(stop.time)}</span>
-        </li>
-      ))}
+          {items.map((item, k) => {
+            if (item.kind === "gap") {
+              // 跳过的几站：后面紧跟的那一站之前的站都开过了，这一段就是灰的。
+              const after = items[k + 1];
+              const passed = after?.kind === "row" && !!stops[after.index - 1]?.passed;
+              return (
+                <GapRow
+                  key={`gap-${k}`}
+                  label={`展开另 ${item.count} 站`}
+                  passed={passed}
+                  onExpand={() => setCollapsed(false)}
+                />
+              );
+            }
+            const i = item.index;
+            const stop = stops[i]!;
+            return (
+              <Fragment key={`${stop.station}-${i}`}>
+                {moving && i === next && <TrainRow label="列车当前位置" />}
+                <StopRow
+                  name={name(stop.station)}
+                  tags={
+                    <>
+                      {i === 0 && !boarded && <StopTag>上车</StopTag>}
+                      {i === last && <StopTag tone="exit">下车</StopTag>}
+                      {stop.dwelling && <StopStatus>{i === 0 ? "已进站" : "停靠中"}</StopStatus>}
+                    </>
+                  }
+                  time={
+                    stop.passed && i < last
+                      ? "已发车"
+                      : clockOf(i === 0 || stop.dwelling ? stop.departure : stop.arrival)
+                  }
+                  passed={stop.passed}
+                  emphasis={i === last ? "here" : undefined}
+                  dwell={stop.dwelling}
+                  first={i === 0}
+                  last={i === last}
+                  current={stop.dwelling ? "location" : i === next ? "step" : undefined}
+                />
+              </Fragment>
+            );
+          })}
+        </StopList>
+      </li>
     </Group>
   );
 }

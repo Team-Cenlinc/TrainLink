@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TripRealtime } from "@/lib/realtime.ts";
 import { applyRealtime } from "./live.ts";
 import { planJourneys } from "./planner.ts";
-import { alightReminderAt, legStops, rideStatus, rideText } from "./ride.ts";
+import { alightReminderAt, collapsedStops, legStops, rideStatus, rideText } from "./ride.ts";
 import { at, gtfsFiles } from "./testTimetable.ts";
 import { buildTimetable } from "./timetable.ts";
 
@@ -54,12 +54,21 @@ const journey = (rt: [string, TripRealtime][] = []) =>
   applyRealtime(planned!, new Map(rt), dayStart);
 
 describe("legStops", () => {
-  it("一段乘车经过的各站（不含上车站），按站序，带计划时刻", () => {
+  const stop = (station: string, time: string, passed = false) => ({
+    station,
+    arrival: at(time),
+    departure: at(time),
+    passed,
+    dwelling: false,
+  });
+
+  it("一段乘车的各站：上车站、经过的站、下车站，按站序，带计划时刻", () => {
     const ride = journey().legs[0]!;
     expect(legStops(timetable, ride, new Map(), dayStart, at("07:59"))).toEqual([
-      { station: "P2", time: at("08:03"), passed: false },
-      { station: "P3", time: at("08:06"), passed: false },
-      { station: "X", time: at("08:10"), passed: false },
+      stop("P1", "08:00"),
+      stop("P2", "08:03"),
+      stop("P3", "08:06"),
+      stop("X", "08:10"),
     ]);
   });
 
@@ -68,16 +77,18 @@ describe("legStops", () => {
     const ride = journey([...rt]).legs[0]!;
     // 按时刻 08:04 还没到 P2 的计划时刻之后多久，但实时数据说 P2 已经过了。
     expect(legStops(timetable, ride, rt, dayStart, at("08:04"))).toEqual([
-      { station: "P2", time: at("08:03"), passed: true },
-      { station: "P3", time: at("08:08"), passed: false },
-      { station: "X", time: at("08:12"), passed: false },
+      stop("P1", "08:00", true),
+      stop("P2", "08:03", true),
+      stop("P3", "08:08"),
+      stop("X", "08:12"),
     ]);
   });
 
   it("实时数据只列出接下来几站时，后面没列出的站不算经过（按站序判断，不按有没有）", () => {
-    const rt = new Map([realtime("M1", { P2: "08:03", P3: "08:06" })]);
+    const rt = new Map([realtime("M1", { P1: "08:00", P2: "08:03", P3: "08:06" })]);
     const ride = journey([...rt]).legs[0]!;
-    expect(legStops(timetable, ride, rt, dayStart, at("08:01")).map((s) => s.passed)).toEqual([
+    expect(legStops(timetable, ride, rt, dayStart, at("07:59")).map((s) => s.passed)).toEqual([
+      false,
       false,
       false,
       false,
@@ -87,7 +98,7 @@ describe("legStops", () => {
   it("没有实时数据时按时刻判断经过了没有", () => {
     const ride = journey().legs[0]!;
     const stops = legStops(timetable, ride, new Map(), dayStart, at("08:07"));
-    expect(stops.map((s) => s.passed)).toEqual([true, true, false]);
+    expect(stops.map((s) => s.passed)).toEqual([true, true, true, false]);
   });
 });
 
@@ -194,12 +205,132 @@ describe("rideText", () => {
     });
   });
 
-  it("最后一段的下一站就是终点", () => {
+  it("最后一段的下一站就是终点：写预计几点到", () => {
     expect(text("08:20").title).toBe("下一站 Q站 下车");
-    expect(text("08:20").detail).toBe("就是终点");
+    expect(text("08:20").detail).toBe("终点站 · 预计 08:22 到站");
   });
 
   it("到达", () => {
     expect(text("08:23")).toEqual({ title: "已到达 Q站", detail: "这趟乘车结束了" });
+  });
+});
+
+describe("collapsedStops", () => {
+  it("还没上车：上车站、下车站，中间几站收成一段", () => {
+    // 上车站 + 8 站（下标 0–8），下一站是 0（还在上车站）。
+    expect(collapsedStops({ count: 9, next: 0, boarded: false })).toEqual([
+      { kind: "row", index: 0 },
+      { kind: "gap", count: 7 },
+      { kind: "row", index: 8 },
+    ]);
+  });
+
+  it("车上：刚过的站、下一站、下车站；前后跳过的各收成一段", () => {
+    expect(collapsedStops({ count: 9, next: 4, boarded: true })).toEqual([
+      { kind: "gap", count: 3 },
+      { kind: "row", index: 3 },
+      { kind: "row", index: 4 },
+      { kind: "gap", count: 3 },
+      { kind: "row", index: 8 },
+    ]);
+  });
+
+  it("下一站就是下车站：不重复", () => {
+    expect(collapsedStops({ count: 3, next: 2, boarded: true })).toEqual([
+      { kind: "gap", count: 1 },
+      { kind: "row", index: 1 },
+      { kind: "row", index: 2 },
+    ]);
+  });
+});
+
+describe("停站", () => {
+  // P1 坐 MT 到 P3：P1 有前一站 P0（列车 07:58 进站、08:00 开），P2 停两分钟（08:03 到、08:05 开）。
+  const dwellTimetable = buildTimetable(
+    gtfsFiles([
+      {
+        id: "D1",
+        line: "MT",
+        headsign: "P3",
+        stops: [
+          ["P0", "07:55"],
+          ["P1", "07:58-08:00", "2"],
+          ["P2", "08:03-08:05"],
+          ["P3", "08:09"],
+        ],
+      },
+    ]),
+  );
+  const [dwellPlan] = planJourneys(dwellTimetable, {
+    from: "P1",
+    to: "P3",
+    departAfter: at("07:50"),
+  });
+  const dwellJourney = applyRealtime(dwellPlan!, new Map(), dayStart);
+  const stopsAt = (now: string, rt: [string, TripRealtime][] = []) =>
+    legStops(dwellTimetable, dwellJourney.legs[0]!, new Map(rt), dayStart, at(now));
+  const stateOf = (now: string, rt: [string, TripRealtime][] = []) =>
+    stopsAt(now, rt).map((s) => `${s.station}:${s.dwelling ? "停" : s.passed ? "过" : "前"}`);
+
+  it("列车到了还没开：那一站是停靠中，不算经过", () => {
+    expect(stateOf("08:04")).toEqual(["P1:过", "P2:停", "P3:前"]);
+  });
+
+  it("上车站：列车进站后、开车前也是停靠中；开出才算上了车", () => {
+    expect(stateOf("07:57")).toEqual(["P1:前", "P2:前", "P3:前"]);
+    expect(stateOf("07:59")).toEqual(["P1:停", "P2:前", "P3:前"]);
+    expect(stateOf("08:01")).toEqual(["P1:过", "P2:前", "P3:前"]);
+  });
+
+  it("实时数据说列车晚点停在站上（到了、还没开），按实时判断", () => {
+    const rt: [string, TripRealtime] = [
+      tripOf("D1"),
+      {
+        cancelled: false,
+        stops: new Map([
+          ["P2", { arrival: ms("08:06"), departure: ms("08:08") }],
+          ["P3", { arrival: ms("08:12"), departure: ms("08:12") }],
+        ]),
+      },
+    ];
+    expect(stateOf("08:05", [rt])).toEqual(["P1:过", "P2:前", "P3:前"]);
+    expect(stateOf("08:07", [rt])).toEqual(["P1:过", "P2:停", "P3:前"]);
+  });
+
+  it("下车站到了就算经过，不管列车还要停多久", () => {
+    const rt: [string, TripRealtime] = [
+      tripOf("D1"),
+      {
+        cancelled: false,
+        stops: new Map([["P3", { arrival: ms("08:09"), departure: ms("08:15") }]]),
+      },
+    ];
+    expect(stateOf("08:10", [rt])).toEqual(["P1:过", "P2:过", "P3:过"]);
+  });
+
+  it("等车时列车已进站：状态与提示写已进站", () => {
+    const status = rideStatus(dwellJourney, [stopsAt("07:59")], at("07:59"));
+    expect(status).toMatchObject({ kind: "wait", atPlatform: true, departsIn: 60 });
+    expect(rideText(status, dwellJourney, (c) => c).detail).toBe("MT 往 P3 · 已进站，1 分后开车");
+    const before = rideStatus(dwellJourney, [stopsAt("07:57")], at("07:57"));
+    expect(before).toMatchObject({ kind: "wait", atPlatform: false });
+  });
+
+  it("车上停站：停着的那一站不算在还有几站里，提示写停靠哪一站", () => {
+    const status = rideStatus(dwellJourney, [stopsAt("08:04")], at("08:04"));
+    expect(status).toMatchObject({
+      kind: "ride",
+      stopsLeft: 1,
+      nextStop: "P3",
+      dwellingAt: "P2",
+    });
+    const longer = { ...status, stopsLeft: 3 } as typeof status;
+    expect(rideText(longer, dwellJourney, (c) => c).detail).toBe("停靠 P2 · 在 P3 下车");
+    const moving = rideStatus(dwellJourney, [stopsAt("08:06")], at("08:06"));
+    expect(moving).toMatchObject({ kind: "ride", stopsLeft: 1, dwellingAt: undefined });
+  });
+
+  it("下车提醒在前一站开出时（停站后开车那一刻）", () => {
+    expect(alightReminderAt(stopsAt("08:00"), dwellJourney.legs[0]!)).toBe(at("08:05"));
   });
 });

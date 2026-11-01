@@ -1,5 +1,6 @@
 import type { TripRealtime } from "@/lib/realtime.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
+import { clockOf } from "./serviceDay.ts";
 import type { Timetable } from "./timetable.ts";
 
 /**
@@ -8,37 +9,62 @@ import type { Timetable } from "./timetable.ts";
  * 没有实时数据时按（预计）时刻推算。
  */
 
-/** 一段乘车经过的一站（不含上车站）。 */
+/** 一段乘车的一站：第一个是上车站，最后一个是下车站。 */
 export interface RideStop {
   station: string;
-  /** 预计到站；没有实时数据时是计划时刻。 */
-  time: number;
-  /** 列车已经过了这一站。 */
+  /** 预计到站；没有实时数据时是计划时刻。上车站是列车进站的时刻（始发站同开车时刻）。 */
+  arrival: number;
+  /** 预计开车。下车站同到站时刻：到了就下车，不管列车还停多久。 */
+  departure: number;
+  /** 列车已经开出这一站（下车站：已经到了）。 */
   passed: boolean;
+  /** 列车正停在这一站：到了，还没开。 */
+  dwelling: boolean;
 }
 
-/** 一段乘车经过的一站的计划：在哪个车次里（直通车各站分在几个车次里）、计划几点到。 */
+/** 一段乘车一站的计划：在哪个车次里（直通车各站分在几个车次里）、计划几点到、几点开。 */
 export interface PlannedStop {
   station: string;
   tripId: string;
   arrival: number;
+  departure: number;
 }
 
 /**
- * 一段乘车经过的各站（不含上车站），按站序，计划时刻。只跟方案有关，跟着方案算一次就行，
+ * 一段乘车的各站（上车站、经过的站、下车站），按站序，计划时刻。只跟方案有关，跟着方案算一次就行，
  * 不必随时间重算（要扫一遍整张时刻表）。步行段是空数组。
  */
 export function plannedStops(timetable: Timetable, leg: LiveLeg): PlannedStop[] {
   if (leg.kind !== "ride") return [];
   const trips = new Set(leg.tripIds);
-  return timetable.connections
+  const rides = timetable.connections
     .filter((c) => trips.has(c.tripId) && c.departure >= leg.departure && c.arrival <= leg.arrival)
-    .sort((a, b) => a.departure - b.departure)
-    .map((c) => ({ station: c.to, tripId: c.tripId, arrival: c.arrival }));
+    .sort((a, b) => a.departure - b.departure);
+  const first = rides[0];
+  if (!first) return [];
+  // 列车开进上车站的那一段（始发站没有）：停站从这时开始。
+  const into = timetable.connections.find(
+    (c) => c.tripId === first.tripId && c.to === leg.from && c.arrival <= first.departure,
+  );
+  return [
+    {
+      station: leg.from,
+      tripId: first.tripId,
+      arrival: into?.arrival ?? first.departure,
+      departure: first.departure,
+    },
+    // 经过的站在下一段开出时离开；下车站到了就算。
+    ...rides.map((c, i) => ({
+      station: c.to,
+      tripId: c.tripId,
+      arrival: c.arrival,
+      departure: rides[i + 1]?.departure ?? c.arrival,
+    })),
+  ];
 }
 
 /**
- * 套上实时数据：各站预计到站时刻与是否已经过了。
+ * 套上实时数据：各站预计到站、开车时刻，列车开过了没有、是不是正停着。
  * 列车位置：一个车次的实时数据从当前（或刚离开）的站列起，所以排在它列出的第一站之前的站已经过了；
  * 列表可能只到接下来几站，后面没列出的站不能当成经过了，按时刻判断。
  * @param dayStart 运营日 0 点的绝对时刻（毫秒）
@@ -52,15 +78,29 @@ export function liveStops(
 ): RideStop[] {
   // 实时数据还列着的、排得最前的一站：它之前的站都过了。
   const firstListed = planned.findIndex((s) => realtime.get(s.tripId)?.stops.has(s.station));
+  const last = planned.length - 1;
+  const seconds = (epoch: number) => Math.round((epoch - dayStart) / 1000);
   return planned.map((s, i) => {
     const rt = realtime.get(s.tripId);
     const predicted = rt?.stops.get(s.station);
-    const epoch = predicted?.arrival ?? predicted?.departure;
-    const time =
-      epoch !== undefined
-        ? Math.round((epoch - dayStart) / 1000)
-        : s.arrival + (rt?.delaySeconds ?? 0);
-    return { station: s.station, time, passed: i < firstListed || time <= now };
+    const delay = rt?.delaySeconds ?? 0;
+    const arrivalAt = predicted?.arrival ?? predicted?.departure;
+    const arrival = arrivalAt !== undefined ? seconds(arrivalAt) : s.arrival + delay;
+    // 只有到站的预计时刻时，按计划的停站时长推开车。
+    const departure =
+      i === last
+        ? arrival
+        : predicted?.departure !== undefined
+          ? seconds(predicted.departure)
+          : arrival + (s.departure - s.arrival);
+    const passed = i < firstListed || departure <= now;
+    return {
+      station: s.station,
+      arrival,
+      departure,
+      passed,
+      dwelling: !passed && arrival <= now,
+    };
   });
 }
 
@@ -76,9 +116,24 @@ export function legStops(
 }
 
 export type RideStatus = (
-  | { kind: "wait"; legIndex: number; departsIn: number }
+  | {
+      kind: "wait";
+      legIndex: number;
+      departsIn: number;
+      /** 列车已经进站，停在站台上等开车。 */
+      atPlatform: boolean;
+    }
   | { kind: "walk"; legIndex: number; startsIn: number; arrivesIn: number }
-  | { kind: "ride"; legIndex: number; stopsLeft: number; nextStop: string; arrivesIn: number }
+  | {
+      kind: "ride";
+      legIndex: number;
+      /** 还有几站到下车站（正停着的那一站不算）。 */
+      stopsLeft: number;
+      nextStop: string;
+      arrivesIn: number;
+      /** 列车正停在途中的这一站。 */
+      dwellingAt?: string;
+    }
   | { kind: "arrived" }
 ) & {
   /** 整趟走了多少，0 到 1（按预计出发、到达的时刻）。 */
@@ -86,8 +141,9 @@ export type RideStatus = (
 };
 
 /**
- * 此刻在哪一步：等车（上车站或换乘站）、步行、在车上（还有几站）、已到达。
- * @param stops 各段经过的站（legStops），步行段是空数组
+ * 此刻在哪一步：等车（上车站或换乘站）、步行、在车上（还有几站、是不是正停站）、已到达。
+ * 列车开出上车站才算上了车；开出之前列车已经进站时，等车写「已进站」。
+ * @param stops 各段的站（legStops），步行段是空数组
  * @param now 现在（运营日内的秒数）
  */
 export function rideStatus(journey: LiveJourney, stops: RideStop[][], now: number): RideStatus {
@@ -107,19 +163,27 @@ export function rideStatus(journey: LiveJourney, stops: RideStop[][], now: numbe
       }
       continue;
     }
-    const remaining = (stops[legIndex] ?? []).filter((s) => !s.passed);
-    const started = (stops[legIndex] ?? []).some((s) => s.passed);
-    if (!started && now < leg.live.departure) {
-      return { kind: "wait", legIndex, departsIn: left(leg.live.departure), progress };
+    const [boarding, ...rest] = stops[legIndex] ?? [];
+    // 还没读到各站（时刻表没到）时按出发时刻判断。
+    if (!(boarding ? boarding.passed : now >= leg.live.departure)) {
+      return {
+        kind: "wait",
+        legIndex,
+        departsIn: left(boarding?.departure ?? leg.live.departure),
+        atPlatform: !!boarding?.dwelling,
+        progress,
+      };
     }
-    const next = remaining[0];
+    const ahead = rest.filter((s) => !s.passed && !s.dwelling);
+    const next = ahead[0];
     if (next) {
       return {
         kind: "ride",
         legIndex,
-        stopsLeft: remaining.length,
+        stopsLeft: ahead.length,
         nextStop: next.station,
-        arrivesIn: left(remaining[remaining.length - 1]!.time),
+        arrivesIn: left(rest[rest.length - 1]!.arrival),
+        dwellingAt: rest.find((s) => s.dwelling)?.station,
         progress,
       };
     }
@@ -127,12 +191,9 @@ export function rideStatus(journey: LiveJourney, stops: RideStop[][], now: numbe
   return { kind: "arrived", progress };
 }
 
-/**
- * 下车提醒的时刻：前一站开出时（下一站就下车）；只坐一站时开车就提醒。
- * 前一站的开出按到站时刻算（站停很短）。
- */
+/** 下车提醒的时刻：前一站开出时（下一站就下车）；只坐一站时就是开车时。 */
 export function alightReminderAt(stops: RideStop[], leg: LiveLeg): number {
-  return stops[stops.length - 2]?.time ?? leg.live.departure;
+  return stops[stops.length - 2]?.departure ?? leg.live.departure;
 }
 
 const minutes = (seconds: number) => Math.max(1, Math.ceil(seconds / 60));
@@ -168,28 +229,65 @@ export function rideText(
     const platform = leg.kind === "ride" && leg.platform ? `${leg.platform} 号站台` : "";
     const previous = legs[status.legIndex - 1];
     const when = status.departsIn < 60 ? "即将开车" : `${minutes(status.departsIn)} 分后开车`;
+    const train = status.atPlatform ? `已进站，${when}` : when;
     return {
       title:
         previous?.kind === "ride"
           ? `${name(leg.from)} 换乘${platform ? ` · ${platform}` : ""}`
           : `${platform || `${name(leg.from)} `}上车`,
-      detail: `${trainOf(leg)} · ${when}`,
+      detail: `${trainOf(leg)} · ${train}`,
     };
   }
-  // 车上。
+  // 车上：此刻在哪（停靠哪一站，或开往哪一站）与在哪下车。
   if (status.stopsLeft > 1) {
     return {
       title: `还有 ${status.stopsLeft} 站 · ${minutes(status.arrivesIn)} 分`,
-      detail: `下一站 ${name(status.nextStop)} · 在 ${name(leg.to)} 下车`,
+      detail: `${
+        status.dwellingAt ? `停靠 ${name(status.dwellingAt)}` : `下一站 ${name(status.nextStop)}`
+      } · 在 ${name(leg.to)} 下车`,
     };
   }
   const after = legs[status.legIndex + 1];
   return {
     title: `下一站 ${name(leg.to)} 下车`,
     detail: !after
-      ? "就是终点"
+      ? `终点站 · 预计 ${clockOf(leg.live.arrival)} 到站`
       : after.kind === "walk"
         ? `下车后步行到 ${name(after.to)}`
         : `换乘 ${trainOf(after)}${after.platform ? ` · ${after.platform} 号站台` : ""}`,
   };
+}
+
+export type CollapsedItem = { kind: "row"; index: number } | { kind: "gap"; count: number };
+
+/**
+ * 本段各站收起时留下哪几站：还没上车时是上车站；车上是刚过的站与下一站；总是留下车站。
+ * 跳过的站收成一段（「经过 N 站」），开头跳过的也算一段。
+ * @param count 行数（上车站加经过的各站）
+ * @param next 第一个还没到的站的下标
+ */
+export function collapsedStops({
+  count,
+  next,
+  boarded,
+}: {
+  count: number;
+  next: number;
+  boarded: boolean;
+}): CollapsedItem[] {
+  const last = count - 1;
+  const kept = new Set<number>([last]);
+  if (!boarded) kept.add(0);
+  else if (next >= 0) {
+    if (next > 0) kept.add(next - 1);
+    kept.add(next);
+  }
+  const items: CollapsedItem[] = [];
+  let previous = -1;
+  for (const index of [...kept].sort((a, b) => a - b)) {
+    if (index - previous > 1) items.push({ kind: "gap", count: index - previous - 1 });
+    items.push({ kind: "row", index });
+    previous = index;
+  }
+  return items;
 }

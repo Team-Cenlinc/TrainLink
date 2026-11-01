@@ -3,6 +3,14 @@ import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import CollapseIcon from "@material-symbols/svg-400/outlined/keyboard_arrow_down.svg?react";
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
+import {
+  GapRow,
+  StopList,
+  StopRow,
+  StopStatus,
+  StopTag,
+  TrainRow,
+} from "@/components/StopList.tsx";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import { formatClock } from "@/lib/time.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
@@ -174,13 +182,13 @@ function Content({
         {loading && detail.stops.every((s) => !s.time) && (
           <p className={styles.hint}>正在读取各站时刻…</p>
         )}
-        <ol className={styles.stops}>
+        <StopList>
           {shown.map((stop, i) => {
             const index = upcoming.indexOf(stop);
             const isTrainAfter = !detail.position.dwelling && index === detail.position.afterIndex;
             const previous = upcoming[index - 1];
             return (
-              <StopRow
+              <DetailStopRow
                 key={stop.code}
                 stop={stop}
                 lineIn={previous?.line ?? stop.line}
@@ -194,25 +202,17 @@ function Content({
               />
             );
           })}
-        </ol>
+        </StopList>
       </section>
     </div>
   );
 }
 
-/** 线段颜色：行的上半段是驶入这一站的线路，下半段是驶出的线路，直通换线时在站点圆处变色。 */
-function railColors(lineIn: RailStationLine, lineOut: RailStationLine) {
-  return {
-    "--line-in": lineIn.color ?? fallbackLineColor,
-    "--line-out": lineOut.color ?? fallbackLineColor,
-  } as CSSProperties;
-}
-
 /**
- * 停靠站一行：左侧粗线路与站点圆（已过为灰色），站名与标签，右侧时刻。
- * 列车位置用 ▼ 标在站上（停站）或两站之间（行驶中）。
+ * 停靠站一行：线段上半段是驶入这一站的线路，下半段是驶出的线路，直通换线时在站点圆处变色。
+ * 列车停站时标在站上，行驶中标在这一站与下一站之间（见 StopList）。
  */
-function StopRow({
+function DetailStopRow({
   stop,
   lineIn,
   time,
@@ -236,47 +236,35 @@ function StopRow({
 }) {
   // 直通：从这一站起换到另一条线路运行。
   const entersLine = lineIn.lineCode !== stop.line.lineCode ? stop.line : undefined;
-  const ahead = railColors(stop.line, stop.line);
+  const color = (line: RailStationLine) => line.color ?? fallbackLineColor;
   return (
     <>
-      <li
-        className={`${styles.stop} ${styles[stop.kind]} ${trainHere ? `${styles.dwell} ${styles.reached}` : ""} ${first ? styles.first : ""} ${last ? styles.last : ""}`}
-        style={railColors(lineIn, stop.line)}
-      >
-        <span className={styles.rail} aria-hidden>
-          <span className={styles.dot} />
-          {trainHere && <span className={styles.train} />}
-        </span>
-        <span className={styles.stopName}>
-          {stop.name}
-          {stop.kind === "here" && <span className={styles.tag}>本站</span>}
-          {stop.kind === "end" && <span className={styles.tag}>终点</span>}
-          {trainHere && <span className={styles.status}>列车在此</span>}
-          {entersLine && (
-            <span className={styles.status}>
-              直通 {entersLine.lineCode} {entersLine.lineName}
-            </span>
-          )}
-        </span>
-        <span className={`${styles.stopTime} num`}>
-          {stop.kind === "passed" ? "已发车" : (time ?? "")}
-        </span>
-      </li>
-      {trainAfter && (
-        <li className={`${styles.stop} ${styles.trainRow} ${styles.reached}`} style={ahead}>
-          <span className={styles.rail} aria-hidden>
-            <span className={styles.train} />
-          </span>
-          <span className={styles.status}>列车当前位置</span>
-        </li>
-      )}
+      <StopRow
+        name={stop.name}
+        tags={
+          <>
+            {stop.kind === "here" && <StopTag>本站</StopTag>}
+            {stop.kind === "end" && <StopTag>终点</StopTag>}
+            {trainHere && <StopStatus>列车在此</StopStatus>}
+            {entersLine && (
+              <StopStatus>
+                直通 {entersLine.lineCode} {entersLine.lineName}
+              </StopStatus>
+            )}
+          </>
+        }
+        time={stop.kind === "passed" ? "已发车" : (time ?? "")}
+        passed={stop.kind === "passed"}
+        emphasis={stop.kind === "here" || stop.kind === "end" ? stop.kind : undefined}
+        dwell={trainHere}
+        first={first}
+        last={last}
+        lineIn={color(lineIn)}
+        lineOut={color(stop.line)}
+      />
+      {trainAfter && <TrainRow label="列车当前位置" line={color(stop.line)} />}
       {collapsedAfter > 0 && (
-        <li className={`${styles.stop} ${styles.gap}`} style={ahead}>
-          <span className={styles.rail} aria-hidden />
-          <button type="button" className={styles.expand} onClick={onExpand}>
-            展开另 {collapsedAfter} 站
-          </button>
-        </li>
+        <GapRow label={`展开另 ${collapsedAfter} 站`} onExpand={onExpand} line={color(stop.line)} />
       )}
     </>
   );

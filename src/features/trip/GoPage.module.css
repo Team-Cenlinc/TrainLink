@@ -185,57 +185,17 @@
 
 /* ---------- 本段各站 ---------- */
 
-.stop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 0;
-  font-size: 16px;
-  font-weight: 700;
+/* 停靠站列表（StopList）在卡片里上下留一点空。 */
+.diagram {
+  padding-block: 4px;
 }
 
-.stopName {
-  flex: 1;
-  min-width: 0;
-}
-
-.stopTime {
-  flex: none;
-  font-size: 14px;
+/* 标题右侧的「收起 / 展开」。 */
+.toggle {
+  padding: 4px 2px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--muted);
-}
-
-/* 已经过的站变淡。 */
-.passed {
-  opacity: 0.4;
-}
-
-/* 下一站：加粗、时刻用正文色。 */
-.next {
-  font-weight: 900;
-}
-
-.next .stopTime {
-  color: var(--text);
-}
-
-.tag,
-.alight {
-  flex: none;
-  padding: 2px 6px;
-  border-radius: var(--radius-info);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.tag {
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-}
-
-.alight {
-  background: var(--exit);
-  color: var(--exit-text);
 }
 
 /* ---------- 同时只能一趟 GO ---------- */
