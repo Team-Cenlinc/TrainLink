@@ -180,6 +180,8 @@ export interface TripRealtime {
   delaySeconds?: number;
   /** 跑这个车次的列车名（对上在线列车的位置）。 */
   trainName?: string;
+  /** 临时加开等本来就不在 GTFS 时刻表里的车次（ADDED、UNSCHEDULED、DUPLICATED、NEW）。 */
+  unlisted?: true;
   /** 各站预计到发时刻（毫秒），以站码索引。 */
   stops: Map<string, { arrival?: number; departure?: number }>;
 }
@@ -279,7 +281,9 @@ function joinLegs(trainName: string, legs: TripLeg[]): TripUpdate {
 export async function decodeTripFeed(bytes: Uint8Array): Promise<TripFeed> {
   const realtime = await loadRealtime();
   const feed = realtime.FeedMessage.decode(bytes);
-  const { CANCELED } = realtime.TripDescriptor.ScheduleRelationship;
+  const { CANCELED, ADDED, UNSCHEDULED, DUPLICATED, NEW } =
+    realtime.TripDescriptor.ScheduleRelationship;
+  const unlisted = new Set<number>([ADDED, UNSCHEDULED, DUPLICATED, NEW]);
   const byTrip = new Map<string, TripRealtime>();
   /** 每列车的各个车次（以去掉分段后缀的车次号区分）及其各段。 */
   const tripsOfTrain = new Map<string, Map<string, TripLeg[]>>();
@@ -306,6 +310,7 @@ export async function decodeTripFeed(bytes: Uint8Array): Promise<TripFeed> {
         cancelled: update.trip.scheduleRelationship === CANCELED,
         delaySeconds: update.delay ?? undefined,
         trainName: update.vehicle?.id ?? undefined,
+        ...(unlisted.has(update.trip.scheduleRelationship ?? 0) && { unlisted: true as const }),
         stops: new Map(
           stops.map((s) => [s.stationCode, { arrival: s.arrival, departure: s.departure }]),
         ),

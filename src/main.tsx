@@ -13,6 +13,7 @@ import { GuidePage } from "./features/trip/GuidePage.tsx";
 import { ResultsPage } from "./features/trip/ResultsPage.tsx";
 import { TripPage } from "./features/trip/TripPage.tsx";
 import { centerFontMetrics } from "./lib/fontMetrics.ts";
+import { watchGtfsFreshness } from "./lib/gtfsFreshness.ts";
 import { persistOptions, queryClient } from "./lib/queryClient.ts";
 import { applyTheme, readSettings } from "./lib/settings.ts";
 import { restoreTopColor } from "./lib/useTopColor.ts";
@@ -41,6 +42,8 @@ const router = createBrowserRouter([
 applyTheme(readSettings().theme);
 // 上次的顶部颜色也在第一次渲染前设上（见 lib/useTopColor.ts）。
 restoreTopColor();
+// 实时行程更新里出现本地 GTFS 不认得的车次时，重新读取 GTFS（见 lib/gtfsFreshness.ts）。
+watchGtfsFreshness(queryClient);
 // 文字在标签、按钮里上下居中（见 lib/fontMetrics.ts）；不等它，字体规则到了再生效。
 void centerFontMetrics();
 

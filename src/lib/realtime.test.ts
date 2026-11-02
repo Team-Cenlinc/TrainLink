@@ -115,6 +115,15 @@ describe("decodeTripFeed：按车次", () => {
             },
           },
         },
+        {
+          id: "added",
+          tripUpdate: {
+            trip: {
+              tripId: "survival:SURC:MT:T:X1",
+              scheduleRelationship: ScheduleRelationship.ADDED,
+            },
+          },
+        },
       ],
     }).finish();
 
@@ -129,6 +138,9 @@ describe("decodeTripFeed：按车次", () => {
       departure: 1_793_400_090_000,
     });
     expect(realtime.get("survival:SURC:MT:T:M2")?.cancelled).toBe(true);
+    // 临时加开的车次本来就不在 GTFS 里：标出来，校验本地 GTFS 时不算（见 gtfsFreshness.ts）。
+    expect(realtime.get("survival:SURC:MT:T:X1")?.unlisted).toBe(true);
+    expect(realtime.get("survival:SURC:MT:T:M1")?.unlisted).toBeUndefined();
   });
 });
 
