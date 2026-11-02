@@ -14,7 +14,7 @@ import {
   StopTag,
   TrainRow,
 } from "@/components/StopList.tsx";
-import { sameSection, ticketFor } from "@/features/tickets/ticket.ts";
+import { ticketFor, usedTicketFor } from "@/features/tickets/ticket.ts";
 import { TicketSheet } from "@/features/tickets/TicketSheet.tsx";
 import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
 import { useTickets } from "@/features/tickets/ticketStore.ts";
@@ -124,7 +124,12 @@ export function GoPage() {
             isLive={ride.isLive}
           />
           <div className={styles.tools}>
-            <TicketShortcut journey={journey} route={{ from, to }} dayStart={dayStart} />
+            <TicketShortcut
+              journey={journey}
+              route={{ from, to }}
+              date={params.get("date")}
+              dayStart={dayStart}
+            />
             <AlightReminders
               href={href}
               journey={journey}
@@ -410,10 +415,13 @@ function LegRow({
 function TicketShortcut({
   journey,
   route,
+  date,
   dayStart,
 }: {
   journey: LiveJourney;
   route: TripRoute;
+  /** 运营日（"2026-10-31"），同车票上记下的方案；地址里没写时为 null。 */
+  date: string | null;
   dayStart: number;
 }) {
   const tickets = useTickets();
@@ -423,10 +431,19 @@ function TicketShortcut({
   const [sheet, setSheet] = useState<{ id: string; open: boolean }>();
   const departsAt = dayStart + journey.live.departure * 1000;
   const usable = ticketFor(tickets, route, departsAt);
-  // 这一段今天已经出过站的票：行程走完了，给「查看车票」，不再让人取一张新的。
+  // 这一趟已经出过站的票：行程走完了，给「查看车票」，不再让人取一张新的。
   const used = usable
     ? undefined
-    : tickets.find((t) => sameSection(t, route) && t.exit && departsAt <= t.validUntil);
+    : usedTicketFor(
+        tickets,
+        route,
+        {
+          date,
+          departure: journey.departure,
+          tripId: journey.legs.find((l) => l.kind === "ride")?.tripId,
+        },
+        dayStart,
+      );
   const ticket = usable ?? used;
   const shown = sheet && tickets.find((t) => t.id === sheet.id);
 

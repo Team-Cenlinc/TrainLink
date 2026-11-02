@@ -6,6 +6,7 @@ import {
   qrPayload,
   ticketFor,
   ticketState,
+  usedTicketFor,
   type Ticket,
 } from "./ticket.ts";
 
@@ -68,6 +69,55 @@ describe("仿真车票", () => {
     expect(ticketFor([used, other, fresh], route, now)?.id).toBe(fresh.id);
     expect(ticketFor([used, other], route, now)).toBeUndefined();
     expect(ticketFor([fresh], route, dayStart + 29 * hour)).toBeUndefined();
+  });
+
+  describe("这一趟已经坐完的票", () => {
+    const route = { from: station("PTK"), to: station("NTA") };
+    // 中午 12:18 那一班（出票时选的就是它，见 newTicket）。
+    const noonPlan = {
+      date: "2026-10-31",
+      departure: 12 * 3600 + 18 * 60,
+      tripId: "survival:SURC:MT:T:M1",
+    };
+    const eveningPlan = {
+      date: "2026-10-31",
+      departure: 18 * 3600,
+      tripId: "survival:SURC:MT:T:M9",
+    };
+    const rode = (id: string, exitAt: number, ride?: Ticket["ride"]): Ticket => ({
+      ...newTicket(),
+      id,
+      ride,
+      entry: { station: "PTK", at: exitAt - 20 * 60_000 },
+      exit: { station: "NTA", at: exitAt },
+    });
+
+    it("同一区间、在这一趟出发之后出的站（出发那一刻也算）", () => {
+      const noon = rode("noon", dayStart + 12 * hour + 18 * 60_000);
+      expect(usedTicketFor([noon], route, noonPlan, dayStart)?.id).toBe("noon");
+    });
+
+    it("之前坐过同一区间的票不算：再坐一趟要另取一张", () => {
+      const morning = rode("morning", dayStart + 9 * hour);
+      const noon = rode("noon", dayStart + 12 * hour + 40 * 60_000, noonPlan);
+      expect(usedTicketFor([morning], route, noonPlan, dayStart)).toBeUndefined();
+      expect(usedTicketFor([morning, noon], route, eveningPlan, dayStart)).toBeUndefined();
+    });
+
+    it("为这一趟出的票：提前坐了早一班、或在出发前就模拟出了站，也算这一趟坐完了", () => {
+      const early = rode("early", dayStart + 12 * hour, noonPlan);
+      expect(usedTicketFor([early], route, noonPlan, dayStart)?.id).toBe("early");
+    });
+
+    it("别的区间、还没出站的票不算", () => {
+      const other = { ...rode("other", dayStart + 13 * hour), to: station("HHU") };
+      const entered = {
+        ...newTicket(),
+        id: "entered",
+        entry: { station: "PTK", at: dayStart + 12 * hour },
+      };
+      expect(usedTicketFor([other, entered], route, noonPlan, dayStart)).toBeUndefined();
+    });
   });
 
   it("找票看服务器：另一台服务器上站码相同的票不算", () => {

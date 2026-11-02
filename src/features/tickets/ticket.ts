@@ -136,6 +136,32 @@ export function ticketFor(
   );
 }
 
+/**
+ * 这一趟已经坐完（出过站）的票，同一区间里满足其一：
+ * - 为这一趟出的票（ticket.ride 就是这个方案）：提前坐了早一班、出发前就模拟出了站也算；
+ * - 在这一趟计划出发之后才出的站（在别处出的票）。
+ * 之前坐过同一区间的票不算——再坐一趟要另取一张。
+ * @param plan 这一趟的方案：运营日、计划出发时刻（秒）、第一段乘车的车次，同 ticket.ride；
+ *   不知道是哪一天（date 为 null）时只看出站时刻。
+ * @param dayStart 那个运营日 0 点（毫秒）。
+ */
+export function usedTicketFor(
+  tickets: Ticket[],
+  route: { from: HomeStation; to: HomeStation },
+  plan: { date: string | null; departure: number; tripId?: string },
+  dayStart: number,
+): Ticket | undefined {
+  const departsAt = dayStart + plan.departure * 1000;
+  const forThisRide = (ride: Ticket["ride"]) =>
+    !!ride &&
+    ride.date === plan.date &&
+    ride.departure === plan.departure &&
+    ride.tripId === plan.tripId;
+  return tickets.find(
+    (t) => sameSection(t, route) && t.exit && (forThisRide(t.ride) || t.exit.at >= departsAt),
+  );
+}
+
 /** 模拟进站：只能在这张票的起点。 */
 export function enterGate(ticket: Ticket, station: string, now: number): GateResult {
   if (ticket.exit) return { ok: false, reason: "used" };
