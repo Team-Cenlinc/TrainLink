@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { lineKey } from "@/lib/gtfs.ts";
+import { lineShape } from "@/lib/lineShape.ts";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useBoard, useCarLoads, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
@@ -38,21 +39,27 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
     [catalog.data, home.serverId, home.operatorCode, home.stationCode],
   );
   const lines = useMemo(() => (station ? servingLines(station) : []), [station]);
-  const lineOrders = gtfs.data?.lineOrders;
+  const linePatterns = gtfs.data?.linePatterns;
   // 有站序数据（GTFS 里有车次）的线路才能画列车位置；停运检修的线路没有。
   // 全线视图只列设置里显示的运营方的线路；本站的线路全被隐藏时照常全列，免得线路视图空着。
   const shown = useShownOperators();
-  const drawable = lines.filter((l) => lineOrders?.has(lineKey(l.operatorCode, l.lineCode)));
+  const drawable = lines.filter((l) => linePatterns?.has(lineKey(l.operatorCode, l.lineCode)));
   const shownLines = drawable.filter((l) => shown.byCode(home.serverId, l.operatorCode));
   const orderedLines = shownLines.length > 0 ? shownLines : drawable;
   const primaryLine =
     orderedLines.find((l) => l.lineCode === preferredLine) ?? orderedLines[0] ?? lines[0];
+  // 线路形状：本站所在的那一支画成主干，其余支线接在后面（见 lib/lineShape.ts）。
+  const shape = useMemo(() => {
+    const patterns =
+      primaryLine && linePatterns?.get(lineKey(primaryLine.operatorCode, primaryLine.lineCode));
+    return patterns ? lineShape(patterns, home.stationCode) : undefined;
+  }, [primaryLine, linePatterns, home.stationCode]);
   const strip =
-    station && primaryLine ? neighbourStops(catalog.data, lineOrders, station, primaryLine) : [];
+    station && primaryLine ? neighbourStops(catalog.data, shape?.main, station, primaryLine) : [];
   const transfers = station ? transferLines(station) : [];
   const nearest =
     station && primaryLine && transfers.length === 0
-      ? nearestTransfer(catalog.data, lineOrders, station, primaryLine)
+      ? nearestTransfer(catalog.data, shape?.main, station, primaryLine)
       : undefined;
   const timeZone = sourceTimeZone(board.data, home.serverId);
   const groups = board.data
@@ -64,15 +71,14 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
       })
     : [];
 
-  const lineOrder = primaryLine
-    ? lineOrders?.get(lineKey(primaryLine.operatorCode, primaryLine.lineCode))
-    : undefined;
+  const lineOrder = shape?.main;
   // 列车位置只随列车、站牌、GTFS 等数据变化，不随时钟变化；缓存起来，避免每次重绘都重新查站名。
   const lineLayout = useMemo(
     () =>
-      trainsEnabled && primaryLine && lineOrder && trains.data
+      trainsEnabled && primaryLine && shape && trains.data
         ? buildLineLayout({
-            order: lineOrder,
+            order: shape.main,
+            branches: shape.branches,
             line: primaryLine,
             serverId: home.serverId,
             stationCode: home.stationCode,
@@ -87,7 +93,7 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
     [
       trainsEnabled,
       primaryLine,
-      lineOrder,
+      shape,
       trains.data,
       home.serverId,
       home.stationCode,

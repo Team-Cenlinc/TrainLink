@@ -7,6 +7,7 @@ import StarFillIcon from "@material-symbols/svg-400/outlined/star-fill.svg?react
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { lineKey } from "@/lib/gtfs.ts";
+import { allStations, lineShape } from "@/lib/lineShape.ts";
 import {
   sameStation,
   setHomeStation,
@@ -120,10 +121,11 @@ function PickerContent({
     const byCode = (op: string, code: string) =>
       entries.find((e) => e.ref.operatorCode === op && e.ref.stationCode === code);
 
-    // 每条线路按 GTFS 站序列出车站；没有站序时按 catalog 中停靠该线的车站排列。
+    // 每条线路按 GTFS 站序列出车站（有支线时主干在前、支线在后）；没有站序时按 catalog 中停靠该线的车站排列。
     const groups = data.lines.filter(listed).map((line) => {
       const op = operatorCode.get(line.operatorId) ?? "";
-      const order = gtfs.data?.lineOrders.get(lineKey(op, line.code));
+      const patterns = gtfs.data?.linePatterns.get(lineKey(op, line.code));
+      const order = patterns && allStations(lineShape(patterns));
       const stations = order
         ? order.map((code) => byCode(op, code)).filter((e): e is Entry => Boolean(e))
         : entries.filter((e) => e.lines.some((l) => l.lineId === line.id));

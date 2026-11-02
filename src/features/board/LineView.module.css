@@ -38,6 +38,29 @@
   overflow: hidden;
 }
 
+/* 往终点方向的标题不超出面板右边。 */
+.direction.right {
+  max-width: calc(100% - var(--line-x) - var(--gap));
+}
+
+.ends {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ends > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 有支线时几个终点叠成几行（第二行起不写「往」）；两侧留白收窄，手机宽度也放得下。 */
+.stacked {
+  padding: 0 6px 0 4px;
+  font-size: 11px;
+  line-height: 13px;
+}
+
 .direction svg {
   flex: none;
   width: 15px;
@@ -184,6 +207,58 @@
   inset: 5px;
   border-radius: 50%;
   background: var(--paper);
+}
+
+/* ---------- 支线 ---------- */
+
+/* 支线另起一段：上面一行小标题写从哪站分出、往哪里。 */
+.branch {
+  margin-top: 16px;
+}
+
+.branchHead {
+  margin: 0 0 6px 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+/* 主干上的分岔站：站名下一个线路色描边的小标签（分岔图标 + 「往…」），太长时省略。 */
+.fork {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 22px;
+  padding: 0 5px 0 3px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-info);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fork span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fork svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* 分岔站（主干上已经画过）：站名淡一些，圆点画成空心细环。 */
+.junction .stopName {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.junction .dot {
+  border-width: 3px;
+  border-color: var(--muted);
 }
 
 /* ---------- 列车卡片 ---------- */

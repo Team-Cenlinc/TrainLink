@@ -5,6 +5,7 @@ import type {
   RailStationLine,
   RailTrain,
 } from "@/lib/railApi.ts";
+import type { LineBranch } from "@/lib/lineShape.ts";
 import { findStation } from "@/lib/station.ts";
 import { serviceTypeOf } from "./departures.ts";
 
@@ -41,6 +42,19 @@ export interface LineTrain {
 export interface LineLayout {
   stops: LineStop[];
   trains: LineTrain[];
+  /** 从主干分出的支线：各自从分岔站画起。 */
+  branches: BranchLayout[];
+}
+
+/**
+ * 一段支线：junction 是主干上的分岔站；列车位置 slot 从分岔站算起（0 为分岔站，1 为 stops[0]）。
+ * 绕行一段又并回主干时，rejoin 是并回的站，画在 stops 之后。
+ */
+export interface BranchLayout {
+  junction: LineStop;
+  stops: LineStop[];
+  rejoin?: LineStop;
+  trains: LineTrain[];
 }
 
 /** 节点 SURC:S:WSD:3 → 站码 WSD；不是车站节点（例如区间、车厂）时返回 undefined。 */
@@ -64,7 +78,8 @@ export function stationsOfNode(node: string | undefined): string[] {
  * 列车所在的物理区间，看板线路图与列车详情共用：
  * from 是正停着或刚经过的站，to 是前方的站（都可能是快车通过不停的站）；
  * current 只在当前节点是车站节点时才有。
- * 两个节点都是区间节点时，节点名不表示方向：下一节点换到了相邻区间，就以两个区间共有的站为前方；
+ * 两个节点都是区间节点时，节点名不表示方向：下一节点换到了相邻区间，就以两个区间共有的站为前方
+ * （分岔站的道岔区例外：当前区间另一端的站不在交路上时，是从共有的站开往下一区间的另一站）；
  * 仍在同一区间里时按交路站序 routeOrder 判断先后，判断不了时按节点里的顺序。
  */
 export function trainSection(
@@ -85,8 +100,16 @@ export function trainSection(
   const [a, b] = here;
   const ahead = stationsOfNode(train.nextNode);
   const shared = here.find((c) => ahead.includes(c));
-  if (shared && ahead.some((c) => !here.includes(c))) {
-    return { from: here.find((c) => c !== shared), to: shared };
+  const beyond = ahead.find((c) => !here.includes(c));
+  if (shared && beyond) {
+    const other = here.find((c) => c !== shared);
+    // 分岔站出站的道岔区：区间节点写的是另一支的站（不在这趟车的交路上），共有的站与前方那站都在交路上，
+    // 说明列车正从共有的站开出，不是开进来。共有的站也不在交路上时是快车连着越过两站，照常处理。
+    const offRoute = (code?: string) => code !== undefined && !routeOrder.includes(code);
+    if (routeOrder.length > 0 && offRoute(other) && !offRoute(shared) && !offRoute(beyond)) {
+      return { from: shared, to: beyond };
+    }
+    return { from: other, to: shared };
   }
   const ia = routeOrder.indexOf(a ?? "");
   const ib = routeOrder.indexOf(b ?? "");
@@ -178,7 +201,10 @@ export function placeTrain(input: {
 }
 
 export function buildLineLayout(input: {
+  /** 主干站序。 */
   order: string[];
+  /** 从主干分出的支线（见 lib/lineShape.ts）。 */
+  branches?: LineBranch[];
   line: RailStationLine;
   serverId: string;
   stationCode: string;
@@ -192,39 +218,56 @@ export function buildLineLayout(input: {
   catalog?: RailCatalog;
 }): LineLayout {
   const { order, line, serverId, stationCode, catalog } = input;
+  const branches = input.branches ?? [];
 
   // 每站只在 catalog 里查一次，后面按站名判断方向时直接用这里的名字。
-  const stations = order.map((code) => findStation(catalog, serverId, line.operatorCode, code));
-  const stops = order.map((code, i) => ({
-    code,
-    name: stations[i]?.name ?? code,
-    current: code === stationCode,
-    transfers: (stations[i]?.lines ?? []).filter((l) => l.lineCode !== line.lineCode),
-  }));
-  // 查不到的站用空字符串：不会等于任何终点站名。
-  const stopNames = stations.map((s) => s?.name ?? "");
+  // 一段线路（主干，或分岔站加一段支线）：车站、按终点判断方向用的站名与这一段上的列车。
+  const segment = (codes: string[]) => {
+    const stations = codes.map((code) => findStation(catalog, serverId, line.operatorCode, code));
+    const stops = codes.map((code, i) => ({
+      code,
+      name: stations[i]?.name ?? code,
+      current: code === stationCode,
+      transfers: (stations[i]?.lines ?? []).filter((l) => l.lineCode !== line.lineCode),
+    }));
+    // 查不到的站用空字符串：不会等于任何终点站名。
+    const stopNames = stations.map((s) => s?.name ?? "");
+    return { codes, stops, stopNames, trains: [] as LineTrain[] };
+  };
+  const main = segment(order);
+  const branchSegments = branches.map((b) =>
+    segment([b.junction, ...b.stops, ...(b.rejoin !== undefined ? [b.rejoin] : [])]),
+  );
 
   // 本站站牌上出现的列车，带有编组、拥挤度与晚点。
   const onBoard = new Map(input.departures.filter((d) => d.train).map((d) => [d.train!, d]));
 
-  const trains: LineTrain[] = [];
   for (const train of input.trains) {
     if (train.serverId !== serverId || !train.inService) continue;
     if (train.operatorCode !== line.operatorCode || train.lineCode !== line.lineCode) continue;
 
+    const routeStops = train.routeCode ? input.routeStops?.get(train.routeCode) : undefined;
+    // 区间有一端在支线上就画在那一段支线；停在主干的站上（包括分岔站）时画在主干。
+    const { current, from, to } = trainSection(train, routeStops);
+    const onMainStation = isStopped(train) && current !== undefined && order.includes(current);
+    const branchIndex = onMainStation
+      ? -1
+      : branches.findIndex((b) => [from, to].some((c) => c !== undefined && b.stops.includes(c)));
+    const target = branchSegments[branchIndex] ?? main;
+
     const headsign = train.routeCode ? input.headsigns.get(train.routeCode) : undefined;
     const place = placeTrain({
       train,
-      order,
-      routeStops: train.routeCode ? input.routeStops?.get(train.routeCode) : undefined,
+      order: target.codes,
+      routeStops,
       headsign,
-      stopNames,
+      stopNames: target.stopNames,
     });
     if (!place) continue;
 
     const departure = onBoard.get(train.name);
     const delayMinutes = Math.floor((departure?.delaySeconds ?? 0) / 60);
-    trains.push({
+    target.trains.push({
       name: train.name,
       ...place,
       serviceType: serviceTypeOf({ routeId: train.routeCode ?? "" }),
@@ -234,5 +277,32 @@ export function buildLineLayout(input: {
     });
   }
 
-  return { stops, trains };
+  return {
+    stops: main.stops,
+    trains: main.trains,
+    branches: branchSegments.map(({ stops: [junction, ...rest], trains }, i) => {
+      const rejoin = branches[i]!.rejoin !== undefined ? rest.at(-1) : undefined;
+      return {
+        junction: junction!,
+        stops: rejoin ? rest.slice(0, -1) : rest,
+        ...(rejoin && { rejoin }),
+        trains,
+      };
+    }),
+  };
+}
+
+/**
+ * 线路图顶上两个方向标题写的终点：往起点方向是主干第一站；往终点方向是主干最后一站，
+ * 有支线时再加上各支的终点（支线都往终点方向分出，见 lib/lineShape.ts；并回主干的绕行段不算）。
+ */
+export function lineEnds(layout: LineLayout): { first?: string; last: string[] } {
+  const ends = [
+    layout.stops.at(-1),
+    ...layout.branches.filter((b) => !b.rejoin).map((b) => b.stops.at(-1)),
+  ];
+  return {
+    first: layout.stops[0]?.name,
+    last: ends.flatMap((s) => (s ? [s.name] : [])),
+  };
 }

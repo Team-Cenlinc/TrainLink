@@ -14,6 +14,7 @@ import { formatClock } from "@/lib/time.ts";
 import { StatusNotice } from "@/features/status/StatusNotice.tsx";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
 import { CompactBar } from "./CompactBar.tsx";
+import { lineEnds } from "./linePositions.ts";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
 import { StationHeader } from "./StationHeader.tsx";
 import type { PanelOpener } from "./BoardPage.tsx";
@@ -248,8 +249,7 @@ export function CompactBoard({
             )}
             {view === "line" && lineLayout && (
               <LineDirections
-                first={lineLayout.stops[0]?.name}
-                last={lineLayout.stops[lineLayout.stops.length - 1]?.name}
+                {...lineEnds(lineLayout)}
                 lineColor={primaryLine?.color}
                 updated={
                   trains.dataUpdatedAt ? formatClock(trains.dataUpdatedAt, timeZone) : undefined

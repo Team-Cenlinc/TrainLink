@@ -1,12 +1,13 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties, type RefObject } from "react";
 import ArrowDownIcon from "@material-symbols/svg-400/outlined/arrow_downward.svg?react";
 import ArrowUpIcon from "@material-symbols/svg-400/outlined/arrow_upward.svg?react";
+import ForkIcon from "@material-symbols/svg-400/outlined/fork_right.svg?react";
 import TrainIcon from "@material-symbols/svg-400/outlined/train.svg?react";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
 import { useSettings } from "@/lib/settings.ts";
-import type { CarLoad, LineLayout, LineTrain } from "./linePositions.ts";
+import type { CarLoad, LineLayout, LineStop, LineTrain } from "./linePositions.ts";
 import { severeDelayMinutes } from "./departures.ts";
 import { cardHeight, placeColumn, rowHeight } from "./placeColumn.ts";
 import styles from "./LineView.module.css";
@@ -24,6 +25,7 @@ function lineStyle(lineColor?: string): CSSProperties {
 /**
  * 方向标题：两个方向各在自己那一列的正上方，左侧空位写更新时刻。
  * 放在面板的吸顶区里（见 BoardPage），滚动线路图时一直可见。
+ * 有支线时往终点方向分往几处（last 有几个），几个终点叠成几行。
  */
 export function LineDirections({
   first,
@@ -32,7 +34,7 @@ export function LineDirections({
   lineColor,
 }: {
   first?: string;
-  last?: string;
+  last: string[];
   updated?: string;
   lineColor?: string;
 }) {
@@ -46,8 +48,18 @@ export function LineDirections({
       <span className={`${styles.direction} ${styles.left}`}>
         <ArrowUpIcon aria-hidden />往{first}
       </span>
-      <span className={`${styles.direction} ${styles.right}`}>
-        <ArrowDownIcon aria-hidden />往{last}
+      <span
+        className={`${styles.direction} ${styles.right} ${last.length > 1 ? styles.stacked : ""}`}
+      >
+        <ArrowDownIcon aria-hidden />
+        <span className={styles.ends}>
+          {last.map((name, i) => (
+            <span key={name}>
+              {i === 0 && "往"}
+              {name}
+            </span>
+          ))}
+        </span>
       </span>
     </div>
   );
@@ -101,16 +113,81 @@ export function LineView({
   onSelectTrain?: TrainSelect;
 }) {
   const currentRef = useRef<HTMLLIElement>(null);
-  const { showStationCodes } = useSettings();
-  const { stops, trains } = layout;
-  const height = stops.length * rowHeight;
+  const { stops, trains, branches } = layout;
+  // 主干上的分岔站：从这一站分出的各支线开往哪里（并回主干的绕行段写「经」第一站）。
+  const forks = new Map<string, string[]>();
+  for (const branch of branches) {
+    const label = branch.rejoin
+      ? `经${branch.stops[0]?.name ?? ""}`
+      : `往${branch.stops.at(-1)?.name ?? ""}`;
+    forks.set(branch.junction.code, [...(forks.get(branch.junction.code) ?? []), label]);
+  }
 
   // 打开时、换乘站上切换线路时，把本站滚到视野中间；只是列车位置刷新时不动。
-  const stopsKey = stops.map((s) => s.code).join(",");
+  const stopsKey = [...stops, ...branches.flatMap((b) => b.stops)].map((s) => s.code).join(",");
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: "center" });
   }, [stopsKey]);
 
+  return (
+    <section className={styles.view} style={lineStyle(lineColor)} aria-label="列车位置">
+      <Diagram
+        stops={stops}
+        trains={trains}
+        forks={forks}
+        currentRef={currentRef}
+        onSelect={onSelectTrain}
+      />
+      {/* 支线：主干下面另起一段，从分岔站画起（分岔站那一行淡一些，只标出从哪里分出）。 */}
+      {branches.map((branch) => (
+        <section
+          key={`${branch.junction.code}-${branch.stops[0]?.code}`}
+          className={styles.branch}
+          aria-label={`${branch.junction.name}分出的支线`}
+        >
+          <p className={styles.branchHead}>
+            {branch.junction.name} 分出 ·{" "}
+            {branch.rejoin ? `在${branch.rejoin.name}并回` : `往${branch.stops.at(-1)?.name}`}
+          </p>
+          <Diagram
+            stops={[branch.junction, ...branch.stops, ...(branch.rejoin ? [branch.rejoin] : [])]}
+            trains={branch.trains}
+            junction
+            rejoin={!!branch.rejoin}
+            currentRef={currentRef}
+            onSelect={onSelectTrain}
+          />
+        </section>
+      ))}
+    </section>
+  );
+}
+
+/**
+ * 一段线路图：车站一行一行排下来，线身从第一站中心画到最后一站中心，两侧放列车卡片。
+ * @param junction 第一行是分岔站（支线那一段）：只标出从哪里分出，本站与换乘不再重复。
+ * @param rejoin 最后一行是并回主干的站（绕行段），画法同分岔站。
+ * @param forks 主干上的分岔站（站码 → 各支线的说明「往…」「经…」）：站名下标出分岔图标与说明。
+ */
+function Diagram({
+  stops,
+  trains,
+  junction,
+  rejoin,
+  forks,
+  currentRef,
+  onSelect,
+}: {
+  stops: LineStop[];
+  trains: LineTrain[];
+  junction?: boolean;
+  rejoin?: boolean;
+  forks?: Map<string, string[]>;
+  currentRef: RefObject<HTMLLIElement | null>;
+  onSelect?: TrainSelect;
+}) {
+  const { showStationCodes } = useSettings();
+  const height = stops.length * rowHeight;
   const placed = [
     ...placeColumn(
       trains.filter((t) => t.direction === "toStart"),
@@ -123,46 +200,59 @@ export function LineView({
   ];
 
   return (
-    <section className={styles.view} style={lineStyle(lineColor)} aria-label="列车位置">
-      <div className={styles.diagram} style={{ height }}>
-        <ol className={styles.stops}>
-          {stops.map((stop) => (
+    <div className={styles.diagram} style={{ height }}>
+      <ol className={styles.stops}>
+        {stops.map((stop, i) => {
+          // 分岔站、并回站在主干上已经画过，这里只标出位置。
+          const isJunction = (junction && i === 0) || (rejoin && i === stops.length - 1);
+          const current = stop.current && !isJunction;
+          return (
             <li
               key={stop.code}
-              ref={stop.current ? currentRef : undefined}
-              className={`${styles.stop} ${stop.current ? styles.current : ""}`}
-              aria-current={stop.current ? "location" : undefined}
+              ref={current ? currentRef : undefined}
+              className={`${styles.stop} ${current ? styles.current : ""} ${
+                isJunction ? styles.junction : ""
+              }`}
+              aria-current={current ? "location" : undefined}
             >
               <span className={styles.stopName}>{stop.name}</span>
-              <span className={styles.stopMeta}>
-                {showStationCodes && <span className={styles.code}>{stop.code}</span>}
-                {stop.current && <span className={styles.here}>本站</span>}
-                {stop.transfers.map((line) => (
-                  <ServiceBadge
-                    key={line.lineId}
-                    lineCode={line.lineCode}
-                    lineColor={line.color}
-                    size="s"
-                  />
-                ))}
-              </span>
+              {!isJunction && (
+                <span className={styles.stopMeta}>
+                  {showStationCodes && <span className={styles.code}>{stop.code}</span>}
+                  {current && <span className={styles.here}>本站</span>}
+                  {forks?.has(stop.code) && (
+                    <span className={styles.fork} title="在这一站分出支线">
+                      <ForkIcon aria-hidden />
+                      <span>{forks.get(stop.code)!.join("、")}</span>
+                    </span>
+                  )}
+                  {stop.transfers.map((line) => (
+                    <ServiceBadge
+                      key={line.lineId}
+                      lineCode={line.lineCode}
+                      lineColor={line.color}
+                      size="s"
+                    />
+                  ))}
+                </span>
+              )}
               <span className={styles.dot} aria-hidden />
             </li>
-          ))}
-        </ol>
-        <span className={styles.line} aria-hidden />
+          );
+        })}
+      </ol>
+      <span className={styles.line} aria-hidden />
 
-        {placed.map(({ trains, top, anchor }) => (
-          <TrainCard
-            key={trains[0]!.name}
-            trains={trains}
-            top={top}
-            anchor={anchor}
-            onSelect={onSelectTrain}
-          />
-        ))}
-      </div>
-    </section>
+      {placed.map(({ trains, top, anchor }) => (
+        <TrainCard
+          key={trains[0]!.name}
+          trains={trains}
+          top={top}
+          anchor={anchor}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
   );
 }
 

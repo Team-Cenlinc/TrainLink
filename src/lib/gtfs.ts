@@ -1,4 +1,5 @@
 import { unzipSync, strFromU8 } from "fflate";
+import { linePatterns } from "./lineShape.ts";
 import { railApiBase } from "./railApi.ts";
 
 /**
@@ -6,12 +7,15 @@ import { railApiBase } from "./railApi.ts";
  * 整个包约 170 KB，API 缓存 5 分钟；这里只读 trips、stops、stop_times 三个文件。
  */
 
-/** 键为「运营商:线路」（例如 SURC:MT），值为按站序排列的站码（例如 PTK）。 */
-export type LineOrders = Map<string, string[]>;
+/**
+ * 键为「运营商:线路」（例如 SURC:MT），值为这条线的几种停站方式（站码序列，见 lineShape.ts 的 linePatterns）。
+ * 没有支线的线路只有一种；有支线时用 lineShape 拼成主干与支线。
+ */
+export type LinePatterns = Map<string, string[][]>;
 
-/** 从 GTFS 推出的索引：线路站序，以及每个交路的终点（trip_headsign）。 */
+/** 从 GTFS 推出的索引：线路的停站方式，以及每个交路的终点（trip_headsign）。 */
 export interface GtfsIndex {
-  lineOrders: LineOrders;
+  linePatterns: LinePatterns;
   /** 键为交路代码（与在线列车的 routeCode 相同，例如 SURC:MT:MT-2F_Short），值为终点站名。 */
   headsigns: Map<string, string>;
   /** 键同上，值为这个交路按站序经过的站码（取该交路的一个车次，跨线直通时含两条线）。 */
@@ -122,7 +126,7 @@ export function buildGtfsIndex(files: {
   }
 
   const codesOfTrip = new Map<string, string[]>();
-  const longest = new Map<string, string[]>();
+  const tripsOfLine = new Map<string, string[][]>();
   for (const [tripId, stops] of stopsOfTrip) {
     const routeId = routeOfTrip.get(tripId);
     if (!routeId) continue;
@@ -135,7 +139,9 @@ export function buildGtfsIndex(files: {
       .map((s) => stationCodeOf(s.stopId, parentOf))
       .filter((code): code is string => Boolean(code));
     codesOfTrip.set(tripId, codes);
-    if (codes.length > (longest.get(key)?.length ?? 0)) longest.set(key, codes);
+    const trips = tripsOfLine.get(key) ?? [];
+    trips.push(codes);
+    tripsOfLine.set(key, trips);
   }
 
   const legNumber = (tripId: string) => Number(tripId.match(/~(\d+)$/)?.[1] ?? 1);
@@ -162,7 +168,10 @@ export function buildGtfsIndex(files: {
       routeStopLines.set(key, lines);
     }
   }
-  return { lineOrders: longest, headsigns, routeStops, routeStopLines };
+  const patterns: LinePatterns = new Map(
+    [...tripsOfLine].map(([key, trips]) => [key, linePatterns(trips)] as const),
+  );
+  return { linePatterns: patterns, headsigns, routeStops, routeStopLines };
 }
 
 /**

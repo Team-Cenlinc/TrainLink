@@ -1,4 +1,3 @@
-import { lineKey, type LineOrders } from "./gtfs.ts";
 import type { RailCatalog, RailStation, RailStationLine } from "./railApi.ts";
 
 /**
@@ -45,12 +44,12 @@ export interface StripStop {
  */
 export function neighbourStops(
   catalog: RailCatalog | undefined,
-  lineOrders: LineOrders | undefined,
+  /** 本站所在那一支的站序（有支线时见 lib/lineShape.ts 的 main）。 */
+  order: string[] | undefined,
   station: RailStation,
   line: RailStationLine,
   range = 2,
 ): StripStop[] {
-  const order = lineOrders?.get(lineKey(line.operatorCode, line.lineCode));
   const index = order?.indexOf(station.code) ?? -1;
   if (!order || index < 0) return [];
   return order.slice(Math.max(0, index - range), index + range + 1).map((code) => {
@@ -67,11 +66,11 @@ export function neighbourStops(
 /** 沿线最近的可换乘车站（本站不能换乘时用于提示）。 */
 export function nearestTransfer(
   catalog: RailCatalog | undefined,
-  lineOrders: LineOrders | undefined,
+  /** 同 neighbourStops。 */
+  order: string[] | undefined,
   station: RailStation,
   line: RailStationLine,
 ): { stop: RailStation; lines: RailStationLine[]; distance: number } | undefined {
-  const order = lineOrders?.get(lineKey(line.operatorCode, line.lineCode));
   const index = order?.indexOf(station.code) ?? -1;
   if (!order || index < 0) return undefined;
   for (let distance = 1; distance < order.length; distance++) {

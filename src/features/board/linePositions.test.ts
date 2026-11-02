@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RailCatalog, RailStationLine, RailTrain } from "@/lib/railApi.ts";
-import { buildLineLayout } from "./linePositions.ts";
+import { buildLineLayout, lineEnds } from "./linePositions.ts";
 
 /** 两港快线的站序（与 GTFS 里最长的车次一致）。 */
 const order = ["HHU", "ZKW", "SCC", "WSD", "SPB", "PTK", "RVS", "PPK"];
@@ -259,5 +259,141 @@ describe("buildLineLayout：车站与列车信息", () => {
       ["a", ["medium"], undefined, "蒲塘桥港"],
       ["b", ["low", "high"], 2, "蒲塘桥港"],
     ]);
+  });
+});
+
+describe("buildLineLayout：支线", () => {
+  // 大都会线在南浦桥（SPB）分出往绿洲农场（OFL）的一支。
+  const branches = [{ junction: "SPB", stops: ["JBS", "HXB", "HAS", "OFL"] }];
+  const toOfl = ["PPK", "RVS", "PTK", "SPB", "JBS", "HXB", "HAS", "OFL"];
+  const withBranch = (trains: RailTrain[]) =>
+    buildLineLayout({
+      order,
+      branches,
+      line: mt,
+      serverId: "survival",
+      stationCode: "PTK",
+      trains,
+      headsigns,
+      routeStops: new Map([...routeStops, ["SURC:MT:MT-1O_ShortD", toOfl]]),
+      departures: [],
+      catalog,
+    });
+
+  it("支线一段：分岔站在最前面，其余由近及远；catalog 里没有的站用站码", () => {
+    const [branch] = withBranch([]).branches;
+    expect(branch?.junction).toMatchObject({ code: "SPB", name: "南浦桥" });
+    expect(branch?.stops.map((s) => s.name)).toEqual(["JBS", "HXB", "HAS", "OFL"]);
+  });
+
+  it("在支线上的列车画在支线那一段（位置从分岔站算起），不画在主干上", () => {
+    const {
+      trains,
+      branches: [branch],
+    } = withBranch([
+      train({
+        name: "out",
+        routeCode: "SURC:MT:MT-1O_ShortD",
+        currentNode: "SURC:S:SPB:1",
+        nextNode: "SURC:SPB:JBS:1:001",
+      }),
+      train({
+        name: "at",
+        routeCode: "SURC:MT:MT-1O_ShortD",
+        currentNode: "SURC:S:HXB:1",
+        speedBlocksPerSecond: 0,
+      }),
+    ]);
+    expect(trains).toEqual([]);
+    expect(branch?.trains.map((t) => [t.name, t.slot, t.direction])).toEqual([
+      ["out", 0.5, "toEnd"],
+      ["at", 2, "toEnd"],
+    ]);
+  });
+
+  it("方向标题：往起点写主干第一站，往终点写主干与各支线的终点", () => {
+    expect(lineEnds(withBranch([]))).toEqual({ first: "新笛矢·壑湖", last: ["蒲塘桥港", "OFL"] });
+    expect(lineEnds(layout([]))).toEqual({ first: "新笛矢·壑湖", last: ["蒲塘桥港"] });
+  });
+
+  it("分岔站出站的道岔区：区间节点写的是另一支的站时，按交路认出列车正开往本支", () => {
+    // 往壑湖的车刚开出南浦桥：当前节点写成 SPB:JBS（道岔区），下一节点是 SPB:WSD；JBS 不在它的交路上。
+    const {
+      trains,
+      branches: [branch],
+    } = withBranch([
+      train({
+        routeCode: "SURC:MT:MT-2O_ShortD",
+        currentNode: "SURC:SPB:JBS:2:002",
+        nextNode: "SURC:SPB:WSD:3:001",
+      }),
+    ]);
+    expect(trains.map((t) => [t.slot, t.direction])).toEqual([[3.5, "toStart"]]);
+    expect(branch?.trains).toEqual([]);
+  });
+
+  it("并回主干的绕行段：开向并回站的列车也画在绕行段上，并回站画在最后", () => {
+    const bypass = buildLineLayout({
+      order,
+      branches: [{ junction: "PTK", stops: ["X", "Y"], rejoin: "SPB" }],
+      line: mt,
+      serverId: "survival",
+      stationCode: "PTK",
+      trains: [
+        train({
+          routeCode: "SURC:MT:MT-9",
+          currentNode: "SURC:S:Y:1",
+          nextNode: "SURC:Y:SPB:1:001",
+        }),
+      ],
+      headsigns,
+      routeStops: new Map([["SURC:MT:MT-9", ["PPK", "PTK", "X", "Y", "SPB", "WSD"]]]),
+      departures: [],
+      catalog,
+    });
+    const [branch] = bypass.branches;
+    expect(branch?.rejoin?.code).toBe("SPB");
+    expect(branch?.stops.map((s) => s.code)).toEqual(["X", "Y"]);
+    expect(branch?.trains.map((t) => [t.slot, t.direction])).toEqual([[2.5, "toEnd"]]);
+    expect(bypass.trains).toEqual([]);
+    expect(lineEnds(bypass).last).toEqual(["蒲塘桥港"]);
+  });
+
+  it("快车连着越过两站：共有的站也不在交路上时不算道岔区，照常以共有的站为前方", () => {
+    // 交路只停壑湖、西沙洲、南浦桥，越过竹客湾、圣城；列车在竹客湾—圣城区间，开往圣城。
+    const place = buildLineLayout({
+      order,
+      line: mt,
+      serverId: "survival",
+      stationCode: "PTK",
+      trains: [
+        train({
+          routeCode: "SURC:MT:MT-8",
+          currentNode: "SURC:ZKW:SCC:1:001",
+          nextNode: "SURC:SCC:WSD:1:001",
+        }),
+      ],
+      headsigns,
+      routeStops: new Map([["SURC:MT:MT-8", ["HHU", "WSD", "SPB"]]]),
+      departures: [],
+      catalog,
+    }).trains.map((t) => [t.slot, t.direction]);
+    expect(place).toEqual([[1.5, "toEnd"]]);
+  });
+
+  it("停在分岔站上的支线列车画在主干上", () => {
+    const {
+      trains,
+      branches: [branch],
+    } = withBranch([
+      train({
+        routeCode: "SURC:MT:MT-1O_ShortD",
+        currentNode: "SURC:S:SPB:1",
+        nextNode: "SURC:SPB:JBS:1:001",
+        speedBlocksPerSecond: 0,
+      }),
+    ]);
+    expect(trains.map((t) => t.slot)).toEqual([4]);
+    expect(branch?.trains).toEqual([]);
   });
 });

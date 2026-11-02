@@ -98,7 +98,8 @@ export const persistOptions: Omit<PersistQueryClientOptions, "queryClient"> = {
   maxAge,
   // 缓存的数据格式变了就改这个字符串，旧缓存会被整个丢弃。
   // 3：通告涉及的线路从 lineCodes 改为带运营方的 lines。
-  buster: "3",
+  // 4：GTFS 索引的线路站序 lineOrders 改为停站方式 linePatterns（支线）。
+  buster: "4",
   dehydrateOptions: {
     shouldDehydrateQuery: (query) =>
       defaultShouldDehydrateQuery(query) && persistedKeys.has(String(query.queryKey[0])),
