@@ -33,6 +33,16 @@ html {
   pointer-events: none;
 }
 
+/*
+ * 有侧边栏时（Sidebar 的 data-sidebar），用鼠标的桌面设备：色条只铺在内容区上方，侧边栏顶上不画。
+ * 触屏设备仍铺满：大屏 iPad 也是这个布局，色条不到屏宽 90% 时 iOS 就不拿它给状态栏上色（见 lib/useTopColor.ts）。
+ */
+@media (hover: hover) and (pointer: fine) {
+  html:has([data-sidebar]) #top-edge {
+    left: var(--sidebar-w);
+  }
+}
+
 /* 「乘车中」迷你条显示时（RideBar），页面底部再多让出它的高度。 */
 html[data-ride-bar] {
   --bottom-chrome: calc(var(--safe-bottom) + 160px);
@@ -105,6 +115,19 @@ a {
 .num {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 弹窗、底部面板与手机布局的内容区不画滚动条（滚轮、触控、键盘照样能滚）：
+ * 常显滚动条（Windows、macOS 设成「始终显示」）会占一条宽度，把圆角卡片的右侧顶成直角。
+ * 平板与桌面布局的长页面、看板各列要靠滚动条看出还有内容，不用它。
+ */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* 只给读屏朗读、不显示的文字。 */

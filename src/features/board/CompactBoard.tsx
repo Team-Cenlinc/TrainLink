@@ -215,7 +215,7 @@ export function CompactBoard({
         {/* 内容区在面板的每个位置都能滚动，底部留白见上面的 offscreen。 */}
         <motion.div
           ref={scrollRef}
-          className={styles.scroll}
+          className={`${styles.scroll} no-scrollbar`}
           style={{ "--offscreen": offscreen } as MotionStyle}
         >
           {view === "station" && (

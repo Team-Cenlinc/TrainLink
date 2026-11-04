@@ -48,7 +48,9 @@ export function Page({
   useTopColor("var(--hero)");
   return (
     <div
-      className={`${styles.page} ${fixed ? styles.fixed : ""}`}
+      className={`${styles.page} ${fixed ? styles.fixed : ""} ${
+        layout === "compact" ? "no-scrollbar" : ""
+      }`}
       data-fixed-page={fixed || undefined}
     >
       <header className={`${styles.hero} ${back ? styles.withBack : ""}`}>

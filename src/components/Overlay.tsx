@@ -83,7 +83,7 @@ export function Overlay({
             <div key="dismiss" className={styles.dismiss} onClick={onClose} />
             <motion.section
               key="popover"
-              className={`${styles.popover} ${fill ? styles.fill : ""}`}
+              className={`${styles.popover} no-scrollbar ${fill ? styles.fill : ""}`}
               style={fixedHeight(
                 placement === "side" && anchor ? sidePosition(anchor) : popoverPosition(anchor),
                 fill,
@@ -112,7 +112,7 @@ export function Overlay({
             />
             <motion.section
               key="sheet"
-              className={`${styles.sheet} ${fill ? styles.fill : ""}`}
+              className={`${styles.sheet} no-scrollbar ${fill ? styles.fill : ""}`}
               style={keyboard}
               role="dialog"
               aria-modal="true"

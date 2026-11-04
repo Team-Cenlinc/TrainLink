@@ -23,7 +23,7 @@ export function Sidebar() {
   const navigate = useNavigate();
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} data-sidebar>
       <div className={styles.brand}>
         {/* App 图标（H 风车），由 scripts/build-icons.ts 生成。 */}
         <img className={styles.mark} src="/icons/icon.svg" alt="" width={32} height={32} />
