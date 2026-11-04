@@ -54,7 +54,7 @@ export function LineDirections({
         <ArrowDownIcon aria-hidden />
         <span className={styles.ends}>
           {last.map((name, i) => (
-            <span key={name}>
+            <span key={i}>
               {i === 0 && "往"}
               {name}
             </span>

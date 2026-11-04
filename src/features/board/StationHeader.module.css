@@ -223,6 +223,27 @@
   gap: 3px;
 }
 
+/* 分岔站：另一支的下一站，字比站名小一号；放不下时换行。 */
+.fork {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.fork svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
 .mapRow {
   display: flex;
   align-items: center;

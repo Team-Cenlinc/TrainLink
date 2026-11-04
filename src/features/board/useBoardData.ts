@@ -55,11 +55,11 @@ export function useBoardData(trainsEnabled: boolean, preferredLine?: string) {
     return patterns ? lineShape(patterns, home.stationCode) : undefined;
   }, [primaryLine, linePatterns, home.stationCode]);
   const strip =
-    station && primaryLine ? neighbourStops(catalog.data, shape?.main, station, primaryLine) : [];
+    station && primaryLine ? neighbourStops(catalog.data, shape, station, primaryLine) : [];
   const transfers = station ? transferLines(station) : [];
   const nearest =
     station && primaryLine && transfers.length === 0
-      ? nearestTransfer(catalog.data, shape?.main, station, primaryLine)
+      ? nearestTransfer(catalog.data, shape, station, primaryLine)
       : undefined;
   const timeZone = sourceTimeZone(board.data, home.serverId);
   const groups = board.data

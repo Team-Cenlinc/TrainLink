@@ -1,5 +1,6 @@
 import type { CSSProperties, PointerEvent, Ref } from "react";
 import { motion, useTransform, type MotionValue } from "motion/react";
+import ForkIcon from "@material-symbols/svg-400/outlined/fork_right.svg?react";
 import InfoIcon from "@material-symbols/svg-400/outlined/info.svg?react";
 import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react";
 import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
@@ -242,6 +243,12 @@ export function LineStrip({ stops }: { stops: StripStop[] }) {
                   size="s"
                 />
               ))}
+            </span>
+          )}
+          {stop.forks.length > 0 && (
+            <span className={styles.fork}>
+              <ForkIcon aria-hidden />
+              <span>分往{stop.forks.join("、")}</span>
             </span>
           )}
         </li>
