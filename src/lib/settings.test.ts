@@ -25,6 +25,12 @@ describe("设置", () => {
     expect(parseSettings(JSON.stringify({ showStationCodes: "yes" })).showStationCodes).toBe(false);
   });
 
+  it("半折布局默认不开，只认布尔值", () => {
+    expect(defaultSettings.manualFold).toBe(false);
+    expect(parseSettings(JSON.stringify({ manualFold: true })).manualFold).toBe(true);
+    expect(parseSettings(JSON.stringify({ manualFold: 1 })).manualFold).toBe(false);
+  });
+
   it("隐藏或重新显示运营方；同一台服务器上最后一家显示的不能隐藏", () => {
     const hidden = toggleOperator([], "s:b", operators);
 

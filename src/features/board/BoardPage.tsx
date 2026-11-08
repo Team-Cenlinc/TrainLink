@@ -1,7 +1,7 @@
 import { useCallback, useState, type MouseEvent } from "react";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useDocumentTitle } from "@/lib/useDocumentTitle.ts";
-import { useLayout } from "@/lib/useLayout.ts";
+import { useLayout, useOverlayVariant } from "@/lib/useLayout.ts";
 import { StationPicker } from "@/features/stations/StationPicker.tsx";
 import { TrainSheet } from "@/features/train/TrainSheet.tsx";
 import { useTrainDetail } from "@/features/train/useTrainDetail.ts";
@@ -70,7 +70,7 @@ export function BoardPage() {
 
   // 大屏一直显示列车位置；手机只在「线路」视图读取。
   const data = useBoardData(layout !== "compact" || view === "line", chosenLine);
-  const variant = layout === "compact" ? "sheet" : "popover";
+  const variant = useOverlayVariant();
   const train = useTrainDetail(data, panel?.kind === "train" ? panel.trainName : undefined);
   useDocumentTitle(data.stationName);
 

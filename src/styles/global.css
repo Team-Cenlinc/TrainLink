@@ -43,6 +43,47 @@ html {
   }
 }
 
+/*
+ * 半折时折痕两边的尺寸。<html data-fold> 由 lib/useLayout.ts 写入：book 是左右两段，tabletop 是上下两段。
+ * --fold-first、--fold-second 是两段的宽（book）或高（tabletop），--fold-gap 是折痕占掉的宽度，
+ * --fold-second-start 是第二段的起点。
+ * 默认值给手动开关用：浏览器不报告折痕，按屏幕中线留出 24 px。高度取 lvh：折痕在屏幕正中，
+ * 和 Safari 工具栏收没收起无关，工具栏只占掉第二段的高度。
+ * 浏览器报告了折痕时用它给的准确尺寸（Viewport Segments API），写在后面覆盖默认值；
+ * 没有物理铰链的屏幕 --fold-gap 是 0。
+ */
+html[data-fold="book"] {
+  --fold-first: calc(50vw - 12px);
+  --fold-second: calc(50vw - 12px);
+  --fold-second-start: calc(50vw + 12px);
+  --fold-gap: 24px;
+}
+
+html[data-fold="tabletop"] {
+  --fold-first: calc(50lvh - 12px);
+  --fold-second: calc(100dvh - 50lvh - 12px);
+  --fold-second-start: calc(50lvh + 12px);
+  --fold-gap: 24px;
+}
+
+@media (horizontal-viewport-segments: 2) {
+  html[data-fold="book"] {
+    --fold-first: env(viewport-segment-width 0 0);
+    --fold-second: env(viewport-segment-width 1 0);
+    --fold-second-start: env(viewport-segment-left 1 0);
+    --fold-gap: calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0));
+  }
+}
+
+@media (vertical-viewport-segments: 2) {
+  html[data-fold="tabletop"] {
+    --fold-first: env(viewport-segment-height 0 0);
+    --fold-second: env(viewport-segment-height 0 1);
+    --fold-second-start: env(viewport-segment-top 0 1);
+    --fold-gap: calc(env(viewport-segment-top 0 1) - env(viewport-segment-bottom 0 0));
+  }
+}
+
 /* 「乘车中」迷你条显示时（RideBar），页面底部再多让出它的高度。 */
 html[data-ride-bar] {
   --bottom-chrome: calc(var(--safe-bottom) + 160px);

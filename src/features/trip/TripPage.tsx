@@ -17,7 +17,7 @@ import {
 } from "@/lib/homeStation.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import { sourceTimeZone, type RailCatalog } from "@/lib/railApi.ts";
-import { useLayout } from "@/lib/useLayout.ts";
+import { useOverlayVariant } from "@/lib/useLayout.ts";
 import {
   clockOf,
   departureDayStart,
@@ -47,7 +47,7 @@ const whenOptions = [
  */
 export function TripPage() {
   const navigate = useNavigate();
-  const layout = useLayout();
+  const overlayVariant = useOverlayVariant();
   const reduceMotion = useReducedMotion();
   const home = useHomeStation();
   // 常用车站与最近、收藏的行程只列当前服务器上的（服务器在设置里切换）。
@@ -260,7 +260,7 @@ export function TripPage() {
       <StationPicker
         open={picking !== undefined}
         onClose={closePicker}
-        variant={layout === "compact" ? "sheet" : "popover"}
+        variant={overlayVariant}
         anchor={picking?.anchor}
         title={picking?.end === "from" ? "从哪里出发" : "去哪里"}
         onChoose={choose}

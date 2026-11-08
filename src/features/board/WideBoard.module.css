@@ -81,6 +81,41 @@
   word-break: keep-all;
 }
 
+/* 远看的下一班：只在笔记本式半折时出现（见下面）。 */
+.far {
+  display: flex;
+  flex: none;
+  gap: 28px;
+}
+
+.farItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.farTo {
+  max-width: 180px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.farMinutes {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.farMinutes :global(.num) {
+  margin-right: 4px;
+  font-size: 72px;
+  font-weight: 900;
+}
+
 .tagsRow {
   display: flex;
   align-items: baseline;
@@ -172,4 +207,113 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--muted);
+}
+
+/*
+ * 书本式半折：色块和面板的底色连续穿过折痕，只有内容避开它（折痕那一列不放东西）。
+ * 左边一屏是站名和发车，右边一屏是搜索、车站信息和列车位置。放在最后，覆盖上面的内边距。
+ */
+html[data-fold="book"] .hero {
+  padding: calc(var(--safe-top) + 12px) 20px 44px;
+}
+
+html[data-fold="book"] .topbar {
+  display: grid;
+  grid-template-columns: calc(var(--fold-first) - 20px) var(--fold-gap) minmax(0, 1fr) auto auto;
+  gap: 0;
+}
+
+html[data-fold="book"] .textButton {
+  justify-self: start;
+}
+
+html[data-fold="book"] .search {
+  grid-column: 3;
+  overflow: hidden;
+  max-width: none;
+  margin: 0 4px 0 0;
+  white-space: nowrap;
+}
+
+html[data-fold="book"] .iconButton {
+  margin-left: 8px;
+}
+
+html[data-fold="book"] .title {
+  max-width: calc(var(--fold-first) - 40px);
+  margin-top: 14px;
+}
+
+html[data-fold="book"] .name {
+  font-size: clamp(34px, calc(var(--fold-first) * 0.11), 48px);
+}
+
+html[data-fold="book"] .panel {
+  grid-template-columns: var(--fold-first) var(--fold-gap) var(--fold-second);
+  gap: 0;
+  padding: 24px 0 0;
+}
+
+html[data-fold="book"] .departures {
+  padding: 4px 16px calc(var(--bottom-chrome) + 14px);
+}
+
+html[data-fold="book"] .lineColumn {
+  grid-column: 3;
+  padding-bottom: calc(var(--safe-bottom) + 32px);
+  border-radius: var(--radius-group) 0 0 0;
+}
+
+/*
+ * 笔记本式半折：立起来的上面一屏远看（站名、下一班还有几分），平放的下面一屏近手操作。
+ * 色块铺到折痕下沿，内容不进折痕；面板和平时一样圆角压在色块上。下面一屏不高，两栏并排、一样宽。
+ */
+html[data-fold="tabletop"] .page {
+  display: grid;
+  grid-template-rows: var(--fold-second-start) var(--fold-second);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-fold="tabletop"] .hero {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: calc(var(--safe-top) + 12px) 20px calc(var(--fold-gap) + 12px);
+}
+
+html[data-fold="tabletop"] .heroBody {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 0;
+}
+
+html[data-fold="tabletop"] .title {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+
+/* 这一屏多高，数字就多大：隔着桌子看的就是它。 */
+html[data-fold="tabletop"] .farMinutes :global(.num) {
+  font-size: clamp(56px, calc(var(--fold-first) * 0.36), 120px);
+}
+
+/* 下面一屏不高，线路栏只留切换线路和方向，把高度让给线路图。 */
+html[data-fold="tabletop"] .lineTitle {
+  display: none;
+}
+
+html[data-fold="tabletop"] .panel {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 0;
+  padding: 12px 12px 0;
+}
+
+html[data-fold="tabletop"] .column {
+  padding-bottom: calc(var(--bottom-chrome) + 14px);
 }

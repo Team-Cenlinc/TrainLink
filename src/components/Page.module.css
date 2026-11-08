@@ -179,3 +179,56 @@
     padding: 24px 32px 48px;
   }
 }
+
+/*
+ * 半折：标题块和面板分放在折痕两边，各自滚动。标题块的底色铺过折痕，内容不进去；
+ * 面板和平时一样圆角压在标题块上。书本式标题块在左（标签栏也在左，底部让出它的位置），
+ * 笔记本式标题块在上、面板在下。放在最后，覆盖上面大屏的内边距。
+ */
+html[data-fold="book"] .fixed {
+  display: grid;
+  grid-template-columns: var(--fold-second-start) var(--fold-second);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--hero);
+}
+
+html[data-fold="book"] .hero {
+  overflow-y: auto;
+  padding-right: calc(var(--fold-gap) + 20px);
+  padding-bottom: var(--bottom-chrome);
+}
+
+html[data-fold="book"] .panel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 从贴顶色条（#top-edge）下面开始，圆角不被它盖住。 */
+  margin-top: max(var(--safe-top), 12px);
+  padding: 24px 16px calc(var(--safe-bottom) + 32px);
+  border-radius: var(--radius-sheet) 0 0 var(--radius-sheet);
+}
+
+html[data-fold="tabletop"] .fixed {
+  display: grid;
+  grid-template-rows: var(--fold-second-start) var(--fold-second);
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--hero);
+}
+
+html[data-fold="tabletop"] .hero {
+  overflow-y: auto;
+  padding-top: calc(var(--safe-top) + 20px);
+  padding-bottom: calc(var(--fold-gap) + 16px);
+}
+
+html[data-fold="tabletop"] .toolbar {
+  margin-bottom: 8px;
+}
+
+html[data-fold="tabletop"] .panel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 0;
+  padding: 16px 16px var(--bottom-chrome);
+}

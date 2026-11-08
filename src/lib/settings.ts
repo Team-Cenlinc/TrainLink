@@ -4,7 +4,7 @@ import { useCatalog } from "./queries.ts";
 import type { RailCatalog, RailOperator } from "./railApi.ts";
 
 /**
- * 设置：外观、出发提醒提前几分钟、不显示的运营方、是否显示站码。保存在浏览器本地，整个 App 共用
+ * 设置：外观、出发提醒提前几分钟、不显示的运营方、是否显示站码、半折布局。保存在浏览器本地，整个 App 共用
  * （写法同 homeStation.ts）。服务器不单独保存：当前服务器就是本站所在的服务器。
  */
 
@@ -18,6 +18,8 @@ export interface Settings {
   hiddenOperators: string[];
   /** 显示站码（如 PTK）。对乘客用处不大，默认不显示，熟悉线网的人可以打开。 */
   showStationCodes: boolean;
+  /** 折叠屏的半折布局：浏览器报告不了折痕时手动打开，内容避开屏幕中间（见 useLayout.ts）。 */
+  manualFold: boolean;
 }
 
 /** 提醒可选的提前分钟数。 */
@@ -28,6 +30,7 @@ export const defaultSettings: Settings = {
   remindMinutes: 5,
   hiddenOperators: [],
   showStationCodes: false,
+  manualFold: false,
 };
 
 const themes: Theme[] = ["system", "light", "dark"];
@@ -55,6 +58,7 @@ export function parseSettings(text: string | null): Settings {
       typeof raw.showStationCodes === "boolean"
         ? raw.showStationCodes
         : defaultSettings.showStationCodes,
+    manualFold: typeof raw.manualFold === "boolean" ? raw.manualFold : defaultSettings.manualFold,
   };
 }
 
@@ -106,7 +110,7 @@ function load(): Settings {
 
 let settings = load();
 const listeners = new Set<() => void>();
-const subscribe = (listener: () => void) => {
+export const subscribeSettings = (listener: () => void) => {
   listeners.add(listener);
   return () => listeners.delete(listener);
 };
@@ -146,7 +150,7 @@ export function readSettings(): Settings {
 }
 
 export function useSettings(): Settings {
-  return useSyncExternalStore(subscribe, () => settings);
+  return useSyncExternalStore(subscribeSettings, () => settings);
 }
 
 /**

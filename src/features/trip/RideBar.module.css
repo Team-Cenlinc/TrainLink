@@ -40,6 +40,19 @@
   }
 }
 
+/* 书本式半折：跟标签栏一起放在左边一屏。放在桌面规则之后，覆盖它的定位。 */
+html[data-fold="book"] .bar {
+  left: calc(var(--fold-first) / 2);
+  right: auto;
+  bottom: calc(var(--safe-bottom) + 91px);
+  transform: translateX(-50%);
+  width: min(calc(var(--fold-first) - 28px), 420px);
+}
+
+html[data-fold="book"] .bar:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
 /* 在走的一趟：绿点轻轻呼吸；到了就不动。 */
 .dot {
   flex: none;

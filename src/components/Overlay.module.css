@@ -87,6 +87,25 @@
   height: calc(var(--visible-height, 100dvh) - var(--safe-top) - 40px);
 }
 
+/*
+ * 半折：面板整块放在折痕的一边。书本式在右边一屏（左边的本站信息还看得见）；
+ * 笔记本式在下面一屏（手够得着），高度不超过这一屏。
+ */
+html[data-fold="book"] .sheet {
+  left: var(--fold-second-start);
+  max-width: none;
+  margin: 0;
+}
+
+html[data-fold="tabletop"] .sheet,
+html[data-fold="tabletop"] .sheet.fill {
+  max-height: min(calc(var(--visible-height, 100dvh) - var(--safe-top) - 40px), var(--fold-second));
+}
+
+html[data-fold="tabletop"] .sheet.fill {
+  height: min(calc(var(--visible-height, 100dvh) - var(--safe-top) - 40px), var(--fold-second));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet {
     transition: none;

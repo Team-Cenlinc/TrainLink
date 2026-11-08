@@ -18,6 +18,7 @@ import {
   useSettings,
   type Theme,
 } from "@/lib/settings.ts";
+import { useManualFoldOffered } from "@/lib/useLayout.ts";
 import styles from "./SettingsPage.module.css";
 
 const themeOptions = [
@@ -41,6 +42,7 @@ const sourceStateText: Record<RailSource["state"], string> = {
 export function SettingsPage() {
   const catalog = useCatalog();
   const settings = useSettings();
+  const foldOffered = useManualFoldOffered();
   return (
     <Page title="设置" narrow>
       {!catalog.data ? (
@@ -81,6 +83,30 @@ export function SettingsPage() {
           </button>
         </li>
         <li className={styles.footnote}>在车站名旁边显示站码（如 PTK），熟悉线网时方便对照。</li>
+        {foldOffered && (
+          <>
+            <li>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.manualFold}
+                className={styles.row}
+                onClick={() => updateSettings({ manualFold: !settings.manualFold })}
+              >
+                <span className={styles.main}>
+                  <span className={styles.name}>半折布局</span>
+                </span>
+                <span
+                  className={`${styles.switch} ${settings.manualFold ? styles.on : ""}`}
+                  aria-hidden
+                />
+              </button>
+            </li>
+            <li className={styles.footnote}>
+              折叠屏用：内容避开屏幕中间的折痕，横放分左右两屏，竖放分上下两屏。
+            </li>
+          </>
+        )}
       </Group>
 
       <Group title="出发提醒">

@@ -16,6 +16,7 @@ import { centerFontMetrics } from "./lib/fontMetrics.ts";
 import { watchGtfsFreshness } from "./lib/gtfsFreshness.ts";
 import { persistOptions, queryClient } from "./lib/queryClient.ts";
 import { applyTheme, readSettings } from "./lib/settings.ts";
+import { watchFold } from "./lib/useLayout.ts";
 import { restoreTopColor } from "./lib/useTopColor.ts";
 import "./styles/global.css";
 
@@ -42,6 +43,8 @@ const router = createBrowserRouter([
 applyTheme(readSettings().theme);
 // 上次的顶部颜色也在第一次渲染前设上（见 lib/useTopColor.ts）。
 restoreTopColor();
+// 半折姿势也在第一次渲染前写上，不会先按普通布局排一下（见 lib/useLayout.ts）。
+watchFold();
 // 实时行程更新里出现本地 GTFS 不认得的车次时，重新读取 GTFS（见 lib/gtfsFreshness.ts）。
 watchGtfsFreshness(queryClient);
 // 文字在标签、按钮里上下居中（见 lib/fontMetrics.ts）；不等它，字体规则到了再生效。

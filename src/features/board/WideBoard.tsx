@@ -5,10 +5,11 @@ import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import StarIcon from "@material-symbols/svg-400/outlined/star.svg?react";
 import { fallbackLineColor, onLineColor } from "@/lib/lineColor.ts";
 import { useTopColor } from "@/lib/useTopColor.ts";
-import type { Layout } from "@/lib/useLayout.ts";
+import { useFold, type Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
 import { StatusNotice } from "@/features/status/StatusNotice.tsx";
 import { DepartureList, LinePanel } from "./BoardPanels.tsx";
+import type { PlatformGroup } from "./departures.ts";
 import { lineEnds } from "./linePositions.ts";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
 import { StationName, StationTags } from "./StationHeader.tsx";
@@ -32,6 +33,7 @@ interface WideBoardProps {
  *   不再放前后站线路条：右侧的列车位置已经画出整条线。
  * - 下面两块：左边本站发车，右边列车位置（固定宽度）。发车区够宽（≥ 700）时按方向分成两栏，
  *   否则一栏；由实际可用宽度决定（容器查询），不按设备名猜，任何宽度都不挤。各块独立滚动。
+ * 半折时底色连续、内容避开折痕（见 WideBoard.module.css），笔记本式的标题块多一块远看的下一班。
  */
 export function WideBoard({
   data,
@@ -43,6 +45,7 @@ export function WideBoard({
   onSelectTrain,
 }: WideBoardProps) {
   const navigate = useNavigate();
+  const fold = useFold();
   const { home, stationName, lines, primaryLine, lineLayout, trains, timeZone } = data;
   const isTransfer = lines.length > 1;
   const color = isTransfer ? fallbackLineColor : (primaryLine?.color ?? fallbackLineColor);
@@ -80,16 +83,19 @@ export function WideBoard({
           </button>
         </div>
 
-        <div className={styles.title}>
-          <h1 className={styles.name}>
-            <StationName name={stationName} />
-          </h1>
-          <div className={styles.tagsRow}>
-            <StationTags lines={lines} stationCode={home.stationCode} />
-            <span className={styles.clock}>
-              现在 <span className="num">{formatClock(data.now, timeZone)}</span>
-            </span>
+        <div className={styles.heroBody}>
+          <div className={styles.title}>
+            <h1 className={styles.name}>
+              <StationName name={stationName} />
+            </h1>
+            <div className={styles.tagsRow}>
+              <StationTags lines={lines} stationCode={home.stationCode} />
+              <span className={styles.clock}>
+                现在 <span className="num">{formatClock(data.now, timeZone)}</span>
+              </span>
+            </div>
           </div>
+          {fold === "tabletop" && <FarDepartures groups={data.groups} />}
         </div>
       </header>
 
@@ -122,6 +128,31 @@ export function WideBoard({
           <LinePanel data={data} onSelectTrain={onSelectTrain} />
         </section>
       </main>
+    </div>
+  );
+}
+
+/** 远看的下一班：每个站台最近一班还有几分（最多两个站台），隔着桌子也看得清。 */
+function FarDepartures({ groups }: { groups: PlatformGroup[] }) {
+  const leads = groups
+    .flatMap((group) =>
+      group.departures
+        .filter((d) => d.minutes !== null && d.status.kind !== "cancelled")
+        .slice(0, 1),
+    )
+    .slice(0, 2);
+  return (
+    <div className={styles.far}>
+      {leads.map((lead) => (
+        <div key={lead.key} className={styles.farItem}>
+          <span className={styles.farTo}>
+            {lead.terminating ? "本站终到" : `往 ${lead.destinationName}`}
+          </span>
+          <span className={styles.farMinutes}>
+            <span className="num">{lead.minutes}</span>分
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

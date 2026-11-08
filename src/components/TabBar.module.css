@@ -20,6 +20,12 @@
   view-transition-name: tab-bar;
 }
 
+/* 书本式半折：标签栏整条放在左边一屏，不压在折痕上。 */
+html[data-fold="book"] .bar {
+  left: calc(var(--fold-first) / 2);
+  width: min(calc(var(--fold-first) - 28px), 420px);
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .bar {
     background: var(--surface-raised);
