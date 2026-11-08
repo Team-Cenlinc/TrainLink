@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planJourneys } from "./planner.ts";
 import { at, gtfsFiles } from "./testTimetable.ts";
-import { buildTimetable } from "./timetable.ts";
+import { buildTimetable, withHubTransfers } from "./timetable.ts";
 
 describe("planJourneys", () => {
   it("直达：给出出发时刻之后最早的一班，起止时刻与乘车段", () => {
@@ -30,12 +30,16 @@ describe("planJourneys", () => {
       ]),
     );
 
-    const [journey] = planJourneys(timetable, { from: "P1", to: "P3", departAfter: at("08:03") });
+    const [journey] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:P3",
+      departAfter: at("08:03"),
+    });
 
     expect(journey?.departure).toBe(at("08:10"));
     expect(journey?.arrival).toBe(at("08:20"));
     expect(journey?.legs).toMatchObject([
-      { kind: "ride", lineCode: "MT", from: "P1", to: "P3", headsign: "P3", stops: 2 },
+      { kind: "ride", lineCode: "MT", from: "TST:P1", to: "TST:P3", headsign: "P3", stops: 2 },
     ]);
   });
 
@@ -65,7 +69,11 @@ describe("planJourneys", () => {
       ]),
     );
 
-    const [journey] = planJourneys(timetable, { from: "P1", to: "P4", departAfter: at("07:58") });
+    const [journey] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:P4",
+      departAfter: at("07:58"),
+    });
 
     expect(journey?.legs.map((l) => l.kind === "ride" && l.tripId)).toEqual([
       "survival:SURC:MT:T:E1",
@@ -106,11 +114,15 @@ describe("planJourneys", () => {
       ]),
     );
 
-    const [journey] = planJourneys(timetable, { from: "P1", to: "Q", departAfter: at("07:55") });
+    const [journey] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:Q",
+      departAfter: at("07:55"),
+    });
 
     expect(journey?.legs).toMatchObject([
-      { kind: "ride", lineCode: "MT", from: "P1", to: "X" },
-      { kind: "ride", lineCode: "WS", from: "X", to: "Q", departure: at("08:13") },
+      { kind: "ride", lineCode: "MT", from: "TST:P1", to: "TST:X" },
+      { kind: "ride", lineCode: "WS", from: "TST:X", to: "TST:Q", departure: at("08:13") },
     ]);
     expect(journey?.arrival).toBe(at("08:22"));
   });
@@ -141,10 +153,21 @@ describe("planJourneys", () => {
       ]),
     );
 
-    const [journey] = planJourneys(timetable, { from: "P1", to: "Q", departAfter: at("07:55") });
+    const [journey] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:Q",
+      departAfter: at("07:55"),
+    });
 
     expect(journey?.legs).toMatchObject([
-      { kind: "ride", lineCode: "MT", lineCodes: ["MT", "WS"], from: "P1", to: "Q", stops: 2 },
+      {
+        kind: "ride",
+        lineCode: "MT",
+        lineCodes: ["MT", "WS"],
+        from: "TST:P1",
+        to: "TST:Q",
+        stops: 2,
+      },
     ]);
   });
 
@@ -184,12 +207,16 @@ describe("planJourneys", () => {
       ),
     );
 
-    const [journey] = planJourneys(timetable, { from: "P1", to: "Z", departAfter: at("07:55") });
+    const [journey] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:Z",
+      departAfter: at("07:55"),
+    });
 
     expect(journey?.legs).toMatchObject([
-      { kind: "ride", lineCode: "MT", from: "P1", to: "A" },
-      { kind: "walk", from: "A", to: "B", seconds: 180 },
-      { kind: "ride", lineCode: "IS", from: "B", to: "Z", departure: at("08:14") },
+      { kind: "ride", lineCode: "MT", from: "TST:P1", to: "TST:A" },
+      { kind: "walk", from: "TST:A", to: "TST:B", seconds: 180 },
+      { kind: "ride", lineCode: "IS", from: "TST:B", to: "TST:Z", departure: at("08:14") },
     ]);
   });
 
@@ -240,13 +267,17 @@ describe("planJourneys", () => {
       ),
     );
 
-    const [journey] = planJourneys(timetable, { from: "P1", to: "Z", departAfter: at("07:55") });
+    const [journey] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:Z",
+      departAfter: at("07:55"),
+    });
 
     expect(journey?.arrival).toBe(at("08:20"));
     expect(journey?.legs).toMatchObject([
-      { kind: "ride", from: "P1", to: "A" },
-      { kind: "walk", from: "A", to: "B", departure: at("08:05"), arrival: at("08:11") },
-      { kind: "ride", from: "B", to: "Z", tripId: "survival:SURC:IS:T:T1" },
+      { kind: "ride", from: "TST:P1", to: "TST:A" },
+      { kind: "walk", from: "TST:A", to: "TST:B", departure: at("08:05"), arrival: at("08:11") },
+      { kind: "ride", from: "TST:B", to: "TST:Z", tripId: "survival:SURC:IS:T:T1" },
     ]);
   });
 
@@ -311,8 +342,8 @@ describe("planJourneys", () => {
     );
 
     const journeys = planJourneys(timetable, {
-      from: "P1",
-      to: "P4",
+      from: "TST:P1",
+      to: "TST:P4",
       departAfter: at("07:55"),
       count: 5,
     });
@@ -352,8 +383,8 @@ describe("planJourneys", () => {
     );
 
     const journeys = planJourneys(timetable, {
-      from: "A",
-      to: "Z",
+      from: "TST:A",
+      to: "TST:Z",
       departAfter: at("08:00"),
       count: 2,
     });
@@ -386,8 +417,8 @@ describe("planJourneys", () => {
     );
 
     const journeys = planJourneys(timetable, {
-      from: "A",
-      to: "B",
+      from: "TST:A",
+      to: "TST:B",
       departAfter: at("07:55"),
       count: 6,
     });
@@ -396,7 +427,7 @@ describe("planJourneys", () => {
     expect(journeys[0]).toMatchObject({
       departure: at("07:55"),
       arrival: at("07:58"),
-      legs: [{ kind: "walk", from: "A", to: "B", seconds: 180 }],
+      legs: [{ kind: "walk", from: "TST:A", to: "TST:B", seconds: 180 }],
     });
   });
 
@@ -428,8 +459,8 @@ describe("planJourneys", () => {
     );
 
     const journeys = planJourneys(timetable, {
-      from: "A",
-      to: "B",
+      from: "TST:A",
+      to: "TST:B",
       departAfter: at("08:00"),
       count: 6,
     });
@@ -465,8 +496,16 @@ describe("planJourneys", () => {
       ]),
     );
 
-    const [late] = planJourneys(timetable, { from: "P1", to: "P2", departAfter: at("23:58") });
-    const [early] = planJourneys(timetable, { from: "P1", to: "P2", departAfter: at("00:03") });
+    const [late] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:P2",
+      departAfter: at("23:58"),
+    });
+    const [early] = planJourneys(timetable, {
+      from: "TST:P1",
+      to: "TST:P2",
+      departAfter: at("00:03"),
+    });
 
     expect([late?.departure, late?.arrival]).toEqual([at("24:05"), at("24:15")]);
     expect([early?.departure, early?.arrival]).toEqual([at("00:05"), at("00:15")]);
@@ -496,8 +535,12 @@ describe("planJourneys", () => {
       ]),
     );
 
-    expect(planJourneys(timetable, { from: "P1", to: "Q2", departAfter: at("07:00") })).toEqual([]);
-    expect(planJourneys(timetable, { from: "P1", to: "P2", departAfter: at("09:00") })).toEqual([]);
+    expect(
+      planJourneys(timetable, { from: "TST:P1", to: "TST:Q2", departAfter: at("07:00") }),
+    ).toEqual([]);
+    expect(
+      planJourneys(timetable, { from: "TST:P1", to: "TST:P2", departAfter: at("09:00") }),
+    ).toEqual([]);
   });
 
   it("晚点的车按时刻表已经开出、实际还没开：仍列出，按预计出发排序；准点开走的不列", () => {
@@ -534,8 +577,8 @@ describe("planJourneys", () => {
     );
 
     const journeys = planJourneys(timetable, {
-      from: "P1",
-      to: "P2",
+      from: "TST:P1",
+      to: "TST:P2",
       departAfter: at("08:05"),
       count: 3,
       delays: new Map([["survival:SURC:MT:T:M1", 600]]),
@@ -581,8 +624,8 @@ describe("planJourneys", () => {
     );
 
     const [journey] = planJourneys(timetable, {
-      from: "P1",
-      to: "Q",
+      from: "TST:P1",
+      to: "TST:Q",
       departAfter: at("08:05"),
       delays: new Map([["survival:SURC:MT:T:D1", 600]]),
     });
@@ -618,8 +661,8 @@ describe("planJourneys", () => {
     );
 
     const [journey] = planJourneys(timetable, {
-      from: "P1",
-      to: "P2",
+      from: "TST:P1",
+      to: "TST:P2",
       departAfter: at("07:55"),
       cancelledTrips: new Set(["survival:SURC:MT:T:M1"]),
     });
@@ -660,8 +703,8 @@ describe("planJourneys", () => {
     ];
     const plan = (options: Parameters<typeof gtfsFiles>[2]) =>
       planJourneys(buildTimetable(gtfsFiles(trips, [], options)), {
-        from: "P1",
-        to: "Q",
+        from: `${options?.operator}:P1`,
+        to: `${options?.operator}:Q`,
         departAfter: at("07:55"),
       })[0];
 
@@ -683,6 +726,86 @@ describe("planJourneys", () => {
       expect(
         plan({ operator: "PUAT", minTransfers: [{ station: "X", seconds: 60 }] })?.arrival,
       ).toBe(at("08:20"));
+    });
+  });
+
+  describe("枢纽：两家运营方的车站合成一个站", () => {
+    // TST 的车 P1 → H 08:10 到；OTH 的车从它自己的 H 开出，站码碰巧相同，但是另一个车站。
+    const files = gtfsFiles([
+      {
+        id: "T1",
+        line: "MT",
+        headsign: "H",
+        stops: [
+          ["P1", "08:00"],
+          ["H", "08:10"],
+        ],
+      },
+      ...["08:11", "08:12", "08:20"].map((time, i) => ({
+        id: `S${i}`,
+        line: "SM",
+        headsign: "Z",
+        operator: "OTH",
+        stops: [
+          ["H", time],
+          ["Z", `08:${25 + i}`],
+        ] as [string, string][],
+      })),
+    ]);
+    const hub = [{ stations: ["TST:H", "OTH:H"] }];
+
+    it("站码相同的两个车站不会被当成同一个站", () => {
+      const timetable = buildTimetable(files);
+      expect(
+        planJourneys(timetable, { from: "TST:P1", to: "OTH:Z", departAfter: at("07:55") }),
+      ).toEqual([]);
+    });
+
+    it("枢纽里换另一家：站内换乘 90 秒，赶不上 08:11、坐 08:12 的车；乘车段记下运营方", () => {
+      const timetable = withHubTransfers(buildTimetable(files), hub);
+      const [journey] = planJourneys(timetable, {
+        from: "TST:P1",
+        to: "OTH:Z",
+        departAfter: at("07:55"),
+      });
+      expect(journey?.legs).toMatchObject([
+        { kind: "ride", operatorCode: "TST", from: "TST:P1", to: "TST:H" },
+        { kind: "walk", inStation: true, from: "TST:H", to: "OTH:H", seconds: 90 },
+        { kind: "ride", operatorCode: "OTH", from: "OTH:H", to: "OTH:Z", departure: at("08:12") },
+      ]);
+    });
+
+    it("API 给了换乘时间时用它", () => {
+      const timetable = withHubTransfers(buildTimetable(files), [{ ...hub[0]!, seconds: 30 }]);
+      const [journey] = planJourneys(timetable, {
+        from: "TST:P1",
+        to: "OTH:Z",
+        departAfter: at("07:55"),
+      });
+      expect(journey?.legs[2]).toMatchObject({ departure: at("08:11") });
+    });
+
+    it("从枢纽出发：任一成员站都是起点，直接坐另一家的车，不用先换乘", () => {
+      const timetable = withHubTransfers(buildTimetable(files), hub);
+      const [journey] = planJourneys(timetable, {
+        from: ["TST:H", "OTH:H"],
+        to: "OTH:Z",
+        departAfter: at("08:05"),
+      });
+      expect(journey?.legs).toMatchObject([
+        { kind: "ride", from: "OTH:H", departure: at("08:11") },
+      ]);
+    });
+
+    it("到枢纽：到了任一成员站就算到了，不再换乘", () => {
+      const timetable = withHubTransfers(buildTimetable(files), hub);
+      const [journey] = planJourneys(timetable, {
+        from: "TST:P1",
+        to: ["TST:H", "OTH:H"],
+        departAfter: at("07:55"),
+      });
+      expect(journey?.legs).toMatchObject([{ kind: "ride", to: "TST:H" }]);
+      expect(journey?.arrival).toBe(at("08:10"));
     });
   });
 });

@@ -1,9 +1,11 @@
-import { parseCsv } from "@/lib/gtfs.ts";
+import { parseCsv, stopRef } from "@/lib/gtfs.ts";
 
 /**
  * 行程规划用的时刻表：把 GTFS 的 stop_times 拆成「连接」——一列车从某站开出、到达下一站的一段。
  * 按出发时刻排序后，规划器（planner.ts）从前往后扫一遍就能算出最早到达（Connection Scan Algorithm）。
  * 时刻都是「运营日 0 点起的秒数」，过了午夜的车次会超过 24 × 3600。
+ * 车站一律用车站 key「运营方:站码」（例如 SURC:PTK，见 lib/gtfs.ts 的 stationKey）：
+ * 站码只在运营方内唯一，两家的 JBS 是两个车站。
  */
 
 export interface Connection {
@@ -16,7 +18,10 @@ export interface Connection {
   vehicle: string;
   /** 线路码，例如 MT。 */
   lineCode: string;
+  /** 出发站所属的运营方，例如 SURC；站台号只在运营方内唯一。 */
+  operatorCode: string;
   headsign: string;
+  /** 车站 key，例如 SURC:PTK。 */
   from: string;
   to: string;
   /** 出发站的站台号。 */
@@ -28,19 +33,32 @@ export interface Connection {
 export interface Walk {
   to: string;
   seconds: number;
+  /** 枢纽里两家运营方之间的站内换乘（不出站）；没有时是站外步行。 */
+  inStation?: boolean;
 }
 
 export interface Timetable {
   /** 按出发时刻排序。 */
   connections: Connection[];
-  /** 站外步行换乘（transfers.txt 里 transfer_type 2 的两站之间），以出发站索引。 */
+  /** 站外步行换乘（transfers.txt 里 transfer_type 2 的两站之间）与枢纽站内换乘，以出发站索引。 */
   walks: Map<string, Walk[]>;
   /** 同站换乘至少几秒，与通用的 defaultChangeSeconds 不同的车站才有（见 changeSecondsAt）。 */
   changes: Map<string, number>;
+  /**
+   * GTFS 换乘表给了时间的两站之间（transfer_type 0 或 1，两个不同的车站），键为「from|to」。
+   * 枢纽站内换乘有它时用它，没有时用 hubChangeSeconds。
+   */
+  transferSeconds: Map<string, number>;
 }
 
 /** 同站换乘至少留出的秒数（下车、换站台、上车），车站没有另外规定时用它。 */
 export const defaultChangeSeconds = 120;
+
+/**
+ * 枢纽里两家运营方之间换乘至少留出的秒数：比同一家站内换乘多走一段到另一家的站台。
+ * API 给了时间（GTFS 换乘表的 min_transfer_time）时以那个为准。
+ */
+export const hubChangeSeconds = 90;
 
 /**
  * 各运营方的同站换乘时间。SURcentral（SURC）是 TramTrain，车站小、站台挨着，1 分钟就换得过来。
@@ -59,12 +77,6 @@ function seconds(time: string | undefined): number {
   return h * 3600 + m * 60 + s;
 }
 
-/** 站台 stop_id 形如 survival:SURC:S:PTK:1：站码 PTK，站台 1。 */
-function stationAndPlatform(stopId: string): { station: string; platform?: string } {
-  const [station = "", platform] = (stopId.split(":S:")[1] ?? "").split(":");
-  return { station, platform };
-}
-
 export function buildTimetable(files: {
   trips: string;
   stopTimes: string;
@@ -77,7 +89,7 @@ export function buildTimetable(files: {
     ]),
   );
 
-  // 每个车站属于哪个运营方（站台 stop_id 形如 survival:SURC:S:PTK:1）。
+  // 每个车站属于哪个运营方（车站 key 的前半）。
   const operatorOf = new Map<string, string>();
   const byTrip = new Map<
     string,
@@ -86,11 +98,12 @@ export function buildTimetable(files: {
   for (const st of parseCsv(files.stopTimes)) {
     const tripId = st.trip_id ?? "";
     const stopId = st.stop_id ?? "";
-    operatorOf.set(stationAndPlatform(stopId).station, stopId.split(":")[1] ?? "");
+    const ref = stopRef(stopId);
+    operatorOf.set(ref.station, ref.operatorCode);
     const list = byTrip.get(tripId) ?? [];
     list.push({
       seq: Number(st.stop_sequence),
-      stopId: st.stop_id ?? "",
+      stopId,
       arrival: seconds(st.arrival_time),
       departure: seconds(st.departure_time),
     });
@@ -103,12 +116,13 @@ export function buildTimetable(files: {
     if (!info) continue;
     stops.sort((a, b) => a.seq - b.seq);
     for (let i = 0; i + 1 < stops.length; i++) {
-      const from = stationAndPlatform(stops[i]!.stopId);
-      const to = stationAndPlatform(stops[i + 1]!.stopId);
+      const from = stopRef(stops[i]!.stopId);
+      const to = stopRef(stops[i + 1]!.stopId);
       connections.push({
         tripId,
         vehicle: tripId.replace(/~\d+$/, ""),
         lineCode: info.lineCode,
+        operatorCode: from.operatorCode,
         headsign: info.headsign,
         from: from.station,
         to: to.station,
@@ -140,19 +154,51 @@ export function buildTimetable(files: {
   }
   // 两个车站之间的步行换乘；直通车次的 type 4 不在这里。
   const walks = new Map<string, Walk[]>();
+  const transferSeconds = new Map<string, number>();
   for (const t of parseCsv(files.transfers ?? "")) {
-    if (t.transfer_type !== "2") continue;
-    const from = stationAndPlatform(t.from_stop_id ?? "").station;
-    const to = stationAndPlatform(t.to_stop_id ?? "").station;
-    if (!from || !to) continue;
-    if (from === to) {
-      if (t.min_transfer_time) changes.set(from, Number(t.min_transfer_time));
-      continue;
+    if (t.from_trip_id || t.to_trip_id || !t.from_stop_id || !t.to_stop_id) continue;
+    const from = stopRef(t.from_stop_id).station;
+    const to = stopRef(t.to_stop_id).station;
+    if (t.transfer_type === "2") {
+      if (from === to) {
+        if (t.min_transfer_time) changes.set(from, Number(t.min_transfer_time));
+        continue;
+      }
+      walks.set(from, [
+        ...(walks.get(from) ?? []),
+        { to, seconds: Number(t.min_transfer_time) || 0 },
+      ]);
+    } else if ((t.transfer_type === "0" || t.transfer_type === "1") && from !== to) {
+      if (t.min_transfer_time) transferSeconds.set(`${from}|${to}`, Number(t.min_transfer_time));
     }
-    walks.set(from, [
-      ...(walks.get(from) ?? []),
-      { to, seconds: Number(t.min_transfer_time) || 0 },
-    ]);
   }
-  return { connections, walks, changes };
+  return { connections, walks, changes, transferSeconds };
+}
+
+/**
+ * 加上枢纽里各成员站之间的站内换乘（双向），返回新的时刻表（不改原来的）。
+ * 枢纽来自 catalog 的车站组（见 lib/hubs.ts 的 hubTransfers）。换乘时间依次取：
+ * 车站组给的 walkSeconds（车站信息里写的也是它）、GTFS 换乘表里这两站之间的 min_transfer_time、
+ * hubChangeSeconds。
+ */
+export function withHubTransfers(
+  timetable: Timetable,
+  hubs: { stations: string[]; seconds?: number }[],
+): Timetable {
+  const linked = hubs.filter((hub) => hub.stations.length > 1);
+  if (linked.length === 0) return timetable;
+  const walks = new Map(timetable.walks);
+  for (const hub of linked) {
+    for (const from of hub.stations) {
+      for (const to of hub.stations) {
+        if (from === to) continue;
+        const list = walks.get(from) ?? [];
+        if (list.some((w) => w.to === to)) continue;
+        const seconds =
+          hub.seconds ?? timetable.transferSeconds.get(`${from}|${to}`) ?? hubChangeSeconds;
+        walks.set(from, [...list, { to, seconds, inStation: true }]);
+      }
+    }
+  }
+  return { ...timetable, walks };
 }

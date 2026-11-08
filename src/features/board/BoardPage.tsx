@@ -58,7 +58,7 @@ export function BoardPage() {
     [],
   );
 
-  // 换乘站上选中的线路；记下是哪个车站选的，换了本站就自动回到默认线路。
+  // 换乘站上选中的线路（运营方:线路码）；记下是哪个车站选的，换了本站就自动回到默认线路。
   const home = useHomeStation();
   const homeKey = `${home.operatorCode}:${home.stationCode}`;
   const [lineChoice, setLineChoice] = useState<{ station: string; line: string }>();
@@ -67,9 +67,19 @@ export function BoardPage() {
     (line: string) => setLineChoice({ station: homeKey, line }),
     [homeKey],
   );
+  // 枢纽上选中看哪一家的站牌，按枢纽记住（换了本站再回来还是那一家）；没选过时是本站那一家。
+  const [operatorChoice, setOperatorChoice] = useState<Record<string, string>>({});
+  const chooseOperator = useCallback(
+    (operator: string) => setOperatorChoice((choice) => ({ ...choice, [homeKey]: operator })),
+    [homeKey],
+  );
 
   // 大屏一直显示列车位置；手机只在「线路」视图读取。
-  const data = useBoardData(layout !== "compact" || view === "line", chosenLine);
+  const data = useBoardData(
+    layout !== "compact" || view === "line",
+    chosenLine,
+    operatorChoice[homeKey],
+  );
   const variant = useOverlayVariant();
   const train = useTrainDetail(data, panel?.kind === "train" ? panel.trainName : undefined);
   useDocumentTitle(data.stationName);
@@ -85,6 +95,7 @@ export function BoardPage() {
           onPickStation={openPicker}
           onSearchStation={openStationSearch}
           onChooseLine={chooseLine}
+          onChooseOperator={chooseOperator}
           onSelectTrain={openTrain}
         />
       ) : (
@@ -95,6 +106,7 @@ export function BoardPage() {
           onPickStation={openPicker}
           onSearchStation={openStationSearch}
           onChooseLine={chooseLine}
+          onChooseOperator={chooseOperator}
           onSelectTrain={openTrain}
         />
       )}
@@ -106,8 +118,14 @@ export function BoardPage() {
         onClose={closePanel}
         station={data.station}
         stationCode={data.home.stationCode}
+        name={data.stationName}
+        groupName={data.hub?.groupName}
+        walkSeconds={data.hub?.walkSeconds}
         lines={data.lines}
+        parts={data.parts}
+        part={data.part}
         groups={data.groups}
+        partGroups={data.partGroups}
         transfers={data.transfers}
         nearest={data.nearest}
         mapUrl={data.mapUrl}

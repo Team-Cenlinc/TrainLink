@@ -11,7 +11,14 @@ export function useTrainDetail(data: BoardData, trainName: string | undefined) {
   const train = trainName ? data.trains.data?.trains.find((t) => t.name === trainName) : undefined;
   // 只是兜底：跨线直通后列车可能已在本站不停靠的线路上，详情里的线路由 buildTrainDetail
   // 按列车当前（或刚离开）那一站重新确定。
-  const line = train && (data.lines.find((l) => l.lineCode === train.lineCode) ?? data.primaryLine);
+  const line =
+    train &&
+    (data.lines.find(
+      (l) => l.operatorCode === train.operatorCode && l.lineCode === train.lineCode,
+    ) ??
+      data.primaryLine);
+  // 枢纽里按列车所属运营方的成员站算「本站」（两家的站码不保证相同）。
+  const here = train ? data.memberOf(train.operatorCode) : undefined;
 
   const detail =
     train && line
@@ -19,7 +26,7 @@ export function useTrainDetail(data: BoardData, trainName: string | undefined) {
           train,
           line,
           serverId: data.home.serverId,
-          homeStationCode: data.home.stationCode,
+          homeStationCode: here?.code ?? data.home.stationCode,
           routeStops: train.routeCode ? data.gtfs.data?.routeStops.get(train.routeCode) : undefined,
           // 本地缓存里旧版本的 GTFS 索引可能没有 routeStopLines，所以这里也用 ?.。
           routeStopLines: train.routeCode

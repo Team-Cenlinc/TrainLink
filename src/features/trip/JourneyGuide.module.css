@@ -240,29 +240,46 @@
   padding: 10px 0 12px;
 }
 
+/* 放不下时站台号换到下一行（靠右），不折断终点站名，也不压到它上面。 */
 .rideHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
 }
 
 .headsign {
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 auto;
+  max-width: 100%;
   font-size: 17px;
   font-weight: 900;
   word-break: keep-all;
+  /* 一整行都放不下时才在词中间折行。 */
+  overflow-wrap: anywhere;
 }
 
-/* 站台：同看板标题里的站台号方块。 */
+/* 站台：同看板标题里的站台号方块；枢纽里上方写是哪家运营方的。 */
 .platform {
   flex: none;
+  margin-left: auto;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   font-size: 13px;
   font-weight: 700;
   color: var(--muted);
+}
+
+.platformNumber {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.platformOperator {
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .platformBox {

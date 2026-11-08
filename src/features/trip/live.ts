@@ -134,7 +134,7 @@ export function liveJourneys(
  */
 export function findJourney(
   timetable: Timetable,
-  selected: { from: string; to: string; departure: number; tripId?: string },
+  selected: Pick<JourneyQuery, "from" | "to"> & { departure: number; tripId?: string },
   realtime: Realtime,
   dayStart: number,
 ): { journey: LiveJourney | undefined; cancelled: boolean } {

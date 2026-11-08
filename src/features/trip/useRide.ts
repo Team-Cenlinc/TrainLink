@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import { useCatalog, useNow, useTrains, useTripRealtime } from "@/lib/queries.ts";
-import { isStopped, stationOfNode } from "@/features/board/linePositions.ts";
+import { isStopped, stationKeyOfNode } from "@/features/board/linePositions.ts";
 import type { TripRealtime } from "@/lib/realtime.ts";
 import { stationName } from "./journeyText.ts";
 import type { LiveJourney } from "./live.ts";
 import { useTimetable } from "./queries.ts";
 import { liveStops, plannedStops, rideStatus, rideText, type TrainPosition } from "./ride.ts";
-import { lineOf } from "./stations.ts";
+import { lineOf, platformText } from "./stations.ts";
 import { stationFromParam } from "./tripStore.ts";
 import { useJourney } from "./useJourneys.ts";
 
@@ -71,19 +71,21 @@ export function useRide(params: URLSearchParams) {
     const train = trainName && trains?.find((t) => t.serverId === serverId && t.name === trainName);
     if (train) {
       positions.set(stop.tripId, {
-        stoppedAt: isStopped(train) ? stationOfNode(train.currentNode) : undefined,
+        stoppedAt: isStopped(train) ? stationKeyOfNode(train.currentNode) : undefined,
       });
     }
   }
   const stops = planned.map((p) => liveStops(p, realtime, dayStart, now, positions));
   const status = journey ? rideStatus(journey, stops, now) : undefined;
-  const text = journey && status ? rideText(status, journey, name) : undefined;
+  const platform = (leg: { from: string; platform?: string }) =>
+    platformText(catalog.data, serverId, leg);
+  const text = journey && status ? rideText(status, journey, name, platform) : undefined;
   // 此刻这一段有没有实时数据（列车位置）：没有时是按时刻表推算的。
   const currentLeg =
     status && status.kind !== "arrived" ? journey?.legs[status.legIndex] : undefined;
   const isLive = currentLeg?.kind === "ride" && currentLeg.tripIds.some((id) => realtime.has(id));
-  const lineColorOf = (lineCode: string) =>
-    lineOf(catalog.data, serverId, lineCode)?.color ?? fallbackLineColor;
+  const lineColorOf = (lineCode: string, operatorCode?: string) =>
+    lineOf(catalog.data, serverId, lineCode, operatorCode)?.color ?? fallbackLineColor;
 
   return {
     from,
@@ -98,6 +100,8 @@ export function useRide(params: URLSearchParams) {
     status,
     text,
     isLive,
+    /** 上车站台的一句话（枢纽里带运营方）。 */
+    platform,
     now,
     name,
     lineColorOf,

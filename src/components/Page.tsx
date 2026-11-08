@@ -43,7 +43,8 @@ export function Page({
   // 桌面有侧边栏，保持普通的文档滚动。
   const fixed = layout !== "wide";
   // 标签页标题：大标题是文字时用它，否则（起终点、时刻等内容）用工具栏上的页面名。
-  useDocumentTitle(typeof title === "string" ? title : back);
+  // 「—」是找不到内容时的占位，标签页上写页面名。
+  useDocumentTitle(typeof title === "string" && title !== "—" ? title : back);
   // 状态栏与标题块同色（见 useTopColor）。
   useTopColor("var(--hero)");
   return (

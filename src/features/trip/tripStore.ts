@@ -15,8 +15,14 @@ const savedKey = "trainlink.savedTrips";
 /** 最近的行程最多记几条。 */
 const recentLimit = 5;
 
-const sameRoute = (a: TripRoute, b: TripRoute) =>
-  sameStation(a.from, b.from) && sameStation(a.to, b.to);
+/**
+ * 两个车站算不算同一站：默认同一运营方、同一站码；有 catalog 时传 lib/hubs.ts 的 sameHub，
+ * 同一枢纽从哪一家的成员站查的都算同一条行程。
+ */
+export type SameStation = (a: HomeStation, b: HomeStation) => boolean;
+
+const sameRoute = (a: TripRoute, b: TripRoute, same: SameStation = sameStation) =>
+  same(a.from, b.from) && same(a.to, b.to);
 
 const isRoutes = (value: unknown): value is TripRoute[] =>
   Array.isArray(value) &&
@@ -55,16 +61,16 @@ const subscribe = (listener: () => void) => {
 };
 
 /** 查询过一次行程：放到「最近」最前面，去掉重复的。 */
-export function rememberTrip(route: TripRoute) {
-  recent = [route, ...recent.filter((r) => !sameRoute(r, route))].slice(0, recentLimit);
+export function rememberTrip(route: TripRoute, same?: SameStation) {
+  recent = [route, ...recent.filter((r) => !sameRoute(r, route, same))].slice(0, recentLimit);
   save(recentKey, recent);
   notify();
 }
 
 /** 收藏或取消收藏一条行程。 */
-export function toggleSavedTrip(route: TripRoute) {
-  saved = saved.some((r) => sameRoute(r, route))
-    ? saved.filter((r) => !sameRoute(r, route))
+export function toggleSavedTrip(route: TripRoute, same?: SameStation) {
+  saved = saved.some((r) => sameRoute(r, route, same))
+    ? saved.filter((r) => !sameRoute(r, route, same))
     : [...saved, route];
   save(savedKey, saved);
   notify();
@@ -87,8 +93,8 @@ export function useSavedTrips(): TripRoute[] {
   return useSyncExternalStore(subscribe, () => saved);
 }
 
-export function isSavedTrip(routes: TripRoute[], route: TripRoute): boolean {
-  return routes.some((r) => sameRoute(r, route));
+export function isSavedTrip(routes: TripRoute[], route: TripRoute, same?: SameStation): boolean {
+  return routes.some((r) => sameRoute(r, route, same));
 }
 
 /** 车站写进网址：SURC:PTK（服务器跟随本站）。 */

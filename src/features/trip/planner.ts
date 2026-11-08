@@ -12,9 +12,12 @@ export interface RideLeg {
   tripIds: string[];
   /** 上车时的线路。 */
   lineCode: string;
+  /** 上车站所属的运营方：站台号只在运营方内唯一，枢纽里写站台时要带上它。 */
+  operatorCode: string;
   /** 这段乘车经过的线路，按顺序；跨线直通时不止一条。 */
   lineCodes: string[];
   headsign: string;
+  /** 车站 key（运营方:站码）。 */
   from: string;
   to: string;
   /** 上车站台。 */
@@ -27,12 +30,13 @@ export interface RideLeg {
   changeSeconds: number;
 }
 
-/** 站外换乘：从一个车站步行到另一个车站。 */
+/** 站外换乘：从一个车站步行到另一个车站；inStation 时是枢纽里两家运营方之间的站内换乘。 */
 export interface WalkLeg {
   kind: "walk";
   from: string;
   to: string;
   seconds: number;
+  inStation?: boolean;
   departure: number;
   arrival: number;
 }
@@ -46,8 +50,12 @@ export interface Journey {
 }
 
 export interface JourneyQuery {
-  from: string;
-  to: string;
+  /**
+   * 起点：车站 key，或一个枢纽的全部成员站（从哪一个出发都不用花时间）。
+   * 终点同理：到了任何一个成员站就算到了。
+   */
+  from: string | string[];
+  to: string | string[];
   /** 运营日 0 点起的秒数。 */
   departAfter: number;
   /** 最多给出几个方案（默认 1）。 */
@@ -117,7 +125,15 @@ export function planJourneys(timetable: Timetable, query: JourneyQuery): Journey
  */
 type Step =
   | { kind: "ride"; enter: Connection; exit: Connection; prev?: Step }
-  | { kind: "walk"; from: string; to: string; seconds: number; arrival: number; prev?: Step };
+  | {
+      kind: "walk";
+      from: string;
+      to: string;
+      seconds: number;
+      inStation?: boolean;
+      arrival: number;
+      prev?: Step;
+    };
 
 /**
  * @param delayOf 车次晚点几秒（不早于时刻表）。
@@ -134,13 +150,18 @@ function earliestArrival(
 ): Journey | undefined {
   const { connections, walks } = timetable;
   const departAfter = Math.max(scanFrom, query.departAfter);
+  const origins = new Set([query.from].flat());
+  const targets = new Set([query.to].flat());
   // 每站最早到达的时刻与怎样到的（终点用它倒推行程）。
-  const earliest = new Map<string, number>([[query.from, departAfter]]);
+  const earliest = new Map<string, number>([...origins].map((s) => [s, departAfter]));
   const arrivedBy = new Map<string, Step>();
   // 每站最早能上车的时刻与怎样到的：出发站就是出发时刻；坐车到站要加上换乘时间，
   // 步行到站不用（步行时间已经包含换乘）。所以步行可能比坐车晚到、却能更早上车，两者分开记。
-  const ready = new Map<string, number>([[query.from, departAfter]]);
+  const ready = new Map<string, number>([...origins].map((s) => [s, departAfter]));
   const readyBy = new Map<string, Step>();
+  // 最早到达终点（任一成员站）的时刻与那一站。
+  let bestArrival = Infinity;
+  let bestTarget: string | undefined;
   // 每列车第一次能上车的那一段，以及上车前是怎样到的那一站。
   const boarded = new Map<string, { enter: Connection; prev?: Step }>();
 
@@ -148,6 +169,10 @@ function earliestArrival(
     if (arrival < (earliest.get(station) ?? Infinity)) {
       earliest.set(station, arrival);
       arrivedBy.set(station, step);
+      if (targets.has(station) && arrival < bestArrival) {
+        bestArrival = arrival;
+        bestTarget = station;
+      }
     }
     if (readyAt < (ready.get(station) ?? Infinity)) {
       ready.set(station, readyAt);
@@ -157,23 +182,24 @@ function earliestArrival(
   // 到达一站后，顺带算出从这里步行能到的车站；步行时间已经包含换乘，到了就能上车。
   const walkFrom = (station: string, time: number, prev: Step | undefined) => {
     for (const walk of walks.get(station) ?? []) {
-      if (ridesOnly && station === query.from && walk.to === query.to) continue;
+      if (ridesOnly && origins.has(station) && targets.has(walk.to)) continue;
       const arrival = time + walk.seconds;
       reach(walk.to, arrival, arrival, {
         kind: "walk",
         from: station,
         to: walk.to,
         seconds: walk.seconds,
+        ...(walk.inStation && { inStation: true }),
         arrival,
         prev,
       });
     }
   };
-  walkFrom(query.from, departAfter, undefined);
+  for (const origin of origins) walkFrom(origin, departAfter, undefined);
 
   for (let i = firstDepartingAt(connections, scanFrom); i < connections.length; i++) {
     const c = connections[i]!;
-    if (c.departure >= (earliest.get(query.to) ?? Infinity)) break;
+    if (c.departure >= bestArrival) break;
     if (query.cancelledTrips?.has(c.tripId)) continue;
     if (!boarded.has(c.vehicle)) {
       // 按预计出发判断：已经开走的车坐不上，晚点的车等得到。
@@ -198,13 +224,14 @@ function earliestArrival(
   }
 
   const legs: Leg[] = [];
-  for (let step = arrivedBy.get(query.to); step; step = step.prev) {
+  for (let step = bestTarget && arrivedBy.get(bestTarget); step; step = step.prev) {
     if (step.kind === "walk") {
       legs.unshift({
         kind: "walk",
         from: step.from,
         to: step.to,
         seconds: step.seconds,
+        ...(step.inStation && { inStation: true }),
         departure: step.arrival - step.seconds,
         arrival: step.arrival,
       });
@@ -252,6 +279,7 @@ function rideLeg(timetable: Timetable, enter: Connection, exit: Connection): Rid
     tripId: enter.tripId,
     tripIds: [...new Set(ridden.map((c) => c.tripId))],
     lineCode: enter.lineCode,
+    operatorCode: enter.operatorCode,
     lineCodes: [...new Set(ridden.map((c) => c.lineCode))],
     headsign: enter.headsign,
     from: enter.from,

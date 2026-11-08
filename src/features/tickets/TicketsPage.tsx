@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import ChevronIcon from "@material-symbols/svg-400/outlined/chevron_right.svg?react";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
+import type { HomeStation } from "@/lib/homeStation.ts";
 import { useCatalog, useNow } from "@/lib/queries.ts";
 import { clockOf } from "@/features/trip/serviceDay.ts";
 import { stationInfo } from "@/features/trip/stations.ts";
@@ -20,8 +21,7 @@ export function TicketsPage() {
   const now = useNow();
   const active = tickets.filter((t) => ["unused", "entered"].includes(ticketState(t, now)));
   const history = tickets.filter((t) => !active.includes(t));
-  const name = (t: Ticket, code: string) =>
-    stationInfo(catalog.data, { ...t.from, stationCode: code }).name;
+  const name = (station: HomeStation) => stationInfo(catalog.data, station).name;
 
   const row = (ticket: Ticket) => {
     const state = ticketState(ticket, now);
@@ -30,7 +30,7 @@ export function TicketsPage() {
         <Link to={`/tickets/${ticket.id}`} className={styles.row}>
           <span className={styles.main}>
             <span className={styles.route}>
-              {name(ticket, ticket.from.stationCode)} → {name(ticket, ticket.to.stationCode)}
+              {name(ticket.from)} → {name(ticket.to)}
             </span>
             <span className={`${styles.meta} num`}>
               {ticket.departure !== undefined && ticket.arrival !== undefined

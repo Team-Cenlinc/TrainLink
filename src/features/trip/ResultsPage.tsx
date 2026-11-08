@@ -2,6 +2,7 @@ import { Link, useSearchParams } from "react-router";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
 import { useHomeStation, type HomeStation } from "@/lib/homeStation.ts";
 import { useLayout } from "@/lib/useLayout.ts";
+import { hubOfRef, sameHub } from "@/lib/hubs.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import type { RailCatalog } from "@/lib/railApi.ts";
 import { changeNotes, minutesBetween, stationName, transferCount } from "./journeyText.ts";
@@ -9,7 +10,7 @@ import { GuideSummary, JourneyTimes, Timeline } from "./JourneyGuide.tsx";
 import { LegStrip } from "./LegStrip.tsx";
 import type { LiveJourney } from "./live.ts";
 import { clockOf, secondsOfClock } from "./serviceDay.ts";
-import { stationInfo } from "./stations.ts";
+import { platformText, stationInfo } from "./stations.ts";
 import { isSavedTrip, journeyHref, stationFromParam, useSavedTrips } from "./tripStore.ts";
 import { useJourneys } from "./useJourneys.ts";
 import styles from "./ResultsPage.module.css";
@@ -35,6 +36,9 @@ export function ResultsPage() {
   const name = (code: string) => stationName(catalog.data, home.serverId, code);
   const fromInfo = from && stationInfo(catalog.data, from);
   const toInfo = to && stationInfo(catalog.data, to);
+  // 网址里的车站在线路目录里找不到（改名、停用或链接写错了）。
+  const missing =
+    catalog.data && [from, to].find((s) => s && !hubOfRef(catalog.data, s))?.stationCode;
 
   // 桌面：左边方案列表，右边选中方案的乘坐指南（选中的写进网址 dep，刷新后还在）；
   // 手机与平板：点方案进入单独的乘坐指南页。
@@ -101,6 +105,10 @@ export function ResultsPage() {
     >
       {!from || !to ? (
         <PanelMessage>没有选好起点和终点。</PanelMessage>
+      ) : missing ? (
+        <PanelMessage>
+          找不到车站「{missing}」，可能已经改名或停用，回到行程重新选一个。
+        </PanelMessage>
       ) : sameStation ? (
         <PanelMessage>起点和终点是同一个车站，换一个终点再查。</PanelMessage>
       ) : !journeys ? (
@@ -121,7 +129,7 @@ export function ResultsPage() {
               <GuideSummary
                 journey={selected}
                 route={{ from, to }}
-                saved={isSavedTrip(saved, { from, to })}
+                saved={isSavedTrip(saved, { from, to }, (a, b) => sameHub(catalog.data, a, b))}
                 dayStart={dayStart}
                 name={name}
                 tone="card"
@@ -173,7 +181,9 @@ function JourneyRow({
   const transfers = transferCount(journey.legs);
   const firstRide = journey.legs.find((l) => l.kind === "ride");
   const notes = [
-    firstRide?.platform ? `${firstRide.platform} 号站台上车` : undefined,
+    firstRide && platformText(catalog, serverId, firstRide)
+      ? `${platformText(catalog, serverId, firstRide)}上车`
+      : undefined,
     ...changeNotes(journey.legs, catalog, serverId),
   ].filter(Boolean);
 

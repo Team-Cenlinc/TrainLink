@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { useNavigate } from "react-router";
+import { lineKey } from "@/lib/gtfs.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
 import type { Journey } from "@/features/trip/planner.ts";
@@ -24,8 +25,13 @@ export function useIssueTicket() {
       journey: {
         departure: journey.departure,
         arrival: journey.arrival,
+        // 运营方:线路码（线路码只在运营方内唯一）；车票页按它找线路色。
         lineCodes: [
-          ...new Set(journey.legs.flatMap((l) => (l.kind === "ride" ? l.lineCodes : []))),
+          ...new Set(
+            journey.legs.flatMap((l) =>
+              l.kind === "ride" ? l.lineCodes.map((code) => lineKey(l.operatorCode, code)) : [],
+            ),
+          ),
         ],
         tripId: journey.legs.find((l) => l.kind === "ride")?.tripId,
       },

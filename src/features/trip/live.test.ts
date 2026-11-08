@@ -21,7 +21,7 @@ function realtime(
       ...extra,
       stops: new Map(
         Object.entries(stops).map(([code, t]) => [
-          code,
+          `TST:${code}`,
           {
             arrival: t.arrival ? ms(t.arrival) : undefined,
             departure: t.departure ? ms(t.departure) : undefined,
@@ -54,7 +54,11 @@ const timetable = buildTimetable(
     },
   ]),
 );
-const [journey] = planJourneys(timetable, { from: "P1", to: "Q", departAfter: at("07:55") });
+const [journey] = planJourneys(timetable, {
+  from: "TST:P1",
+  to: "TST:Q",
+  departAfter: at("07:55"),
+});
 
 describe("applyRealtime", () => {
   it("用实时数据替换各段的出发、到达，给出整个行程的预计到达与晚点分钟数", () => {
@@ -113,7 +117,11 @@ describe("applyRealtime", () => {
     );
 
     it("前一段晚到：步行跟着往后推；走到时下一班车已经开走，标出换乘可能赶不上", () => {
-      const [planned] = planJourneys(walking, { from: "P1", to: "Z", departAfter: at("07:55") });
+      const [planned] = planJourneys(walking, {
+        from: "TST:P1",
+        to: "TST:Z",
+        departAfter: at("07:55"),
+      });
 
       const live = applyRealtime(
         planned!,
@@ -129,7 +137,11 @@ describe("applyRealtime", () => {
     });
 
     it("步行之后的车晚点：步行时间仍够，不算赶不上", () => {
-      const [planned] = planJourneys(walking, { from: "P1", to: "Z", departAfter: at("07:55") });
+      const [planned] = planJourneys(walking, {
+        from: "TST:P1",
+        to: "TST:Z",
+        departAfter: at("07:55"),
+      });
 
       const live = applyRealtime(
         planned!,
@@ -144,7 +156,11 @@ describe("applyRealtime", () => {
     });
 
     it("先步行再坐车：第一班车晚点，出门时刻跟着往后推", () => {
-      const [planned] = planJourneys(walking, { from: "A", to: "Z", departAfter: at("08:00") });
+      const [planned] = planJourneys(walking, {
+        from: "TST:A",
+        to: "TST:Z",
+        departAfter: at("08:00"),
+      });
 
       const live = applyRealtime(
         planned!,
@@ -186,7 +202,7 @@ describe("applyRealtime", () => {
         },
       ]),
     );
-    const [ride] = planJourneys(through, { from: "P1", to: "Q", departAfter: at("07:55") });
+    const [ride] = planJourneys(through, { from: "TST:P1", to: "TST:Q", departAfter: at("07:55") });
 
     const live = applyRealtime(
       ride!,
@@ -216,7 +232,7 @@ describe("liveJourneys", () => {
   it("晚点还没开的车照样列出、按预计出发排序；准点已开走与取消的不列", () => {
     const journeys = liveJourneys(
       line,
-      { from: "P1", to: "P2", departAfter: at("08:04"), count: 3 },
+      { from: "TST:P1", to: "TST:P2", departAfter: at("08:04"), count: 3 },
       new Map([
         realtime("survival:SURC:MT:T:M1", { P1: { departure: "08:08" } }, { delaySeconds: 480 }),
         realtime("survival:SURC:MT:T:M2", {}, { cancelled: true }),
@@ -233,7 +249,7 @@ describe("liveJourneys", () => {
   it("车次的预计出发已经过了（实时比整车晚点早开）时不列", () => {
     const journeys = liveJourneys(
       line,
-      { from: "P1", to: "P2", departAfter: at("08:04"), count: 3 },
+      { from: "TST:P1", to: "TST:P2", departAfter: at("08:04"), count: 3 },
       new Map([
         realtime("survival:SURC:MT:T:M1", { P1: { departure: "08:03" } }, { delaySeconds: 480 }),
       ]),
@@ -267,7 +283,7 @@ describe("findJourney", () => {
       },
     ]),
   );
-  const route = { from: "P1", to: "P2" };
+  const route = { from: "TST:P1", to: "TST:P2" };
 
   it("坐的车被后面的快车追上、同时到达：照样找回坐的这一班（不然乘车 GO 会突然「找不到这个班次」）", () => {
     const overtaken = buildTimetable(
@@ -295,7 +311,7 @@ describe("findJourney", () => {
     );
     const found = findJourney(
       overtaken,
-      { from: "P1", to: "P3", departure: at("08:00"), tripId: "survival:SURC:MT:T:L1" },
+      { from: "TST:P1", to: "TST:P3", departure: at("08:00"), tripId: "survival:SURC:MT:T:L1" },
       new Map(),
       dayStart,
     );

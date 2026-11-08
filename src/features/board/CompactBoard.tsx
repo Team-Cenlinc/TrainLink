@@ -12,7 +12,7 @@ import SearchIcon from "@material-symbols/svg-400/outlined/search.svg?react";
 import { Segmented } from "@/components/Segmented.tsx";
 import { formatClock } from "@/lib/time.ts";
 import { StatusNotice } from "@/features/status/StatusNotice.tsx";
-import { DepartureList, LinePanel } from "./BoardPanels.tsx";
+import { DepartureList, LinePanel, OperatorSwitcher } from "./BoardPanels.tsx";
 import { CompactBar } from "./CompactBar.tsx";
 import { lineEnds } from "./linePositions.ts";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
@@ -22,6 +22,7 @@ import type { BoardData } from "./useBoardData.ts";
 import { measureDetents, type Detents } from "./detents.ts";
 import { useSheetDetents } from "./useSheetDetents.ts";
 import styles from "./CompactBoard.module.css";
+import { lineKey } from "@/lib/gtfs.ts";
 
 export type BoardView = "station" | "line";
 
@@ -45,7 +46,10 @@ interface CompactBoardProps {
   onInfo: PanelOpener;
   onPickStation: PanelOpener;
   onSearchStation: PanelOpener;
-  onChooseLine: (lineCode: string) => void;
+  /** 换乘站上选线路（运营方:线路码）。 */
+  onChooseLine: (line: string) => void;
+  /** 枢纽上选看哪一家的站牌（运营方码）。 */
+  onChooseOperator: (operatorCode: string) => void;
   onSelectTrain: TrainSelect;
 }
 
@@ -62,6 +66,7 @@ export function CompactBoard({
   onPickStation,
   onSearchStation,
   onChooseLine,
+  onChooseOperator,
   onSelectTrain,
 }: CompactBoardProps) {
   const reduceMotion = useReducedMotion();
@@ -240,10 +245,11 @@ export function CompactBoard({
                 if (next === "station") scrollRef.current?.scrollTo({ top: 0 });
               }}
             />
+            {view === "station" && <OperatorSwitcher data={data} onChange={onChooseOperator} />}
             {view === "line" && (
               <LineSwitcher
                 lines={data.orderedLines}
-                value={primaryLine?.lineCode}
+                value={primaryLine && lineKey(primaryLine.operatorCode, primaryLine.lineCode)}
                 onChange={onChooseLine}
               />
             )}

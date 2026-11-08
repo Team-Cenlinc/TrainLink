@@ -135,6 +135,14 @@
 }
 
 /* 站码（设置里打开才显示）与旁边的小号线路色牌同高 22 px。 */
+/* 同名车站后面的运营方名。 */
+.operator {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .code {
   display: inline-flex;
   align-items: center;

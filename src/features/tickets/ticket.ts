@@ -1,4 +1,5 @@
-import type { HomeStation } from "@/lib/homeStation.ts";
+import { parseStationKey, stationKey } from "@/lib/gtfs.ts";
+import { sameStation, type HomeStation } from "@/lib/homeStation.ts";
 import { serviceClock, serviceDate } from "@/features/trip/serviceDay.ts";
 
 /**
@@ -16,7 +17,7 @@ export interface Ticket {
   /** 旧版本按班次出的票才有：计划出发与到达，运营日内的秒数。区间票没有。 */
   departure?: number;
   arrival?: number;
-  /** 两站之间要坐的线路（出票时那个方案的），票面色带用。 */
+  /** 两站之间要坐的线路（出票时那个方案的），票面色带用：运营方:线路码；旧版本的票只有线路码。 */
   lineCodes: string[];
   /** 出票时刻（毫秒）。 */
   issuedAt: number;
@@ -39,6 +40,7 @@ export interface Ticket {
 }
 
 export interface GatePass {
+  /** 闸机所在的车站 key（运营方:站码）；旧版本的票只存了站码。 */
   station: string;
   at: number;
 }
@@ -110,16 +112,16 @@ export function ticketState(ticket: Ticket, now: number): TicketState {
   return ticket.entry ? "entered" : "unused";
 }
 
+/** 两个车站算不算同一站：默认同一运营方、同一站码；有 catalog 时传 lib/hubs.ts 的 sameHub（枢纽算一站）。 */
+export type SameStation = (a: HomeStation, b: HomeStation) => boolean;
+
 /** 两张票（或一张票与一段行程）是不是同一段区间：同一台服务器上的同一对起终点。 */
 export function sameSection(
   a: { from: HomeStation; to: HomeStation },
   b: { from: HomeStation; to: HomeStation },
+  same: SameStation = sameStation,
 ): boolean {
-  return (
-    a.from.serverId === b.from.serverId &&
-    a.from.stationCode === b.from.stationCode &&
-    a.to.stationCode === b.to.stationCode
-  );
+  return a.from.serverId === b.from.serverId && same(a.from, b.from) && same(a.to, b.to);
 }
 
 /**
@@ -130,9 +132,10 @@ export function ticketFor(
   tickets: Ticket[],
   route: { from: HomeStation; to: HomeStation },
   at: number,
+  same?: SameStation,
 ): Ticket | undefined {
   return tickets.find(
-    (t) => sameSection(t, route) && ["unused", "entered"].includes(ticketState(t, at)),
+    (t) => sameSection(t, route, same) && ["unused", "entered"].includes(ticketState(t, at)),
   );
 }
 
@@ -150,6 +153,7 @@ export function usedTicketFor(
   route: { from: HomeStation; to: HomeStation },
   plan: { date: string | null; departure: number; tripId?: string },
   dayStart: number,
+  same?: SameStation,
 ): Ticket | undefined {
   const departsAt = dayStart + plan.departure * 1000;
   const forThisRide = (ride: Ticket["ride"]) =>
@@ -158,26 +162,53 @@ export function usedTicketFor(
     ride.departure === plan.departure &&
     ride.tripId === plan.tripId;
   return tickets.find(
-    (t) => sameSection(t, route) && t.exit && (forThisRide(t.ride) || t.exit.at >= departsAt),
+    (t) => sameSection(t, route, same) && t.exit && (forThisRide(t.ride) || t.exit.at >= departsAt),
   );
 }
 
-/** 模拟进站：只能在这张票的起点。 */
-export function enterGate(ticket: Ticket, station: string, now: number): GateResult {
+/**
+ * 模拟进站：只能在这张票的起点。起点是枢纽时，哪一家的闸机都行（联运票，见 v07）。
+ * @param station 闸机所在的车站 key（运营方:站码）
+ * @param accepted 起点所在枢纽的全部成员站 key（lib/hubs.ts 的 hubKeys）；省略时只有起点本身
+ */
+export function enterGate(
+  ticket: Ticket,
+  station: string,
+  now: number,
+  accepted = [stationKey(ticket.from.operatorCode, ticket.from.stationCode)],
+): GateResult {
   if (ticket.exit) return { ok: false, reason: "used" };
   if (now > ticket.validUntil) return { ok: false, reason: "expired" };
   if (ticket.entry) return { ok: false, reason: "alreadyEntered" };
-  if (station !== ticket.from.stationCode) return { ok: false, reason: "wrongStation" };
+  if (!accepted.includes(station)) return { ok: false, reason: "wrongStation" };
   return { ok: true, ticket: { ...ticket, entry: { station, at: now } } };
 }
 
-/** 模拟出站：必须先进站，只能在这张票的终点。 */
-export function exitGate(ticket: Ticket, station: string, now: number): GateResult {
+/**
+ * 模拟出站：必须先进站，只能在这张票的终点（终点是枢纽时哪一家的闸机都行）。
+ * @param accepted 终点所在枢纽的全部成员站 key；省略时只有终点本身
+ */
+export function exitGate(
+  ticket: Ticket,
+  station: string,
+  now: number,
+  accepted = [stationKey(ticket.to.operatorCode, ticket.to.stationCode)],
+): GateResult {
   if (ticket.exit) return { ok: false, reason: "used" };
   if (now > ticket.validUntil) return { ok: false, reason: "expired" };
   if (!ticket.entry) return { ok: false, reason: "notEntered" };
-  if (station !== ticket.to.stationCode) return { ok: false, reason: "wrongStation" };
+  if (!accepted.includes(station)) return { ok: false, reason: "wrongStation" };
   return { ok: true, ticket: { ...ticket, exit: { station, at: now } } };
+}
+
+/**
+ * 票上（与闸机记录里）的一个车站：车站 key，或旧版本只存了站码的记录（按起点的运营方补上）。
+ */
+export function ticketStation(ticket: Ticket, station: string): HomeStation {
+  return {
+    serverId: ticket.from.serverId,
+    ...parseStationKey(station, ticket.from.operatorCode),
+  };
 }
 
 /** 动态二维码多久换一次。 */

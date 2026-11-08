@@ -115,14 +115,20 @@
   color: var(--line);
 }
 
+/*
+ * 换乘站的线路色条。色块在深色标题上，深色的线路色（例如单轨线 #055555）几乎看不出来：
+ * 每段加一圈淡淡的浅色描边，段与段之间留 2 px 缝，颜色再深也分得清有几条线。
+ */
 .band {
   display: flex;
+  gap: 2px;
   height: 8px;
   margin: 16px -20px 0;
 }
 
 .band span {
   flex: 1;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hero-text) 22%, transparent);
 }
 
 /* ---------- 下拉后露出的车站周围信息 ---------- */

@@ -9,12 +9,8 @@ import { Group, Page } from "@/components/Page.tsx";
 import { Segmented } from "@/components/Segmented.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { StationPicker } from "@/features/stations/StationPicker.tsx";
-import {
-  sameStation,
-  useFavoriteStations,
-  useHomeStation,
-  type HomeStation,
-} from "@/lib/homeStation.ts";
+import { useFavoriteStations, useHomeStation, type HomeStation } from "@/lib/homeStation.ts";
+import { sameHub } from "@/lib/hubs.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import { sourceTimeZone, type RailCatalog } from "@/lib/railApi.ts";
 import { useOverlayVariant } from "@/lib/useLayout.ts";
@@ -75,12 +71,12 @@ export function TripPage() {
   const timeZone = sourceTimeZone(catalog.data, from.serverId);
 
   const search = (route: TripRoute) => {
-    if (sameStation(route.from, route.to)) {
+    if (sameHub(catalog.data, route.from, route.to)) {
       setHint("起点和终点是同一个车站，换一个再查。");
       return;
     }
     setHint(undefined);
-    rememberTrip(route);
+    rememberTrip(route, (a, b) => sameHub(catalog.data, a, b));
     const query = new URLSearchParams({
       from: stationParam(route.from),
       to: stationParam(route.to),
@@ -111,7 +107,7 @@ export function TripPage() {
   };
   const fromInfo = stationInfo(catalog.data, from);
   const toInfo = to && stationInfo(catalog.data, to);
-  const destinations = favorites.filter((f) => !sameStation(f, from));
+  const destinations = favorites.filter((f) => !sameHub(catalog.data, f, from));
 
   return (
     <Page

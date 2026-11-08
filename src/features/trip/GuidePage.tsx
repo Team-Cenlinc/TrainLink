@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
 import { useHomeStation } from "@/lib/homeStation.ts";
+import { sameHub } from "@/lib/hubs.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import { stationName } from "./journeyText.ts";
 import { GuideSummary, JourneyTimes, Timeline } from "./JourneyGuide.tsx";
@@ -41,7 +42,7 @@ export function GuidePage() {
           <GuideSummary
             journey={journey}
             route={route}
-            saved={isSavedTrip(saved, route)}
+            saved={isSavedTrip(saved, route, (a, b) => sameHub(catalog.data, a, b))}
             dayStart={dayStart}
             name={name}
             tone="hero"

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import BellIcon from "@material-symbols/svg-400/outlined/notifications.svg?react";
 import BellOnIcon from "@material-symbols/svg-400/outlined/notifications_active.svg?react";
 import TicketIcon from "@material-symbols/svg-400/outlined/confirmation_number.svg?react";
+import TransferIcon from "@material-symbols/svg-400/outlined/transfer_within_a_station.svg?react";
 import WalkIcon from "@material-symbols/svg-400/outlined/directions_walk.svg?react";
 import { Group, Page, PanelMessage } from "@/components/Page.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
@@ -18,7 +19,8 @@ import { ticketFor, usedTicketFor } from "@/features/tickets/ticket.ts";
 import { TicketSheet } from "@/features/tickets/TicketSheet.tsx";
 import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
 import { useTickets } from "@/features/tickets/ticketStore.ts";
-import { useHomeStation } from "@/lib/homeStation.ts";
+import { useHomeStation, type HomeStation } from "@/lib/homeStation.ts";
+import { sameHub } from "@/lib/hubs.ts";
 import { useCatalog } from "@/lib/queries.ts";
 import { stationName } from "./journeyText.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
@@ -40,7 +42,7 @@ import {
   type ActiveRide,
 } from "./rideStore.ts";
 import { clockOf } from "./serviceDay.ts";
-import { stationFromParam, type TripRoute } from "./tripStore.ts";
+import { stationFromParam, stationParam, type TripRoute } from "./tripStore.ts";
 import { useRide } from "./useRide.ts";
 import styles from "./GoPage.module.css";
 
@@ -56,7 +58,7 @@ export function GoPage() {
   const navigate = useNavigate();
   const ride = useRide(params);
   const { from, to, dep, journey, cancelled, dayStart, loading, error, stops, status, text } = ride;
-  const { name, lineColorOf } = ride;
+  const { name, lineColorOf, platform } = ride;
   useAlightBuzz(status);
 
   // 同一时间只有一趟 GO：另有一趟还没坐完时，先问改乘这趟还是回到那一趟，不直接顶掉。
@@ -137,6 +139,7 @@ export function GoPage() {
               status={status}
               dayStart={dayStart}
               name={name}
+              platform={platform}
             />
           </div>
           {(status.kind === "ride" || status.kind === "wait") && (
@@ -152,7 +155,7 @@ export function GoPage() {
             <Group title="接下来">
               {journey.legs.slice(status.legIndex).map((leg, i) => (
                 <li key={status.legIndex + i} className={styles.leg}>
-                  <LegRow leg={leg} name={name} lineColor={lineColorOf} />
+                  <LegRow leg={leg} name={name} platform={platform} lineColor={lineColorOf} />
                 </li>
               ))}
             </Group>
@@ -175,7 +178,7 @@ function Progress({
 }: {
   journey: LiveJourney;
   status: RideStatus;
-  lineColor: (lineCode: string) => string;
+  lineColor: (lineCode: string, operatorCode?: string) => string;
   /** 此刻这一段有实时列车位置；没有时是按时刻表推算的，写出来让人知道准不准。 */
   isLive: boolean;
 }) {
@@ -186,18 +189,22 @@ function Progress({
         role="img"
         aria-label={`已走 ${Math.round(status.progress * 100)}%`}
       >
-        {journey.legs.map((leg, i) => (
-          <span
-            key={i}
-            className={leg.kind === "walk" ? styles.walkSegment : styles.segment}
-            style={
-              {
-                flexGrow: Math.max(1, leg.live.arrival - leg.live.departure),
-                "--line": leg.kind === "ride" ? lineColor(leg.lineCode) : undefined,
-              } as CSSProperties
-            }
-          />
-        ))}
+        {/* 枢纽里换另一家（站内换乘）同同站换乘，不单独画一截虚线。 */}
+        {journey.legs.map((leg, i) =>
+          leg.kind === "walk" && leg.inStation ? null : (
+            <span
+              key={i}
+              className={leg.kind === "walk" ? styles.walkSegment : styles.segment}
+              style={
+                {
+                  flexGrow: Math.max(1, leg.live.arrival - leg.live.departure),
+                  "--line":
+                    leg.kind === "ride" ? lineColor(leg.lineCode, leg.operatorCode) : undefined,
+                } as CSSProperties
+              }
+            />
+          ),
+        )}
         <span className={styles.marker} style={{ left: `${status.progress * 100}%` }} />
       </div>
       <p className={`${styles.ends} num`}>
@@ -254,7 +261,7 @@ function LegDiagram({
   /** 已经上车（列车开出上车站了）。 */
   boarded: boolean;
   name: (code: string) => string;
-  lineColor: (lineCode: string) => string;
+  lineColor: (lineCode: string, operatorCode?: string) => string;
 }) {
   const [collapsed, setCollapsed] = useCollapsed();
   if (leg.kind !== "ride" || stops.length < 2) return null;
@@ -288,7 +295,7 @@ function LegDiagram({
     >
       <li className={styles.diagram}>
         <StopList
-          style={{ "--line": lineColor(leg.lineCode) } as CSSProperties}
+          style={{ "--line": lineColor(leg.lineCode, leg.operatorCode) } as CSSProperties}
           label={`${leg.lineCode} 往 ${leg.headsign}，${name(leg.from)} 到 ${name(leg.to)}`}
         >
           {items.map((item, k) => {
@@ -350,8 +357,8 @@ function RideConflict({ active, onReplace }: { active: ActiveRide; onReplace: ()
   const navigate = useNavigate();
   const params = new URLSearchParams(active.href.split("?")[1] ?? "");
   const end = (param: string) => {
-    const code = stationFromParam(params.get(param), home.serverId)?.stationCode;
-    return code ? stationName(catalog.data, home.serverId, code) : "—";
+    const ref = stationFromParam(params.get(param), home.serverId);
+    return ref ? stationName(catalog.data, home.serverId, stationParam(ref)) : "—";
   };
   return (
     <div className={styles.conflict}>
@@ -376,12 +383,26 @@ function RideConflict({ active, onReplace }: { active: ActiveRide; onReplace: ()
 function LegRow({
   leg,
   name,
+  platform,
   lineColor,
 }: {
   leg: LiveLeg;
-  name: (code: string) => string;
-  lineColor: (lineCode: string) => string;
+  name: (key: string) => string;
+  platform: (leg: { from: string; platform?: string }) => string | undefined;
+  lineColor: (lineCode: string, operatorCode?: string) => string;
 }) {
+  // 枢纽里换另一家运营方：同乘坐指南的同站换乘，用换乘图标，不画成步行。
+  if (leg.kind === "walk" && leg.inStation) {
+    return (
+      <>
+        <TransferIcon className={styles.walkIcon} aria-hidden />
+        <span className={styles.legMain}>
+          站内换乘
+          <span className={styles.legMeta}>约 {Math.ceil(leg.seconds / 60)} 分钟</span>
+        </span>
+      </>
+    );
+  }
   if (leg.kind === "walk") {
     return (
       <>
@@ -395,13 +416,16 @@ function LegRow({
   }
   return (
     <>
-      <ServiceBadge lineCode={leg.lineCode} lineColor={lineColor(leg.lineCode)} size="s" />
+      <ServiceBadge
+        lineCode={leg.lineCode}
+        lineColor={lineColor(leg.lineCode, leg.operatorCode)}
+        size="s"
+      />
       <span className={styles.legMain}>
         往 {leg.headsign}
         <span className={`${styles.legMeta} num`}>
           {clockOf(leg.live.departure)} {name(leg.from)}
-          {leg.platform ? ` ${leg.platform} 号站台` : ""} → {clockOf(leg.live.arrival)}{" "}
-          {name(leg.to)}
+          {leg.platform ? ` ${platform(leg)}` : ""} → {clockOf(leg.live.arrival)} {name(leg.to)}
         </span>
       </span>
     </>
@@ -426,11 +450,14 @@ function TicketShortcut({
 }) {
   const tickets = useTickets();
   const issueTicket = useIssueTicket();
+  const catalog = useCatalog();
+  // 枢纽算同一站：从另一家的成员站出的票也能用。
+  const same = (a: HomeStation, b: HomeStation) => sameHub(catalog.data, a, b);
   // 面板打开时记住是哪张票：在面板里出站后它就不再「能用」，但面板要留着显示闸机结果，不能一下子消失。
   // 关上时只收起、不忘记是哪张，面板才有往下收的动画。
   const [sheet, setSheet] = useState<{ id: string; open: boolean }>();
   const departsAt = dayStart + journey.live.departure * 1000;
-  const usable = ticketFor(tickets, route, departsAt);
+  const usable = ticketFor(tickets, route, departsAt, same);
   // 这一趟已经出过站的票：行程走完了，给「查看车票」，不再让人取一张新的。
   const used = usable
     ? undefined
@@ -443,6 +470,7 @@ function TicketShortcut({
           tripId: journey.legs.find((l) => l.kind === "ride")?.tripId,
         },
         dayStart,
+        same,
       );
   const ticket = usable ?? used;
   const shown = sheet && tickets.find((t) => t.id === sheet.id);
@@ -490,6 +518,7 @@ function AlightReminders({
   status,
   dayStart,
   name,
+  platform,
 }: {
   /** 这趟 GO 的地址：提醒按它分组，结束或改乘时一起取消（见 rideStore.ts）。 */
   href: string;
@@ -497,7 +526,8 @@ function AlightReminders({
   stops: RideStop[][];
   status: RideStatus;
   dayStart: number;
-  name: (code: string) => string;
+  name: (key: string) => string;
+  platform: (leg: { from: string; platform?: string }) => string | undefined;
 }) {
   const keyBase = rideReminderPrefix(href);
   // 还没坐完的各段：在哪一刻提醒、提醒写什么。时刻跟着实时数据变（晚点了就往后挪）。
@@ -507,6 +537,7 @@ function AlightReminders({
       { kind: "ride", legIndex, stopsLeft: 1, nextStop: leg.to, arrivesIn: 0, progress: 0 },
       journey,
       name,
+      platform,
     );
     return [
       {

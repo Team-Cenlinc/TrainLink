@@ -32,6 +32,40 @@ export function lineKey(operatorCode: string, lineCode: string): string {
 }
 
 /**
+ * 车站 key「运营方:站码」（例如 SURC:PTK），同一服务器内唯一。站码只在运营方内唯一：
+ * PUAT 与 SURC 都有 JBS、PPK，规划、乘车与实时数据都按 key 区分车站。
+ */
+export function stationKey(operatorCode: string, stationCode: string): string {
+  return `${operatorCode}:${stationCode}`;
+}
+
+/**
+ * 拆开车站 key。不带「:」的是旧数据里只存了站码的车站（例如旧车票的闸机记录），
+ * 用 fallbackOperator 补上运营方。
+ */
+export function parseStationKey(
+  key: string,
+  fallbackOperator = "",
+): { operatorCode: string; stationCode: string } {
+  const at = key.indexOf(":");
+  return at < 0
+    ? { operatorCode: fallbackOperator, stationCode: key }
+    : { operatorCode: key.slice(0, at), stationCode: key.slice(at + 1) };
+}
+
+/** GTFS 站台或车站的 stop_id（survival:SURC:S:PTK:1、survival:SURC:S:PTK）：车站 key 与站台号。 */
+export function stopRef(stopId: string): {
+  station: string;
+  operatorCode: string;
+  stationCode: string;
+  platform?: string;
+} {
+  const operatorCode = stopId.split(":")[1] ?? "";
+  const [stationCode = "", platform] = (stopId.split(":S:")[1] ?? "").split(":");
+  return { station: stationKey(operatorCode, stationCode), operatorCode, stationCode, platform };
+}
+
+/**
  * 最小的 CSV 解析：支持带引号的字段与字段内的逗号、换行。
  * GTFS 文件第一行是表头，返回以表头为键的对象数组。
  */

@@ -1,12 +1,8 @@
 import { NavLink, useNavigate } from "react-router";
-import {
-  sameStation,
-  setHomeStation,
-  useFavoriteStations,
-  useHomeStation,
-} from "@/lib/homeStation.ts";
+import { setHomeStation, useFavoriteStations, useHomeStation } from "@/lib/homeStation.ts";
+import { hubLines, hubOfRef, sameHub } from "@/lib/hubs.ts";
 import { useCatalog } from "@/lib/queries.ts";
-import { findStation, servingLines } from "@/lib/station.ts";
+import { useShownOperators } from "@/lib/settings.ts";
 import { navItems } from "./navItems.ts";
 import { ServiceBadge } from "./ServiceBadge.tsx";
 import styles from "./Sidebar.module.css";
@@ -20,6 +16,7 @@ export function Sidebar() {
   const home = useHomeStation();
   const favorites = useFavoriteStations();
   const catalog = useCatalog();
+  const shown = useShownOperators();
   const navigate = useNavigate();
 
   return (
@@ -52,17 +49,16 @@ export function Sidebar() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>常用车站</h2>
-        {/* 只列当前服务器上的常用车站。 */}
+        {/* 只列当前服务器上的常用车站；同一个枢纽的成员站只列一次。 */}
         {favorites
           .filter((f) => f.serverId === home.serverId)
-          .map((favorite) => {
-            const station = findStation(
-              catalog.data,
-              favorite.serverId,
-              favorite.operatorCode,
-              favorite.stationCode,
-            );
-            const current = sameStation(favorite, home);
+          .map((favorite) => ({ favorite, hub: hubOfRef(catalog.data, favorite) }))
+          .filter(
+            ({ hub }, i, all) =>
+              !hub || all.findIndex((x) => x.hub?.members[0] === hub.members[0]) === i,
+          )
+          .map(({ favorite, hub }) => {
+            const current = sameHub(catalog.data, favorite, home);
             return (
               <button
                 key={`${favorite.operatorCode}:${favorite.stationCode}`}
@@ -70,21 +66,24 @@ export function Sidebar() {
                 className={`${styles.station} ${current ? styles.currentStation : ""}`}
                 aria-current={current || undefined}
                 onClick={() => {
-                  setHomeStation(favorite);
+                  // 本站已在这个枢纽里时不换成员站（站牌停在原来那一家）。
+                  if (!current) setHomeStation(favorite);
                   navigate("/");
                 }}
               >
-                <span>{station?.name ?? favorite.stationCode}</span>
+                <span>{hub?.name ?? favorite.stationCode}</span>
                 <span className={styles.badges}>
-                  {station &&
-                    servingLines(station).map((line) => (
+                  {/* 枢纽：只列设置里显示的运营方的线路，同看板标题。 */}
+                  {hubLines(hub?.members.filter((m) => shown.byId(m.operatorId)) ?? []).map(
+                    (line) => (
                       <ServiceBadge
                         key={line.lineId}
                         lineCode={line.lineCode}
                         lineColor={line.color}
                         size="s"
                       />
-                    ))}
+                    ),
+                  )}
                 </span>
               </button>
             );

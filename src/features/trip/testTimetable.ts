@@ -14,6 +14,8 @@ export interface TripSpec {
   leg?: number;
   /** 车次所属线路：直通后一段的 route_id 是新线路，trip_id 里仍是所属线路（默认同 line）。 */
   owner?: string;
+  /** 这个车次的车站属于哪个运营方（默认同 gtfsFiles 的 operator），用来测跨运营方的枢纽。 */
+  operator?: string;
 }
 
 export interface WalkSpec {
@@ -35,9 +37,12 @@ export function gtfsFiles(
   walks: WalkSpec[] = [],
   { operator = "TST", minTransfers = [] }: { operator?: string; minTransfers?: MinTransfer[] } = {},
 ) {
-  const stopId = (code: string, platform = "1") => `survival:${operator}:S:${code}:${platform}`;
-  const stations = new Set(trips.flatMap((t) => t.stops.map(([code]) => code)));
-  const platforms = new Set(trips.flatMap((t) => t.stops.map(([code, , p]) => stopId(code, p))));
+  const stopId = (code: string, platform = "1", op = operator) =>
+    `survival:${op}:S:${code}:${platform}`;
+  const platforms = new Set(
+    trips.flatMap((t) => t.stops.map(([code, , p]) => stopId(code, p, t.operator))),
+  );
+  const stations = new Set([...platforms].map((id) => id.split(":").slice(0, 4).join(":")));
   const tripId = (t: TripSpec) =>
     `survival:SURC:${t.owner ?? t.line}:T:${t.id}${t.leg && t.leg > 1 ? `~${t.leg}` : ""}`;
   return {
@@ -49,10 +54,10 @@ export function gtfsFiles(
     ].join("\n"),
     stops: [
       "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,platform_code",
-      ...[...stations].map((code) => `survival:${operator}:S:${code},${code},0,0,1,,`),
+      ...[...stations].map((id) => `${id},${id.split(":")[3]},0,0,1,,`),
       ...[...platforms].map((id) => {
-        const [, , , code, platform] = id.split(":");
-        return `${id},${code},0,0,0,survival:${operator}:S:${code},${platform}`;
+        const [, op, , code, platform] = id.split(":");
+        return `${id},${code},0,0,0,survival:${op}:S:${code},${platform}`;
       }),
     ].join("\n"),
     stopTimes: [
@@ -60,7 +65,7 @@ export function gtfsFiles(
       ...trips.flatMap((t) =>
         t.stops.map(([code, at, platform], i) => {
           const [arrival, departure = arrival] = at.split("-") as [string, string?];
-          return `${tripId(t)},${time(arrival)},${time(departure)},${i},${stopId(code, platform)}`;
+          return `${tripId(t)},${time(arrival)},${time(departure)},${i},${stopId(code, platform, t.operator)}`;
         }),
       ),
     ].join("\n"),

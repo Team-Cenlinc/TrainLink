@@ -4,6 +4,14 @@
   gap: 10px;
 }
 
+/* 枢纽：车站组名与各家运营方，在站名下方。 */
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .title {
   margin: 0;
   font-size: 28px;

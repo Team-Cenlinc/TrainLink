@@ -15,14 +15,16 @@ import { useTickets } from "@/features/tickets/ticketStore.ts";
 import { useIssueTicket } from "@/features/tickets/useIssueTicket.ts";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
 import type { RailCatalog } from "@/lib/railApi.ts";
+import { sameHub } from "@/lib/hubs.ts";
+import { useCatalog } from "@/lib/queries.ts";
 import { useSettings } from "@/lib/settings.ts";
 import { minutesBetween, transferCount } from "./journeyText.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
 import type { RideLeg } from "./planner.ts";
 import { clearReminder, setReminder, useReminder, type ReminderResult } from "./reminders.ts";
 import { clockOf } from "./serviceDay.ts";
-import { lineOf } from "./stations.ts";
-import { toggleSavedTrip, type TripRoute } from "./tripStore.ts";
+import { lineOf, platformOperator, platformText } from "./stations.ts";
+import { stationParam, toggleSavedTrip, type TripRoute } from "./tripStore.ts";
 import styles from "./JourneyGuide.module.css";
 
 /**
@@ -69,8 +71,8 @@ export function GuideSummary({
     <div className={tone === "card" ? styles.onCard : styles.onHero}>
       <p className={styles.meta}>
         {minutesBetween(journey.live.departure, journey.live.arrival)} 分 ·{" "}
-        {transfers === 0 ? "直达" : `换乘 ${transfers} 次`} · {name(route.from.stationCode)} →{" "}
-        {name(route.to.stationCode)}
+        {transfers === 0 ? "直达" : `换乘 ${transfers} 次`} · {name(stationParam(route.from))} →{" "}
+        {name(stationParam(route.to))}
       </p>
       <Actions journey={journey} route={route} saved={saved} dayStart={dayStart} name={name} />
       {/* 乘车 GO：跟着这趟行程走，实时提示该在哪上车、还有几站、在哪下车换乘。 */}
@@ -96,18 +98,21 @@ function Actions({
   name: (code: string) => string;
 }) {
   // 桌面上换选一个方案时这里不会重新挂载：提醒状态按 key 订阅，提示文字也只属于当时的方案。
-  const key = `${route.from.stationCode}-${route.to.stationCode}-${dayStart}-${journey.departure}`;
+  const key = `${stationParam(route.from)}-${stationParam(route.to)}-${dayStart}-${journey.departure}`;
   const reminded = useReminder(key);
   const [noteOf, setNoteOf] = useState<{ key: string; text: string }>();
   const note = noteOf?.key === key ? noteOf.text : undefined;
   const setNote = (text: string | undefined) => setNoteOf(text ? { key, text } : undefined);
   const issueTicket = useIssueTicket();
   const navigate = useNavigate();
+  const catalog = useCatalog();
   // 区间票：这两站之间当天已经有能用的票，就打开它，不再出一张。
-  const ticket = ticketFor(useTickets(), route, dayStart + journey.live.departure * 1000);
+  const ticket = ticketFor(useTickets(), route, dayStart + journey.live.departure * 1000, (a, b) =>
+    sameHub(catalog.data, a, b),
+  );
   const { remindMinutes } = useSettings();
   const firstRide = journey.legs.find((l): l is LiveLeg & RideLeg => l.kind === "ride");
-  const summary = `${clockOf(journey.live.departure)} ${name(route.from.stationCode)} → ${clockOf(journey.live.arrival)} ${name(route.to.stationCode)}`;
+  const summary = `${clockOf(journey.live.departure)} ${name(stationParam(route.from))} → ${clockOf(journey.live.arrival)} ${name(stationParam(route.to))}`;
 
   const remind = async () => {
     if (reminded) {
@@ -122,7 +127,7 @@ function Actions({
       fireAt,
       // 标题带上哪班车：锁屏上不用点开就知道要坐哪一班。
       `${remindMinutes} 分钟后出发${firstRide ? ` · ${firstRide.lineCode} 往 ${firstRide.headsign}` : ""}`,
-      `${summary}${firstRide?.platform ? `，${firstRide.platform} 号站台上车` : ""}`,
+      `${summary}${firstRide?.platform ? `，${platformText(catalog.data, route.from.serverId, firstRide)}上车` : ""}`,
     );
     setNote(
       {
@@ -155,7 +160,7 @@ function Actions({
           type="button"
           className={styles.action}
           aria-pressed={saved}
-          onClick={() => toggleSavedTrip(route)}
+          onClick={() => toggleSavedTrip(route, (a, b) => sameHub(catalog.data, a, b))}
         >
           {saved ? <StarFillIcon aria-hidden /> : <StarIcon aria-hidden />}
           {saved ? "已收藏" : "收藏"}
@@ -192,7 +197,10 @@ type Item =
       time: number;
       planned: number;
       role: "start" | "change" | "end";
-      /** 同站换乘：到站后离下一班开车还有几秒，与这一站至少要留的秒数。换乘写在这一站里，不另起一行。 */
+      /**
+       * 同站换乘（包括枢纽里换另一家运营方）：到站后离下一班开车还有几秒，与至少要留的秒数。
+       * 换乘写在这一站里，不另起一行。
+       */
       change?: { seconds: number; minimum: number };
     }
   | { kind: "ride"; leg: LiveLeg & RideLeg; showTime: boolean }
@@ -200,7 +208,8 @@ type Item =
 
 /**
  * 把各段排成时间线：车站与乘车交替出现。
- * 同站换乘就在那一站里写一句（线路在站点圆处换色，不断开）；
+ * 同站换乘就在那一站里写一句（线路在站点圆处换色，不断开）。枢纽里换另一家运营方也一样：
+ * 乘客看来是同一个站，不画成步行（规划里它是一段站内换乘，见 timetable.ts 的 withHubTransfers）。
  * 只有站外换乘（步行到另一站）才单独一行，画成虚线。
  */
 function timelineItems(legs: LiveLeg[]): Item[] {
@@ -208,8 +217,14 @@ function timelineItems(legs: LiveLeg[]): Item[] {
   legs.forEach((leg, i) => {
     const previous = legs[i - 1];
     const next = legs[i + 1];
+    // 枢纽里换另一家：乘车 → 站内换乘 → 乘车，画成一个车站上的换乘。
+    const hubChange = (walk: LiveLeg | undefined, after: LiveLeg | undefined) =>
+      walk?.kind === "walk" && walk.inStation && after?.kind === "ride";
     if (leg.kind === "ride") {
-      if (!previous || previous.kind === "walk") {
+      const afterHubChange = hubChange(previous, leg) && legs[i - 2]?.kind === "ride";
+      const changeAt = next?.kind === "ride" ? next : undefined;
+      const hubNext = hubChange(next, legs[i + 2]) ? legs[i + 2] : undefined;
+      if (!previous || (previous.kind === "walk" && !afterHubChange)) {
         items.push({
           kind: "stop",
           code: leg.from,
@@ -218,18 +233,21 @@ function timelineItems(legs: LiveLeg[]): Item[] {
           role: previous ? "change" : "start",
         });
       }
-      items.push({ kind: "ride", leg, showTime: previous?.kind === "ride" });
+      items.push({ kind: "ride", leg, showTime: previous?.kind === "ride" || !!afterHubChange });
       items.push({
         kind: "stop",
         code: leg.to,
         time: leg.live.arrival,
         planned: leg.arrival,
         role: next ? "change" : "end",
-        change:
-          next?.kind === "ride"
-            ? { seconds: next.live.departure - leg.live.arrival, minimum: leg.changeSeconds }
+        change: changeAt
+          ? { seconds: changeAt.live.departure - leg.live.arrival, minimum: leg.changeSeconds }
+          : hubNext && next?.kind === "walk"
+            ? { seconds: hubNext.live.departure - leg.live.arrival, minimum: next.seconds }
             : undefined,
       });
+    } else if (hubChange(leg, next) && previous?.kind === "ride") {
+      // 枢纽换乘已经写在上一站里。
     } else {
       if (!previous) {
         items.push({
@@ -271,12 +289,16 @@ export function Timeline({
   name: (code: string) => string;
 }) {
   const items = timelineItems(journey.legs);
-  const colorOf = (code: string) => lineOf(catalog, serverId, code)?.color ?? fallbackLineColor;
+  const colorOf = (code: string, operatorCode: string) =>
+    lineOf(catalog, serverId, code, operatorCode)?.color ?? fallbackLineColor;
   // 车站上下两半的线路色：取前后相邻的乘车段。
   const rideColors = (index: number, step: -1 | 1) => {
     const item = items[index + step];
     return item?.kind === "ride"
-      ? colorOf(step === -1 ? item.leg.lineCodes.at(-1)! : item.leg.lineCodes[0]!)
+      ? colorOf(
+          step === -1 ? item.leg.lineCodes.at(-1)! : item.leg.lineCodes[0]!,
+          item.leg.operatorCode,
+        )
       : undefined;
   };
 
@@ -318,9 +340,13 @@ export function Timeline({
         }
         if (item.kind === "ride") {
           const { leg } = item;
-          const colors = leg.lineCodes.map(colorOf);
-          const line = lineOf(catalog, serverId, leg.lineCode);
-          const through = leg.lineCodes.slice(1).map((code) => lineOf(catalog, serverId, code));
+          const colors = leg.lineCodes.map((code) => colorOf(code, leg.operatorCode));
+          const line = lineOf(catalog, serverId, leg.lineCode, leg.operatorCode);
+          // 枢纽里两家都有站台 1：上车站台上方标出是哪一家的。
+          const operator = platformOperator(catalog, serverId, leg);
+          const through = leg.lineCodes
+            .slice(1)
+            .map((code) => lineOf(catalog, serverId, code, leg.operatorCode));
           return (
             <li
               key={i}
@@ -341,7 +367,10 @@ export function Timeline({
                   <span className={styles.headsign}>往{leg.headsign}</span>
                   {leg.platform && (
                     <span className={styles.platform}>
-                      站台 <span className={`${styles.platformBox} num`}>{leg.platform}</span>
+                      {operator && <span className={styles.platformOperator}>{operator}</span>}
+                      <span className={styles.platformNumber}>
+                        站台 <span className={`${styles.platformBox} num`}>{leg.platform}</span>
+                      </span>
                     </span>
                   )}
                 </div>

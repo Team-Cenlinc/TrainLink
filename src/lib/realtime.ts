@@ -1,3 +1,4 @@
+import { stopRef } from "./gtfs.ts";
 import { railApiBase } from "./railApi.ts";
 
 /**
@@ -182,7 +183,7 @@ export interface TripRealtime {
   trainName?: string;
   /** 临时加开等本来就不在 GTFS 时刻表里的车次（ADDED、UNSCHEDULED、DUPLICATED、NEW）。 */
   unlisted?: true;
-  /** 各站预计到发时刻（毫秒），以站码索引。 */
+  /** 各站预计到发时刻（毫秒），以车站 key（运营方:站码）索引。 */
   stops: Map<string, { arrival?: number; departure?: number }>;
 }
 
@@ -291,18 +292,21 @@ export async function decodeTripFeed(bytes: Uint8Array): Promise<TripFeed> {
   for (const entity of feed.entity) {
     const update = entity.tripUpdate;
     if (!update) continue;
-    const stops: StopTime[] = (update.stopTimeUpdate ?? [])
+    // 列车详情按站码；行程规划与乘车 GO 按车站 key（运营方:站码）对上时刻表。
+    const keyed = (update.stopTimeUpdate ?? [])
       .map((s) => {
         const arrival = toNumber(s.arrival?.time as LongLike);
         const departure = toNumber(s.departure?.time as LongLike);
-        return {
+        const stop: StopTime = {
           stationCode: stationOfStop(s.stopId) ?? "",
           // 0 表示没有这个时刻（例如终点站没有发车时刻）。
           arrival: arrival ? arrival * 1000 : undefined,
           departure: departure ? departure * 1000 : undefined,
         };
+        return { stop, station: s.stopId ? stopRef(s.stopId).station : "" };
       })
-      .filter((s) => s.stationCode);
+      .filter((s) => s.stop.stationCode);
+    const stops = keyed.map((s) => s.stop);
 
     const tripId = update.trip.tripId;
     if (tripId) {
@@ -312,7 +316,10 @@ export async function decodeTripFeed(bytes: Uint8Array): Promise<TripFeed> {
         trainName: update.vehicle?.id ?? undefined,
         ...(unlisted.has(update.trip.scheduleRelationship ?? 0) && { unlisted: true as const }),
         stops: new Map(
-          stops.map((s) => [s.stationCode, { arrival: s.arrival, departure: s.departure }]),
+          keyed.map(({ stop, station }) => [
+            station,
+            { arrival: stop.arrival, departure: stop.departure },
+          ]),
         ),
       });
     }

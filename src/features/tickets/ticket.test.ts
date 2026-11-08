@@ -138,38 +138,38 @@ describe("仿真车票", () => {
     const ticket = newTicket();
     const at = dayStart + 12 * hour + 10 * 60_000;
 
-    const wrong = enterGate(ticket, "HHU", at);
-    const right = enterGate(ticket, "PTK", at);
+    const wrong = enterGate(ticket, "SURC:HHU", at);
+    const right = enterGate(ticket, "SURC:PTK", at);
 
     expect(wrong).toEqual({ ok: false, reason: "wrongStation" });
     expect(right.ok && ticketState(right.ticket, at)).toBe("entered");
-    expect(right.ok && right.ticket.entry).toEqual({ station: "PTK", at });
+    expect(right.ok && right.ticket.entry).toEqual({ station: "SURC:PTK", at });
   });
 
   it("不能重复进站；没进站不能出站", () => {
     const at = dayStart + 12 * hour + 10 * 60_000;
-    const entered = enterGate(newTicket(), "PTK", at);
+    const entered = enterGate(newTicket(), "SURC:PTK", at);
 
-    expect(entered.ok && enterGate(entered.ticket, "PTK", at + 60_000)).toEqual({
+    expect(entered.ok && enterGate(entered.ticket, "SURC:PTK", at + 60_000)).toEqual({
       ok: false,
       reason: "alreadyEntered",
     });
-    expect(exitGate(newTicket(), "NTA", at)).toEqual({ ok: false, reason: "notEntered" });
+    expect(exitGate(newTicket(), "SURC:NTA", at)).toEqual({ ok: false, reason: "notEntered" });
   });
 
   it("只能在终点出站：出站后「已出站」，记下车站与时刻，不能再进站", () => {
     const at = dayStart + 12 * hour + 10 * 60_000;
-    const entered = enterGate(newTicket(), "PTK", at);
+    const entered = enterGate(newTicket(), "SURC:PTK", at);
     if (!entered.ok) throw new Error("应能进站");
 
-    const wrong = exitGate(entered.ticket, "HHU", at + 20 * 60_000);
-    const exited = exitGate(entered.ticket, "NTA", at + 30 * 60_000);
+    const wrong = exitGate(entered.ticket, "SURC:HHU", at + 20 * 60_000);
+    const exited = exitGate(entered.ticket, "SURC:NTA", at + 30 * 60_000);
     if (!exited.ok) throw new Error("应能出站");
 
     expect(wrong).toEqual({ ok: false, reason: "wrongStation" });
     expect(ticketState(exited.ticket, at + 31 * 60_000)).toBe("exited");
-    expect(exited.ticket.exit).toEqual({ station: "NTA", at: at + 30 * 60_000 });
-    expect(enterGate(exited.ticket, "PTK", at + 40 * 60_000)).toEqual({
+    expect(exited.ticket.exit).toEqual({ station: "SURC:NTA", at: at + 30 * 60_000 });
+    expect(enterGate(exited.ticket, "SURC:PTK", at + 40 * 60_000)).toEqual({
       ok: false,
       reason: "used",
     });
@@ -180,10 +180,10 @@ describe("仿真车票", () => {
     const late = ticket.validUntil + 60_000;
 
     expect(ticketState(ticket, late)).toBe("expired");
-    expect(enterGate(ticket, "PTK", late)).toEqual({ ok: false, reason: "expired" });
+    expect(enterGate(ticket, "SURC:PTK", late)).toEqual({ ok: false, reason: "expired" });
 
-    const entered = enterGate(ticket, "PTK", dayStart + 12 * hour);
-    const exited = entered.ok && exitGate(entered.ticket, "NTA", dayStart + 13 * hour);
+    const entered = enterGate(ticket, "SURC:PTK", dayStart + 12 * hour);
+    const exited = entered.ok && exitGate(entered.ticket, "SURC:NTA", dayStart + 13 * hour);
     expect(exited && exited.ok && ticketState(exited.ticket, late)).toBe("exited");
   });
 
@@ -240,5 +240,33 @@ describe("仿真车票", () => {
     expect(a).toContain(ticket.id);
     expect(a).toContain("unused");
     expect(a).toContain(String(Math.floor(t / 30_000)));
+  });
+
+  describe("跨运营方（联运票）", () => {
+    it("起点、终点是枢纽时，哪一家的闸机都能进出站", () => {
+      const ticket = newTicket();
+      const at = dayStart + 12 * hour + 10 * 60_000;
+      const hub = ["SURC:PTK", "PUAT:PTK"];
+
+      expect(enterGate(ticket, "PUAT:PTK", at)).toEqual({ ok: false, reason: "wrongStation" });
+      const entered = enterGate(ticket, "PUAT:PTK", at, hub);
+      expect(entered.ok && entered.ticket.entry).toEqual({ station: "PUAT:PTK", at });
+      expect(
+        entered.ok && exitGate(entered.ticket, "PUAT:NTA", at, ["SURC:NTA", "PUAT:NTA"]).ok,
+      ).toBe(true);
+    });
+
+    it("站码相同、运营方不同的两个站，没说是同一个枢纽时不算同一段区间", () => {
+      const fresh = newTicket();
+      const now = dayStart + 12 * hour;
+      const elsewhere = {
+        from: { ...station("PTK"), operatorCode: "PUAT" },
+        to: station("NTA"),
+      };
+      expect(ticketFor([fresh], elsewhere, now)).toBeUndefined();
+      expect(
+        ticketFor([fresh], elsewhere, now, (a, b) => a.stationCode === b.stationCode)?.id,
+      ).toBe(fresh.id);
+    });
   });
 });

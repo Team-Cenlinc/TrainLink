@@ -63,6 +63,12 @@ export function stationOfNode(node: string | undefined): string | undefined {
   return parts?.[1] === "S" ? parts[2] : undefined;
 }
 
+/** 车站节点（SURC:S:PTK:1）的车站 key（SURC:PTK），对上行程规划的时刻表；不是车站节点时没有。 */
+export function stationKeyOfNode(node: string | undefined): string | undefined {
+  const code = stationOfNode(node);
+  return code && `${node!.split(":")[0]}:${code}`;
+}
+
 /**
  * 节点两端的站：车站节点（SURC:S:PTK:1）是一个站；区间节点（SURC:PPK:RVS:2:001）是两端的站，
  * 名字不表示方向；车厂等其他节点（SURC:D:…）不算。

@@ -11,6 +11,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Page, PanelMessage } from "@/components/Page.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { fallbackLineColor } from "@/lib/lineColor.ts";
+import { hubKeys, sameHub } from "@/lib/hubs.ts";
 import { useCatalog, useNow } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
 import { formatClock } from "@/lib/time.ts";
@@ -18,14 +19,14 @@ import { minutesBetween } from "@/features/trip/journeyText.ts";
 import { lineOf, stationInfo } from "@/features/trip/stations.ts";
 import { useActiveRide } from "@/features/trip/rideStore.ts";
 import { clockOf, dayStartOf } from "@/features/trip/serviceDay.ts";
-import { journeyHref, stationParam } from "@/features/trip/tripStore.ts";
+import { journeyHref, stationFromParam, stationParam } from "@/features/trip/tripStore.ts";
 import { useJourneys } from "@/features/trip/useJourneys.ts";
 import { fitQrSize } from "./fitQr.ts";
 import { QrCountdown, StateTag, TicketQr } from "./TicketQr.tsx";
 import { sawtooth } from "./sawtooth.ts";
-import { enterGate, exitGate, ticketState } from "./ticket.ts";
+import { enterGate, exitGate, ticketStation, ticketState } from "./ticket.ts";
 import { playPrint, playPunch, playTear, type TicketParts } from "./ticketMotion.ts";
-import { refusalText } from "./ticketText.ts";
+import { refusalText, ticketIssuer } from "./ticketText.ts";
 import { updateTicket, useTickets } from "./ticketStore.ts";
 import styles from "./TicketPage.module.css";
 
@@ -130,8 +131,8 @@ function TicketView({ id }: { id?: string }) {
     );
   }
 
-  const name = (code: string) =>
-    stationInfo(catalog.data, { ...ticket.from, stationCode: code }).name;
+  // 车站 key（或旧票闸机记录里的站码）→ 站名；枢纽显示枢纽名。
+  const name = (station: string) => stationInfo(catalog.data, ticketStation(ticket, station)).name;
   const timeZone = sourceTimeZone(catalog.data, ticket.from.serverId);
   const state = ticketState(ticket, now);
   const live = state === "unused" || state === "entered";
@@ -139,11 +140,8 @@ function TicketView({ id }: { id?: string }) {
   const date = new Intl.DateTimeFormat("sv-SE", { timeZone }).format(
     ticket.validUntil - 16 * 3600_000,
   );
-  // 票头写起点站所属运营方的名字（像真实车票印发售的铁路公司）；线路目录还没读到时写 TrainLink。
-  const operatorName =
-    catalog.data?.operators.find(
-      (o) => o.serverId === ticket.from.serverId && o.code === ticket.from.operatorCode,
-    )?.name ?? "TrainLink";
+  // 票头写坐的线路属于哪几家（跨两家是联运票），见 ticketText.ts 的 ticketIssuer。
+  const issuer = ticketIssuer(catalog.data, ticket);
   /*
    * 进站后接着乘车 GO 跟哪一班（区间票哪一班都能坐）：
    * 1. 已经在跟这段区间的一趟 GO，就是它；
@@ -151,9 +149,14 @@ function TicketView({ id }: { id?: string }) {
    * 3. 否则这段区间接下来最近的一班（错过了原来那班、坐下一班的情况）。
    */
   const activeParams = activeRide && new URLSearchParams(activeRide.href.split("?")[1] ?? "");
+  // 枢纽算同一站：GO 从另一家的成员站查的也是这段区间。
+  const activeFrom = stationFromParam(activeParams?.get("from") ?? null, ticket.from.serverId);
+  const activeTo = stationFromParam(activeParams?.get("to") ?? null, ticket.from.serverId);
   const activeHref =
-    activeParams?.get("from") === stationParam(ticket.from) &&
-    activeParams.get("to") === stationParam(ticket.to)
+    activeFrom &&
+    activeTo &&
+    sameHub(catalog.data, activeFrom, ticket.from) &&
+    sameHub(catalog.data, activeTo, ticket.to)
       ? activeRide?.href
       : undefined;
   const rideDeparture = ticket.ride?.departure ?? ticket.departure;
@@ -184,7 +187,12 @@ function TicketView({ id }: { id?: string }) {
 
   const enter = async () => {
     if (busy) return;
-    const result = enterGate(ticket, ticket.from.stationCode, Date.now());
+    const result = enterGate(
+      ticket,
+      stationParam(ticket.from),
+      Date.now(),
+      hubKeys(catalog.data, ticket.from),
+    );
     const p = parts();
     if (!result.ok || !p) {
       if (!result.ok) setGate({ ok: false, text: `闸机未打开：${refusalText[result.reason]}` });
@@ -193,7 +201,7 @@ function TicketView({ id }: { id?: string }) {
     setBusy(true);
     await playPunch(p, reduce, () => {
       updateTicket(result.ticket);
-      opened(`${name(ticket.from.stationCode)}进站`);
+      opened(`${name(stationParam(ticket.from))}进站`);
     });
     setBusy(false);
     // 进了站就是要坐车了：让「闸机已打开」停一下，直接进入乘车 GO（返回能回到这张票）。
@@ -205,7 +213,12 @@ function TicketView({ id }: { id?: string }) {
 
   const exit = async () => {
     if (busy) return;
-    const result = exitGate(ticket, ticket.to.stationCode, Date.now());
+    const result = exitGate(
+      ticket,
+      stationParam(ticket.to),
+      Date.now(),
+      hubKeys(catalog.data, ticket.to),
+    );
     const p = parts();
     if (!result.ok || !p) {
       if (!result.ok) setGate({ ok: false, text: `闸机未打开：${refusalText[result.reason]}` });
@@ -214,7 +227,7 @@ function TicketView({ id }: { id?: string }) {
     setBusy(true);
     await playTear(p, reduce);
     updateTicket(result.ticket);
-    opened(`${name(ticket.to.stationCode)}出站`);
+    opened(`${name(stationParam(ticket.to))}出站`);
     setBusy(false);
     // 出站后按钮没有了，焦点移到闸机结果上，不掉回页面开头。
     status.current?.focus({ preventScroll: true });
@@ -226,9 +239,9 @@ function TicketView({ id }: { id?: string }) {
       narrow
       title={
         <>
-          {name(ticket.from.stationCode)}
+          {name(stationParam(ticket.from))}
           <span className={styles.arrow}>→</span>
-          {name(ticket.to.stationCode)}
+          {name(stationParam(ticket.to))}
         </>
       }
       hero={
@@ -264,12 +277,12 @@ function TicketView({ id }: { id?: string }) {
                   </div>
                   <div className={styles.face}>
                     <p className={styles.brand}>
-                      {operatorName} <span>仿真车票</span>
+                      {issuer.name} <span>{issuer.through ? "联运 · 仿真车票" : "仿真车票"}</span>
                     </p>
                     <p className={styles.route}>
-                      {name(ticket.from.stationCode)}
+                      {name(stationParam(ticket.from))}
                       <span className={styles.arrow}>→</span>
-                      {name(ticket.to.stationCode)}
+                      {name(stationParam(ticket.to))}
                     </p>
                     {/* 区间票不绑定班次，写「当日有效」；旧版本按班次出的票照旧写起止时刻。 */}
                     {ticket.departure !== undefined && ticket.arrival !== undefined ? (
@@ -372,8 +385,8 @@ function TicketView({ id }: { id?: string }) {
                 onClick={state === "unused" ? enter : exit}
               >
                 {state === "unused"
-                  ? `模拟进站 · ${name(ticket.from.stationCode)}`
-                  : `模拟出站 · ${name(ticket.to.stationCode)}`}
+                  ? `模拟进站 · ${name(stationParam(ticket.from))}`
+                  : `模拟出站 · ${name(stationParam(ticket.to))}`}
               </button>
               {state === "entered" && goHref && (
                 <Link className={styles.goButton} to={goHref} aria-label="乘车 GO">

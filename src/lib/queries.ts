@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQueries, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { fetchGtfsIndex } from "./gtfs.ts";
 import { fetchBoard, fetchCatalog, fetchTrains } from "./railApi.ts";
@@ -24,14 +24,25 @@ export function useCatalog() {
  * 车站站牌，每 15 秒刷新一次；页面在后台时 TanStack Query 会自动暂停刷新。
  * 用 API 默认的时间范围，看板每个方向只显示最近几班。
  */
-export function useBoard(station: HomeStation) {
-  return useQuery({
+const boardQuery = (station: HomeStation) =>
+  queryOptions({
     queryKey: ["board", station.serverId, station.operatorCode, station.stationCode],
     queryFn: ({ signal }) =>
       fetchBoard(station.serverId, station.operatorCode, station.stationCode, { signal }),
     refetchInterval: 15_000,
     staleTime: 10_000,
   });
+
+export function useBoard(station: HomeStation) {
+  return useQuery(boardQuery(station));
+}
+
+/**
+ * 几个车站的站牌，同时读取、各自刷新：枢纽里每家运营方一份（站台号各自编，不能合成一份）。
+ * 切换看哪一家时不用等，车站信息也能写出每家各站台的去向。
+ */
+export function useBoards(stations: HomeStation[]) {
+  return useQueries({ queries: stations.map(boardQuery) });
 }
 
 /** GTFS 索引（线路站序与交路终点），5 分钟内视为新鲜。 */

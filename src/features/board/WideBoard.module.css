@@ -153,6 +153,11 @@
   container-type: inline-size;
 }
 
+/* 枢纽的运营方切换，在发车列表上方。 */
+.operatorSwitcher {
+  margin-bottom: 20px;
+}
+
 .groups {
   display: grid;
   gap: 28px;

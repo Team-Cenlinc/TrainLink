@@ -133,7 +133,7 @@ describe("decodeTripFeed：按车次", () => {
       cancelled: false,
       delaySeconds: 120,
     });
-    expect(realtime.get("survival:SURC:MT:T:M1")?.stops.get("PTK")).toEqual({
+    expect(realtime.get("survival:SURC:MT:T:M1")?.stops.get("SURC:PTK")).toEqual({
       arrival: 1_793_400_060_000,
       departure: 1_793_400_090_000,
     });

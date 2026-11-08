@@ -8,7 +8,7 @@ import { useTopColor } from "@/lib/useTopColor.ts";
 import { useFold, type Layout } from "@/lib/useLayout.ts";
 import { formatClock } from "@/lib/time.ts";
 import { StatusNotice } from "@/features/status/StatusNotice.tsx";
-import { DepartureList, LinePanel } from "./BoardPanels.tsx";
+import { DepartureList, LinePanel, OperatorSwitcher } from "./BoardPanels.tsx";
 import type { PlatformGroup } from "./departures.ts";
 import { lineEnds } from "./linePositions.ts";
 import { LineDirections, LineSwitcher, type TrainSelect } from "./LineView.tsx";
@@ -16,6 +16,7 @@ import { StationName, StationTags } from "./StationHeader.tsx";
 import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
 import styles from "./WideBoard.module.css";
+import { lineKey } from "@/lib/gtfs.ts";
 
 interface WideBoardProps {
   data: BoardData;
@@ -23,7 +24,10 @@ interface WideBoardProps {
   onInfo: PanelOpener;
   onPickStation: PanelOpener;
   onSearchStation: PanelOpener;
-  onChooseLine: (lineCode: string) => void;
+  /** 换乘站上选线路（运营方:线路码）。 */
+  onChooseLine: (line: string) => void;
+  /** 枢纽上选看哪一家的站牌（运营方码）。 */
+  onChooseOperator: (operatorCode: string) => void;
   onSelectTrain: TrainSelect;
 }
 
@@ -42,6 +46,7 @@ export function WideBoard({
   onPickStation,
   onSearchStation,
   onChooseLine,
+  onChooseOperator,
   onSelectTrain,
 }: WideBoardProps) {
   const navigate = useNavigate();
@@ -101,6 +106,11 @@ export function WideBoard({
 
       <main className={styles.panel}>
         <section className={`${styles.column} ${styles.departures}`} aria-label="本站发车">
+          <OperatorSwitcher
+            data={data}
+            onChange={onChooseOperator}
+            className={styles.operatorSwitcher}
+          />
           <StatusNotice stationLineCodes={data.lines.map((l) => l.lineCode)} />
           <DepartureList data={data} limit={layout === "wide" ? 6 : 4} className={styles.groups} />
         </section>
@@ -112,7 +122,7 @@ export function WideBoard({
             </h2>
             <LineSwitcher
               lines={data.orderedLines}
-              value={primaryLine?.lineCode}
+              value={primaryLine && lineKey(primaryLine.operatorCode, primaryLine.lineCode)}
               onChange={onChooseLine}
             />
             {lineLayout && (

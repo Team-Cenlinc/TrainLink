@@ -4,10 +4,12 @@ import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import OpenIcon from "@material-symbols/svg-400/outlined/arrow_outward.svg?react";
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
+import { hubChangeSeconds } from "@/features/trip/timetable.ts";
 import type { RailStation, RailStationLine } from "@/lib/railApi.ts";
 import { useSettings } from "@/lib/settings.ts";
 import { linePlatforms, type PlatformDirection, type PlatformGroup } from "./departures.ts";
 import { StationName } from "./StationHeader.tsx";
+import type { BoardData } from "./useBoardData.ts";
 import styles from "./StationInfoSheet.module.css";
 
 interface StationInfoSheetProps {
@@ -15,9 +17,20 @@ interface StationInfoSheetProps {
   onClose: () => void;
   station?: RailStation;
   stationCode: string;
+  /** 显示的站名（枢纽是枢纽名）。 */
+  name: string;
+  /** 车站组名（例如「海侧约翰枢纽」）；不是枢纽时没有。 */
+  groupName?: string;
+  /** API 给了时：枢纽里两家之间站内换乘要走几秒（同行程规划，见 timetable.ts 的 withHubTransfers）。 */
+  walkSeconds?: number;
   lines: RailStationLine[];
-  /** 本站站牌按站台的分组；每条线路只列出自己的站台。 */
+  /** 枢纽里的各家与站牌正在看的那一家（见 useBoardData）；不止一家时停靠线路按运营方分组。 */
+  parts: BoardData["parts"];
+  part: BoardData["part"];
+  /** 站牌正在看的那一家按站台的分组；每条线路只列出自己的站台。 */
   groups: PlatformGroup[];
+  /** 枢纽里每家的站台分组，与 parts 一一对应。 */
+  partGroups: PlatformGroup[][];
   transfers: RailStationLine[];
   /** 本站不能换乘时，沿线最近的换乘站。 */
   nearest?: { stop: RailStation; lines: RailStationLine[]; distance: number };
@@ -52,21 +65,43 @@ function SheetContent({
   onClose,
   station,
   stationCode,
+  name,
+  groupName,
+  walkSeconds,
   lines,
+  parts,
+  part,
   groups,
+  partGroups,
   transfers,
   nearest,
   mapUrl,
   variant,
 }: StationInfoSheetProps) {
-  const position = station?.position;
+  const position = (part?.station ?? station)?.position;
+  const world = (part?.station ?? station)?.world;
   const { showStationCodes } = useSettings();
+  const isHub = parts.length > 1;
+  const lineRow = (line: RailStationLine, platformGroups: PlatformGroup[]) => {
+    const platforms = linePlatforms(platformGroups, line.lineCode);
+    return (
+      <div key={line.lineId} className={styles.row}>
+        <ServiceBadge lineCode={line.lineCode} lineColor={line.color} />
+        <div className={styles.text}>
+          <span className={styles.primary}>{line.lineName}</span>
+          {platforms.length > 0 && (
+            <span className={styles.secondary}>{platforms.map(platformText).join(" · ")}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
       <header className={styles.header}>
         <h2 id="station-info-title" className={styles.title}>
-          <StationName name={station?.name ?? stationCode} />
+          <StationName name={name} />
         </h2>
         {showStationCodes && <span className={styles.number}>{stationCode}</span>}
         <button
@@ -80,67 +115,82 @@ function SheetContent({
           {variant === "popover" ? <CloseIcon aria-hidden /> : <CollapseIcon aria-hidden />}
         </button>
       </header>
+      {isHub && (
+        <p className={styles.subtitle}>
+          {[groupName, parts.map((p) => p.operatorName).join("、")].filter(Boolean).join(" · ")}
+        </p>
+      )}
 
-      <Section title="停靠线路">
-        {lines.map((line) => {
-          const platforms = linePlatforms(groups, line.lineCode);
-          return (
-            <div key={line.lineId} className={styles.row}>
-              <ServiceBadge lineCode={line.lineCode} lineColor={line.color} />
-              <div className={styles.text}>
-                <span className={styles.primary}>{line.lineName}</span>
-                {platforms.length > 0 && (
-                  <span className={styles.secondary}>
-                    {platforms.map(platformText).join(" · ")}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </Section>
+      {/* 枢纽：停靠线路按运营方分组（各家的站台号各自编）。 */}
+      {isHub ? (
+        parts.map((p, i) => (
+          <Section key={p.station.id} title={p.operatorName}>
+            {p.lines.map((line) => lineRow(line, partGroups[i] ?? []))}
+          </Section>
+        ))
+      ) : (
+        <Section title="停靠线路">{lines.map((line) => lineRow(line, groups))}</Section>
+      )}
 
       <Section title="换乘">
-        <div className={styles.row}>
-          <div className={styles.text}>
-            {transfers.length > 0 ? (
-              <>
-                <span className={styles.primary}>可换乘 {transfers.length} 条线路</span>
-                <span className={styles.secondary}>
-                  {transfers
-                    .map(
-                      (l) =>
-                        `${l.lineName}（${transferTypeLabel[l.transferType ?? ""] ?? "换乘"}）`,
-                    )
-                    .join("、")}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className={styles.primary}>本站不能换乘</span>
-                {nearest && (
-                  <span className={styles.secondary}>
-                    {nearest.distance === 1 ? "下一站" : `相隔 ${nearest.distance} 站的`}
-                    {nearest.stop.name}可换乘
-                    {nearest.lines[0]?.viaStationCode ? "，需出站" : ""}
-                  </span>
-                )}
-              </>
-            )}
+        {isHub && (
+          <div className={styles.row}>
+            <div className={styles.text}>
+              <span className={styles.primary}>站内换乘</span>
+              <span className={styles.secondary}>
+                {parts.length === 2 ? "两家" : `${parts.length} 家`}运营方之间约{" "}
+                {Math.ceil((walkSeconds ?? hubChangeSeconds) / 60)} 分，不用出站
+              </span>
+            </div>
+            <span className={styles.badges}>
+              {lines.map((l) => (
+                <ServiceBadge key={l.lineId} lineCode={l.lineCode} lineColor={l.color} size="s" />
+              ))}
+            </span>
           </div>
-          <span className={styles.badges}>
-            {(transfers.length > 0 ? transfers : (nearest?.lines ?? [])).map((l) => (
-              <ServiceBadge key={l.lineId} lineCode={l.lineCode} lineColor={l.color} size="s" />
-            ))}
-          </span>
-        </div>
+        )}
+        {(!isHub || transfers.length > 0) && (
+          <div className={styles.row}>
+            <div className={styles.text}>
+              {transfers.length > 0 ? (
+                <>
+                  <span className={styles.primary}>可换乘 {transfers.length} 条线路</span>
+                  <span className={styles.secondary}>
+                    {transfers
+                      .map(
+                        (l) =>
+                          `${l.lineName}（${transferTypeLabel[l.transferType ?? ""] ?? "换乘"}）`,
+                      )
+                      .join("、")}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className={styles.primary}>本站不能换乘</span>
+                  {nearest && (
+                    <span className={styles.secondary}>
+                      {nearest.distance === 1 ? "下一站" : `相隔 ${nearest.distance} 站的`}
+                      {nearest.stop.name}可换乘
+                      {nearest.lines[0]?.transferType === "OUT_OF_STATION" ? "，需出站" : ""}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            <span className={styles.badges}>
+              {(transfers.length > 0 ? transfers : (nearest?.lines ?? [])).map((l) => (
+                <ServiceBadge key={l.lineId} lineCode={l.lineCode} lineColor={l.color} size="s" />
+              ))}
+            </span>
+          </div>
+        )}
       </Section>
 
       {position && (
         <Section title="位置">
           <div className={styles.row}>
             <div className={styles.text}>
-              <span className={styles.primary}>{station?.world} 世界</span>
+              <span className={styles.primary}>{world} 世界</span>
               <span className={`${styles.secondary} num`}>
                 X {Math.round(position.x)} · Y {Math.round(position.y)} · Z {Math.round(position.z)}
               </span>

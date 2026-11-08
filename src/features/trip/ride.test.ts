@@ -11,7 +11,7 @@ import {
   type TrainPosition,
 } from "./ride.ts";
 import { at, gtfsFiles } from "./testTimetable.ts";
-import { buildTimetable } from "./timetable.ts";
+import { buildTimetable, withHubTransfers } from "./timetable.ts";
 
 /** 运营日 0 点（毫秒）；实时数据是绝对时刻，减去它就是运营日内的秒数。 */
 const dayStart = Date.UTC(2026, 9, 31) - 8 * 3600_000;
@@ -25,7 +25,10 @@ function realtime(id: string, stops: Record<string, string>, line = "MT"): [stri
     {
       cancelled: false,
       stops: new Map(
-        Object.entries(stops).map(([code, t]) => [code, { arrival: ms(t), departure: ms(t) }]),
+        Object.entries(stops).map(([code, t]) => [
+          `TST:${code}`,
+          { arrival: ms(t), departure: ms(t) },
+        ]),
       ),
     },
   ];
@@ -56,7 +59,11 @@ const timetable = buildTimetable(
     },
   ]),
 );
-const [planned] = planJourneys(timetable, { from: "P1", to: "Q", departAfter: at("07:55") });
+const [planned] = planJourneys(timetable, {
+  from: "TST:P1",
+  to: "TST:Q",
+  departAfter: at("07:55"),
+});
 const journey = (rt: [string, TripRealtime][] = []) =>
   applyRealtime(planned!, new Map(rt), dayStart);
 
@@ -72,10 +79,10 @@ describe("legStops", () => {
   it("一段乘车的各站：上车站、经过的站、下车站，按站序，带计划时刻", () => {
     const ride = journey().legs[0]!;
     expect(legStops(timetable, ride, new Map(), dayStart, at("07:59"))).toEqual([
-      stop("P1", "08:00"),
-      stop("P2", "08:03"),
-      stop("P3", "08:06"),
-      stop("X", "08:10"),
+      stop("TST:P1", "08:00"),
+      stop("TST:P2", "08:03"),
+      stop("TST:P3", "08:06"),
+      stop("TST:X", "08:10"),
     ]);
   });
 
@@ -84,10 +91,10 @@ describe("legStops", () => {
     const ride = journey([...rt]).legs[0]!;
     // 按时刻 08:04 还没到 P2 的计划时刻之后多久，但实时数据说 P2 已经过了。
     expect(legStops(timetable, ride, rt, dayStart, at("08:04"))).toEqual([
-      stop("P1", "08:00", true),
-      stop("P2", "08:03", true),
-      stop("P3", "08:08"),
-      stop("X", "08:12"),
+      stop("TST:P1", "08:00", true),
+      stop("TST:P2", "08:03", true),
+      stop("TST:P3", "08:08"),
+      stop("TST:X", "08:12"),
     ]);
   });
 
@@ -128,7 +135,7 @@ describe("rideStatus", () => {
       kind: "ride",
       legIndex: 0,
       stopsLeft: 2,
-      nextStop: "P3",
+      nextStop: "TST:P3",
       arrivesIn: 360,
     });
   });
@@ -137,7 +144,7 @@ describe("rideStatus", () => {
     expect(status("08:04", [realtime("M1", { X: "08:09" })])).toMatchObject({
       kind: "ride",
       stopsLeft: 1,
-      nextStop: "X",
+      nextStop: "TST:X",
       arrivesIn: 300,
     });
   });
@@ -174,7 +181,7 @@ describe("alightReminderAt", () => {
 });
 
 describe("rideText", () => {
-  const name = (code: string) => `${code}站`;
+  const name = (key: string) => `${key.split(":")[1]}站`;
   const text = (now: string, rt: [string, TripRealtime][] = []) => {
     const j = journey(rt);
     const realtimeMap = new Map(rt);
@@ -269,8 +276,8 @@ describe("停站", () => {
     ]),
   );
   const [dwellPlan] = planJourneys(dwellTimetable, {
-    from: "P1",
-    to: "P3",
+    from: "TST:P1",
+    to: "TST:P3",
     departAfter: at("07:50"),
   });
   const dwellJourney = applyRealtime(dwellPlan!, new Map(), dayStart);
@@ -285,7 +292,7 @@ describe("停站", () => {
     positions?: Map<string, TrainPosition>,
   ) =>
     stopsAt(now, rt, positions).map(
-      (s) => `${s.station}:${s.dwelling ? "停" : s.passed ? "过" : "前"}`,
+      (s) => `${s.station.replace("TST:", "")}:${s.dwelling ? "停" : s.passed ? "过" : "前"}`,
     );
   /** D1 的实时数据：各站 [到, 开]。 */
   const dwellRt = (stops: Record<string, [string, string]>): [string, TripRealtime] => [
@@ -293,11 +300,15 @@ describe("停站", () => {
     {
       cancelled: false,
       stops: new Map(
-        Object.entries(stops).map(([code, [a, d]]) => [code, { arrival: ms(a), departure: ms(d) }]),
+        Object.entries(stops).map(([code, [a, d]]) => [
+          `TST:${code}`,
+          { arrival: ms(a), departure: ms(d) },
+        ]),
       ),
     },
   ];
-  const at_ = (stoppedAt?: string) => new Map([[tripOf("D1"), { stoppedAt }]]);
+  const at_ = (stoppedAt?: string) =>
+    new Map([[tripOf("D1"), { stoppedAt: stoppedAt && `TST:${stoppedAt}` }]]);
 
   it("列车到了还没开：那一站是停靠中，不算经过", () => {
     expect(stateOf("08:04")).toEqual(["P1:过", "P2:停", "P3:前"]);
@@ -326,7 +337,7 @@ describe("停站", () => {
         },
       ]),
     );
-    const [plan] = planJourneys(loop, { from: "P1", to: "B", departAfter: at("07:50") });
+    const [plan] = planJourneys(loop, { from: "TST:P1", to: "TST:B", departAfter: at("07:50") });
     const leg = applyRealtime(plan!, new Map(), dayStart).legs[0]!;
     const boarding = (now: string) => legStops(loop, leg, new Map(), dayStart, at(now))[0];
     expect(boarding("07:45")).toMatchObject({ arrival: at("07:58"), dwelling: false });
@@ -358,10 +369,10 @@ describe("停站", () => {
         },
       ]),
     );
-    const [plan] = planJourneys(through, { from: "J", to: "Q", departAfter: at("07:55") });
+    const [plan] = planJourneys(through, { from: "TST:J", to: "TST:Q", departAfter: at("07:55") });
     const leg = applyRealtime(plan!, new Map(), dayStart).legs[0]!;
     expect(legStops(through, leg, new Map(), dayStart, at("07:59"))[0]).toMatchObject({
-      station: "J",
+      station: "TST:J",
       arrival: at("07:58"),
       dwelling: true,
     });
@@ -373,8 +384,8 @@ describe("停站", () => {
       {
         cancelled: false,
         stops: new Map([
-          ["P2", { arrival: ms("08:06"), departure: ms("08:08") }],
-          ["P3", { arrival: ms("08:12"), departure: ms("08:12") }],
+          ["TST:P2", { arrival: ms("08:06"), departure: ms("08:08") }],
+          ["TST:P3", { arrival: ms("08:12"), departure: ms("08:12") }],
         ]),
       },
     ];
@@ -430,16 +441,85 @@ describe("停站", () => {
     expect(status).toMatchObject({
       kind: "ride",
       stopsLeft: 1,
-      nextStop: "P3",
-      dwellingAt: "P2",
+      nextStop: "TST:P3",
+      dwellingAt: "TST:P2",
     });
     const longer = { ...status, stopsLeft: 3 } as typeof status;
-    expect(rideText(longer, dwellJourney, (c) => c).detail).toBe("停靠 P2 · 在 P3 下车");
+    expect(rideText(longer, dwellJourney, (key) => key.replace("TST:", "")).detail).toBe(
+      "停靠 P2 · 在 P3 下车",
+    );
     const moving = rideStatus(dwellJourney, [stopsAt("08:06")], at("08:06"));
     expect(moving).toMatchObject({ kind: "ride", stopsLeft: 1, dwellingAt: undefined });
   });
 
   it("下车提醒在前一站开出时（停站后开车那一刻）", () => {
     expect(alightReminderAt(stopsAt("08:00"), dwellJourney.legs[0]!)).toBe(at("08:05"));
+  });
+});
+
+describe("rideText：枢纽里换另一家运营方", () => {
+  // TST 的车 P1 → H，在枢纽里换 OTH 的车 H → Z（站台 2）。
+  const hubTimetable = withHubTransfers(
+    buildTimetable(
+      gtfsFiles([
+        {
+          id: "H1",
+          line: "MT",
+          headsign: "H",
+          stops: [
+            ["P1", "08:00"],
+            ["H", "08:10"],
+          ],
+        },
+        {
+          id: "H2",
+          line: "SM",
+          headsign: "Z",
+          operator: "OTH",
+          stops: [
+            ["H", "08:14", "2"],
+            ["Z", "08:20"],
+          ],
+        },
+      ]),
+    ),
+    [{ stations: ["TST:H", "OTH:H"] }],
+  );
+  const [hubPlan] = planJourneys(hubTimetable, {
+    from: "TST:P1",
+    to: "OTH:Z",
+    departAfter: at("07:55"),
+  });
+  const hubJourney = applyRealtime(hubPlan!, new Map(), dayStart);
+  const name = (key: string) => key.split(":")[1]!;
+  const platform = (leg: { platform?: string }) => leg.platform && `另一家 ${leg.platform} 号站台`;
+
+  it("下车前就说换乘哪班车、在哪一家的站台，不说步行到另一站", () => {
+    const text = rideText(
+      { kind: "ride", legIndex: 0, stopsLeft: 1, nextStop: "TST:H", arrivesIn: 60, progress: 0.9 },
+      hubJourney,
+      name,
+      platform,
+    );
+    expect(text).toEqual({ title: "下一站 H 下车", detail: "换乘 SM 往 Z · 另一家 2 号站台" });
+  });
+
+  it("站内换乘那一步写「站内换乘」，到了站台写换乘", () => {
+    expect(
+      rideText(
+        { kind: "walk", legIndex: 1, startsIn: 0, arrivesIn: 90, progress: 0.5 },
+        hubJourney,
+        name,
+        platform,
+      ),
+    ).toEqual({ title: "站内换乘", detail: "约 2 分钟 · 换乘 SM 往 Z" });
+    expect(
+      rideText(
+        { kind: "wait", legIndex: 2, departsIn: 120, atPlatform: false, progress: 0.6 },
+        hubJourney,
+        name,
+        platform,
+      ).title,
+    ).toBe("H 换乘 · 另一家 2 号站台");
   });
 });

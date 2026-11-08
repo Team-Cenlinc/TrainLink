@@ -3,13 +3,15 @@ import { Link } from "react-router";
 import { useReducedMotion } from "motion/react";
 import CloseIcon from "@material-symbols/svg-400/outlined/close.svg?react";
 import { Overlay } from "@/components/Overlay.tsx";
+import { hubKeys } from "@/lib/hubs.ts";
 import { useCatalog, useNow } from "@/lib/queries.ts";
 import { sourceTimeZone } from "@/lib/railApi.ts";
 import { formatClock } from "@/lib/time.ts";
 import { clockOf } from "@/features/trip/serviceDay.ts";
 import { stationInfo } from "@/features/trip/stations.ts";
-import { enterGate, exitGate, ticketState, type Ticket } from "./ticket.ts";
-import { refusalText } from "./ticketText.ts";
+import { stationParam } from "@/features/trip/tripStore.ts";
+import { enterGate, exitGate, ticketStation, ticketState, type Ticket } from "./ticket.ts";
+import { refusalText, ticketIssuer } from "./ticketText.ts";
 import { QrCountdown, StateTag, TicketQr } from "./TicketQr.tsx";
 import { updateTicket } from "./ticketStore.ts";
 import styles from "./TicketSheet.module.css";
@@ -45,26 +47,24 @@ function SheetContent({ ticket, onClose }: { ticket: Ticket; onClose: () => void
 
   const state = ticketState(ticket, now);
   const live = state === "unused" || state === "entered";
-  const name = (code: string) =>
-    stationInfo(catalog.data, { ...ticket.from, stationCode: code }).name;
+  // 车站 key（或旧票闸机记录里的站码）→ 站名；枢纽显示枢纽名。
+  const name = (station: string) => stationInfo(catalog.data, ticketStation(ticket, station)).name;
   const timeZone = sourceTimeZone(catalog.data, ticket.from.serverId);
-  const operator =
-    catalog.data?.operators.find(
-      (o) => o.serverId === ticket.from.serverId && o.code === ticket.from.operatorCode,
-    )?.name ?? "TrainLink";
+  const issuer = ticketIssuer(catalog.data, ticket);
+  const operator = issuer.through ? `${issuer.name} 联运` : issuer.name;
 
   const pass = () => {
     const at = Date.now();
     const entering = state === "unused";
     const result = entering
-      ? enterGate(ticket, ticket.from.stationCode, at)
-      : exitGate(ticket, ticket.to.stationCode, at);
+      ? enterGate(ticket, stationParam(ticket.from), at, hubKeys(catalog.data, ticket.from))
+      : exitGate(ticket, stationParam(ticket.to), at, hubKeys(catalog.data, ticket.to));
     if (!result.ok) {
       setGate({ ok: false, text: `闸机未打开：${refusalText[result.reason]}` });
       return;
     }
     updateTicket(result.ticket);
-    const station = entering ? ticket.from.stationCode : ticket.to.stationCode;
+    const station = stationParam(entering ? ticket.from : ticket.to);
     setGate({
       ok: true,
       text: `闸机已打开：${formatClock(at, timeZone)} ${name(station)}${entering ? "进站" : "出站"}`,
@@ -76,9 +76,9 @@ function SheetContent({ ticket, onClose }: { ticket: Ticket; onClose: () => void
       {/* 与车站信息等面板同样的标题行：大标题 + 右边的关闭按钮。 */}
       <header className={styles.header}>
         <h2 id="ticket-sheet-title" className={styles.route}>
-          {name(ticket.from.stationCode)}
+          {name(stationParam(ticket.from))}
           <span className={styles.arrow}>→</span>
-          {name(ticket.to.stationCode)}
+          {name(stationParam(ticket.to))}
         </h2>
         <button type="button" className={styles.close} aria-label="收起车票" onClick={onClose}>
           <CloseIcon aria-hidden />
@@ -110,8 +110,8 @@ function SheetContent({ ticket, onClose }: { ticket: Ticket; onClose: () => void
       {live && (
         <button type="button" className={styles.gate} onClick={pass}>
           {state === "unused"
-            ? `模拟进站 · ${name(ticket.from.stationCode)}`
-            : `模拟出站 · ${name(ticket.to.stationCode)}`}
+            ? `模拟进站 · ${name(stationParam(ticket.from))}`
+            : `模拟出站 · ${name(stationParam(ticket.to))}`}
         </button>
       )}
       <div role="status" className={styles.status}>

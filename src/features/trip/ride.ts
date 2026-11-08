@@ -1,5 +1,6 @@
 import type { TripRealtime } from "@/lib/realtime.ts";
 import type { LiveJourney, LiveLeg } from "./live.ts";
+import type { RideLeg } from "./planner.ts";
 import { clockOf } from "./serviceDay.ts";
 import type { Timetable } from "./timetable.ts";
 
@@ -243,12 +244,16 @@ const trainOf = (leg: LiveLeg) => (leg.kind === "ride" ? `${leg.lineCode} 往 ${
 
 /**
  * GO 页面的大字提示（title）与下面一行说明（detail）。
- * @param name 站码 → 站名
+ * @param name 车站 key → 站名
+ * @param platform 上车站台怎么说（枢纽里要带运营方，见 stations.ts 的 platformText）；
+ *   省略时写「1 号站台」
  */
 export function rideText(
   status: RideStatus,
   journey: LiveJourney,
-  name: (code: string) => string,
+  name: (key: string) => string,
+  platform: (leg: RideLeg) => string | undefined = (leg) =>
+    leg.platform ? `${leg.platform} 号站台` : undefined,
 ): { title: string; detail: string } {
   const legs = journey.legs;
   if (status.kind === "arrived") {
@@ -256,6 +261,13 @@ export function rideText(
     return { title: `已到达 ${last ? name(last.to) : ""}`, detail: "这趟乘车结束了" };
   }
   const leg = legs[status.legIndex]!;
+  if (status.kind === "walk" && leg.kind === "walk" && leg.inStation) {
+    const next = legs[status.legIndex + 1];
+    return {
+      title: "站内换乘",
+      detail: `约 ${minutes(status.arrivesIn)} 分钟${next?.kind === "ride" ? ` · 换乘 ${trainOf(next)}` : ""}`,
+    };
+  }
   if (status.kind === "walk") {
     return {
       title: `步行到 ${name(leg.to)}`,
@@ -266,15 +278,15 @@ export function rideText(
     };
   }
   if (status.kind === "wait") {
-    const platform = leg.kind === "ride" && leg.platform ? `${leg.platform} 号站台` : "";
+    const where = (leg.kind === "ride" && platform(leg)) || "";
     const previous = legs[status.legIndex - 1];
     const when = status.departsIn < 60 ? "即将开车" : `${minutes(status.departsIn)} 分后开车`;
     const train = status.atPlatform ? `已进站，${when}` : when;
     return {
       title:
-        previous?.kind === "ride"
-          ? `${name(leg.from)} 换乘${platform ? ` · ${platform}` : ""}`
-          : `${platform || `${name(leg.from)} `}上车`,
+        previous?.kind === "ride" || (previous?.kind === "walk" && previous.inStation)
+          ? `${name(leg.from)} 换乘${where ? ` · ${where}` : ""}`
+          : `${where || `${name(leg.from)} `}上车`,
       detail: `${trainOf(leg)} · ${train}`,
     };
   }
@@ -288,13 +300,15 @@ export function rideText(
     };
   }
   const after = legs[status.legIndex + 1];
+  const afterRide = after?.kind === "walk" && after.inStation ? legs[status.legIndex + 2] : after;
+  const afterPlatform = afterRide?.kind === "ride" ? platform(afterRide) : undefined;
   return {
     title: `下一站 ${name(leg.to)} 下车`,
     detail: !after
       ? `终点站 · 预计 ${clockOf(leg.live.arrival)} 到站`
-      : after.kind === "walk"
+      : after.kind === "walk" && !after.inStation
         ? `下车后步行到 ${name(after.to)}`
-        : `换乘 ${trainOf(after)}${after.platform ? ` · ${after.platform} 号站台` : ""}`,
+        : `换乘 ${afterRide ? trainOf(afterRide) : ""}${afterPlatform ? ` · ${afterPlatform}` : ""}`,
   };
 }
 

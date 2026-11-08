@@ -32,6 +32,8 @@ export interface RailOperator {
   serverId: string;
   code: string;
   name: string;
+  /** 简称（例如「都会交通」），用在分段控件和一行文字里；API 还没有时用 name。 */
+  shortName?: string;
 }
 
 export interface RailLine {
@@ -57,6 +59,7 @@ export interface RailStationLine {
   lineCode: string;
   lineName: string;
   color?: string;
+  viaStationId?: string;
   viaStationCode?: string;
   /** IN_STATION：站内换乘；OUT_OF_STATION：出站换乘。 */
   transferType?: string;
@@ -76,10 +79,33 @@ export interface RailStation {
   lines: RailStationLine[];
 }
 
+/** 车站组的一个成员。transferType 按成员标：IN_STATION 的成员合成一个枢纽（见 lib/hubs.ts）。 */
+export interface RailStationGroupMember {
+  stationId: string;
+  operatorCode: string;
+  stationCode: string;
+  stationName: string;
+  /** IN_STATION：站内换乘；OUT_OF_STATION：出站换乘。 */
+  transferType?: string;
+  walkSeconds?: number;
+}
+
+/** 车站组：例如海侧约翰枢纽（SURC:JBS + PUAT:JBS）、河滨道-浦汇虚拟换乘。 */
+export interface RailStationGroup {
+  id: string;
+  serverId: string;
+  code: string;
+  name: string;
+  secondaryName?: string;
+  members: RailStationGroupMember[];
+}
+
 export interface RailCatalog extends RailEnvelope {
   operators: RailOperator[];
   lines: RailLine[];
   stations: RailStation[];
+  /** 旧版 API 没有。 */
+  stationGroups?: RailStationGroup[];
 }
 
 /** 一节车厢的座位数与在车人数，用于计算拥挤度。 */

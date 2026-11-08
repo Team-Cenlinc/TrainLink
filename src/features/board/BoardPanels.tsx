@@ -1,3 +1,4 @@
+import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { DepartureGroup } from "./DepartureGroup.tsx";
 import type { PlatformGroup } from "./departures.ts";
 import { LineView, type TrainSelect } from "./LineView.tsx";
@@ -88,4 +89,41 @@ export function LinePanel({
   }
   if (gtfs.data && !lineOrder) return <p className={styles.message}>暂无这条线路的站序数据。</p>;
   return <p className={styles.message}>正在读取列车位置…</p>;
+}
+
+/**
+ * 枢纽站牌的运营方切换：运营方名 + 这家在本枢纽的线路色牌，样式同线路切换。
+ * 站台号只在运营方内唯一，一次只看一家的站牌；只有一家时不显示。
+ */
+export function OperatorSwitcher({
+  data,
+  onChange,
+  className,
+}: {
+  data: BoardData;
+  onChange: (operatorCode: string) => void;
+  className?: string;
+}) {
+  const { parts, part } = data;
+  if (parts.length < 2) return null;
+  return (
+    <div className={`${styles.operators} ${className ?? ""}`} role="group" aria-label="选择运营方">
+      {parts.map((p) => (
+        <button
+          key={p.station.id}
+          type="button"
+          className={`${styles.operatorChip} ${p === part ? styles.selectedOperator : ""}`}
+          aria-pressed={p === part}
+          onClick={() => onChange(p.operatorCode)}
+        >
+          {p.operatorName}
+          <span className={styles.operatorLines}>
+            {p.lines.map((l) => (
+              <ServiceBadge key={l.lineId} lineCode={l.lineCode} lineColor={l.color} size="s" />
+            ))}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 }

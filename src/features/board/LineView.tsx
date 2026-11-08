@@ -11,6 +11,7 @@ import type { CarLoad, LineLayout, LineStop, LineTrain } from "./linePositions.t
 import { severeDelayMinutes } from "./departures.ts";
 import { cardHeight, placeColumn, rowHeight } from "./placeColumn.ts";
 import styles from "./LineView.module.css";
+import { lineKey } from "@/lib/gtfs.ts";
 
 /** 线路色与行高写成 CSS 变量，方向标题与线路图共用同一套列位置。 */
 function lineStyle(lineColor?: string): CSSProperties {
@@ -72,24 +73,28 @@ export function LineSwitcher({
   onChange,
 }: {
   lines: RailStationLine[];
+  /** 选中的线路：运营方:线路码（枢纽里两家可能有同码的线路）。 */
   value?: string;
-  onChange: (lineCode: string) => void;
+  onChange: (line: string) => void;
 }) {
   if (lines.length < 2) return null;
   return (
     <div className={styles.switcher} role="group" aria-label="选择线路">
-      {lines.map((line) => (
-        <button
-          key={line.lineId}
-          type="button"
-          className={`${styles.lineChip} ${line.lineCode === value ? styles.selectedChip : ""}`}
-          aria-pressed={line.lineCode === value}
-          onClick={() => onChange(line.lineCode)}
-        >
-          <ServiceBadge lineCode={line.lineCode} lineColor={line.color} size="s" />
-          {line.lineName}
-        </button>
-      ))}
+      {lines.map((line) => {
+        const key = lineKey(line.operatorCode, line.lineCode);
+        return (
+          <button
+            key={line.lineId}
+            type="button"
+            className={`${styles.lineChip} ${key === value ? styles.selectedChip : ""}`}
+            aria-pressed={key === value}
+            onClick={() => onChange(key)}
+          >
+            <ServiceBadge lineCode={line.lineCode} lineColor={line.color} size="s" />
+            {line.lineName}
+          </button>
+        );
+      })}
     </div>
   );
 }

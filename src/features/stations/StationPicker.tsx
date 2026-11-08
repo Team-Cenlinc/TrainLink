@@ -7,6 +7,8 @@ import StarFillIcon from "@material-symbols/svg-400/outlined/star-fill.svg?react
 import { Overlay } from "@/components/Overlay.tsx";
 import { ServiceBadge } from "@/components/ServiceBadge.tsx";
 import { lineKey } from "@/lib/gtfs.ts";
+import { operatorLabel } from "@/features/trip/stations.ts";
+import { hubLines, hubOf } from "@/lib/hubs.ts";
 import { allStations, lineShape } from "@/lib/lineShape.ts";
 import {
   sameStation,
@@ -19,7 +21,6 @@ import {
 import { useCatalog, useGtfs } from "@/lib/queries.ts";
 import type { RailStationLine } from "@/lib/railApi.ts";
 import { useSettings, useShownOperators } from "@/lib/settings.ts";
-import { servingLines } from "@/lib/station.ts";
 import styles from "./StationPicker.module.css";
 
 interface StationPickerProps {
@@ -38,12 +39,19 @@ interface StationPickerProps {
   focusSearch?: boolean;
 }
 
-/** 选择器里的一个车站。 */
+/**
+ * 选择器里的一个车站。枢纽（两家运营方的车站合成一个站，见 lib/hubs.ts）只列一项：
+ * ref 是选中时存下的成员站，members 是枢纽里（显示的运营方的）全部成员站。
+ */
 interface Entry {
   key: string;
   ref: HomeStation;
+  members: HomeStation[];
   name: string;
-  secondaryName?: string;
+  /** 搜索用：各成员站的站名、英文名与站码。 */
+  searchText: string;
+  /** 运营方名（不是枢纽时）：两个车站同名时写在后面区分。 */
+  operatorName?: string;
   lines: RailStationLine[];
 }
 
@@ -104,22 +112,40 @@ function PickerContent({
     const data = catalog.data;
     if (!data) return { entries: [] as Entry[], groups: [] };
     const operatorCode = new Map(data.operators.map((o) => [o.id, o.code]));
+    const operatorName = new Map(data.operators.map((o) => [o.id, operatorLabel(o)]));
     // 只列本站所在服务器、设置里显示的运营方的车站与线路。
     const listed = (item: { serverId: string; operatorId: string }) =>
       item.serverId === home.serverId && shown.byId(item.operatorId);
-    const entries: Entry[] = data.stations.filter(listed).map((s) => ({
-      key: s.id,
-      ref: {
-        serverId: s.serverId,
-        operatorCode: operatorCode.get(s.operatorId) ?? "",
-        stationCode: s.code,
-      },
-      name: s.name,
-      secondaryName: s.secondaryName,
-      lines: servingLines(s),
-    }));
+    const refOf = (s: { serverId: string; operatorId: string; code: string }): HomeStation => ({
+      serverId: s.serverId,
+      operatorCode: operatorCode.get(s.operatorId) ?? "",
+      stationCode: s.code,
+    });
+    // 枢纽只列一项，排在第一个成员站的位置。
+    const entries: Entry[] = [];
+    const seen = new Set<string>();
+    for (const station of data.stations.filter(listed)) {
+      if (seen.has(station.id)) continue;
+      const hub = hubOf(data, station);
+      const members = hub.members.filter(listed);
+      for (const m of members) seen.add(m.id);
+      const refs = members.map(refOf);
+      entries.push({
+        key: station.id,
+        // 本站就在这个枢纽里时，选它不换成员站（站牌停在原来那一家）。
+        ref: refs.find((r) => sameStation(r, home)) ?? refs[0]!,
+        members: refs,
+        name: members.length > 1 ? hub.name : station.name,
+        ...(members.length === 1 && { operatorName: operatorName.get(station.operatorId) }),
+        searchText: members
+          .flatMap((m) => [m.name, m.secondaryName ?? "", m.code])
+          .join("\n")
+          .toLowerCase(),
+        lines: hubLines(members),
+      });
+    }
     const byCode = (op: string, code: string) =>
-      entries.find((e) => e.ref.operatorCode === op && e.ref.stationCode === code);
+      entries.find((e) => e.members.some((m) => m.operatorCode === op && m.stationCode === code));
 
     // 每条线路按 GTFS 站序列出车站（有支线时主干在前、支线在后）；没有站序时按 catalog 中停靠该线的车站排列。
     const groups = data.lines.filter(listed).map((line) => {
@@ -134,33 +160,45 @@ function PickerContent({
     return { entries, groups: groups.filter((g) => g.stations.length > 0) };
   }, [catalog.data, gtfs.data, home.serverId, shown]);
 
-  const isFavorite = (e: Entry) => favorites.some((f) => sameStation(f, e.ref));
+  const inEntry = (e: Entry, station: HomeStation) =>
+    e.members.some((m) => sameStation(m, station));
+  const isFavorite = (e: Entry) => favorites.some((f) => inEntry(e, f));
+  // 枢纽：收藏过的成员站（可能不止一个）全部移出；没收藏时收藏选中会存下的那个成员站。
+  const toggleEntryFavorite = (e: Entry) => {
+    const saved = favorites.filter((f) => inEntry(e, f));
+    for (const f of saved.length ? saved : [e.ref]) toggleFavorite(f);
+  };
   const choose = (e: Entry) => {
     onChoose(e.ref);
     onClose();
   };
 
+  // 还没有线路的车站（例如刚建好的站）坐不了车，不列出来；本站与常用车站照常列。
+  const usable = entries.filter((e) => e.lines.length > 0 || inEntry(e, home) || isFavorite(e));
+  // 同名的车站（不同运营方、不在同一个枢纽）写上运营方区分。
+  const nameCount = new Map<string, number>();
+  for (const e of usable) nameCount.set(e.name, (nameCount.get(e.name) ?? 0) + 1);
   const q = query.trim().toLowerCase();
   const results = q
-    ? entries.filter(
-        (e) =>
-          e.name.toLowerCase().includes(q) ||
-          e.ref.stationCode.toLowerCase().includes(q) ||
-          e.secondaryName?.toLowerCase().includes(q),
-      )
+    ? usable.filter((e) => e.name.toLowerCase().includes(q) || e.searchText.includes(q))
     : [];
-  const favoriteEntries = favorites
-    .map((f) => entries.find((e) => sameStation(e.ref, f)))
-    .filter((e): e is Entry => Boolean(e));
+  const favoriteEntries = [
+    ...new Set(
+      favorites
+        .map((f) => entries.find((e) => inEntry(e, f)))
+        .filter((e): e is Entry => Boolean(e)),
+    ),
+  ];
 
   const row = (e: Entry) => (
     <StationRow
       key={e.key}
       entry={e}
-      current={sameStation(e.ref, home)}
+      showOperator={(nameCount.get(e.name) ?? 0) > 1}
+      current={inEntry(e, home)}
       favorite={isFavorite(e)}
       onChoose={() => choose(e)}
-      onToggleFavorite={() => toggleFavorite(e.ref)}
+      onToggleFavorite={() => toggleEntryFavorite(e)}
     />
   );
 
@@ -229,12 +267,15 @@ function PickerContent({
 
 function StationRow({
   entry,
+  showOperator,
   current,
   favorite,
   onChoose,
   onToggleFavorite,
 }: {
   entry: Entry;
+  /** 有同名车站时写上运营方。 */
+  showOperator: boolean;
   current: boolean;
   favorite: boolean;
   onChoose: () => void;
@@ -249,7 +290,12 @@ function StationRow({
         onClick={onChoose}
         aria-current={current || undefined}
       >
-        <span className={styles.name}>{entry.name}</span>
+        <span className={styles.name}>
+          {entry.name}
+          {showOperator && entry.operatorName && (
+            <span className={styles.operator}>{entry.operatorName}</span>
+          )}
+        </span>
         <span className={styles.meta}>
           {showStationCodes && <span className={styles.code}>{entry.ref.stationCode}</span>}
           {entry.lines.map((l) => (
