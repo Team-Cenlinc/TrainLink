@@ -28,7 +28,7 @@
 
 .hero {
   flex: none;
-  padding: calc(var(--safe-top) + 70px) 20px 52px;
+  padding: calc(var(--safe-top) + 70px) var(--gutter-right) 52px var(--gutter-left);
   background: var(--hero);
   color: var(--hero-text);
 }
@@ -92,7 +92,8 @@
   flex: 1;
   overflow: clip;
   margin-top: -24px;
-  padding: 24px 16px var(--bottom-chrome);
+  /* 侧边有安全区（横放时的刘海、传感器）时卡片也让开。 */
+  padding: 24px var(--gutter-right-panel) var(--bottom-chrome) var(--gutter-left-panel);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--canvas);
   container-type: inline-size;
@@ -154,7 +155,7 @@
 /* 大屏：与 WideBoard 的标题块相同（左右 32，标题 44–72 px）。 */
 @media (min-width: 768px) {
   .hero {
-    padding: calc(var(--safe-top) + 84px) 32px 52px;
+    padding: calc(var(--safe-top) + 84px) var(--gutter-right-wide) 52px var(--gutter-left-wide);
   }
 
   .withBack {
@@ -204,7 +205,8 @@ html[data-fold="book"] .panel {
   overscroll-behavior: contain;
   /* 从贴顶色条（#top-edge）下面开始，圆角不被它盖住。 */
   margin-top: max(var(--safe-top), 12px);
-  padding: 24px 16px calc(var(--safe-bottom) + 32px);
+  /* 在右边一屏：左边是折痕，右边贴屏幕边，要让开右侧的安全区。 */
+  padding: 24px var(--gutter-right-panel) calc(var(--safe-bottom) + 32px) 16px;
   border-radius: var(--radius-sheet) 0 0 var(--radius-sheet);
 }
 
@@ -230,5 +232,5 @@ html[data-fold="tabletop"] .panel {
   overflow-y: auto;
   overscroll-behavior: contain;
   margin-top: 0;
-  padding: 16px 16px var(--bottom-chrome);
+  padding: 16px var(--gutter-right-panel) var(--bottom-chrome) var(--gutter-left-panel);
 }

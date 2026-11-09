@@ -8,7 +8,7 @@
 
 .hero {
   flex: none;
-  padding: calc(var(--safe-top) + 16px) 32px 52px;
+  padding: calc(var(--safe-top) + 16px) var(--gutter-right-wide) 52px var(--gutter-left-wide);
   color: var(--on-line);
 }
 
@@ -141,7 +141,7 @@
   display: grid;
   gap: 24px;
   margin-top: -24px;
-  padding: 24px 32px 0;
+  padding: 24px var(--gutter-right-wide) 0 var(--gutter-left-wide);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--canvas);
   /* 左：发车区（占满剩余宽度）；右：列车位置，固定在 360–440 之间，线路图任何时候都不挤。 */
@@ -219,12 +219,14 @@
  * 左边一屏是站名和发车，右边一屏是搜索、车站信息和列车位置。放在最后，覆盖上面的内边距。
  */
 html[data-fold="book"] .hero {
-  padding: calc(var(--safe-top) + 12px) 20px 44px;
+  padding: calc(var(--safe-top) + 12px) var(--gutter-right) 44px var(--gutter-left);
 }
 
 html[data-fold="book"] .topbar {
   display: grid;
-  grid-template-columns: calc(var(--fold-first) - 20px) var(--fold-gap) minmax(0, 1fr) auto auto;
+  grid-template-columns:
+    calc(var(--fold-first) - var(--gutter-left)) var(--fold-gap) minmax(0, 1fr)
+    auto auto;
   gap: 0;
 }
 
@@ -259,12 +261,14 @@ html[data-fold="book"] .panel {
   padding: 24px 0 0;
 }
 
+/* 左边一屏贴着屏幕左边，右边一屏贴着屏幕右边：各自让开那一侧的安全区。 */
 html[data-fold="book"] .departures {
-  padding: 4px 16px calc(var(--bottom-chrome) + 14px);
+  padding: 4px 16px calc(var(--bottom-chrome) + 14px) var(--gutter-left-panel);
 }
 
 html[data-fold="book"] .lineColumn {
   grid-column: 3;
+  padding-right: var(--gutter-right-panel);
   padding-bottom: calc(var(--safe-bottom) + 32px);
   border-radius: var(--radius-group) 0 0 0;
 }
@@ -283,7 +287,8 @@ html[data-fold="tabletop"] .hero {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: calc(var(--safe-top) + 12px) 20px calc(var(--fold-gap) + 12px);
+  padding: calc(var(--safe-top) + 12px) var(--gutter-right) calc(var(--fold-gap) + 12px)
+    var(--gutter-left);
 }
 
 html[data-fold="tabletop"] .heroBody {
@@ -316,7 +321,7 @@ html[data-fold="tabletop"] .panel {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   margin-top: 0;
-  padding: 12px 12px 0;
+  padding: 12px max(12px, var(--inset-right)) 0 max(12px, var(--inset-left));
 }
 
 html[data-fold="tabletop"] .column {

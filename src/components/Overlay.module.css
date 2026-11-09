@@ -95,6 +95,16 @@ html[data-fold="book"] .sheet {
   left: var(--fold-second-start);
   max-width: none;
   margin: 0;
+  /* 右边贴着屏幕边：让开右侧的安全区（例如横放时竖在右边的状态栏）。 */
+  padding-right: var(--gutter-right);
+}
+
+/* 面板占满屏幕宽度（不到 560 宽）时两边都贴着屏幕边，让开左右的安全区。 */
+@media (max-width: 560px) {
+  .sheet {
+    padding-right: var(--gutter-right);
+    padding-left: var(--gutter-left);
+  }
 }
 
 html[data-fold="tabletop"] .sheet,

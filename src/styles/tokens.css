@@ -53,6 +53,23 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* 横放时刘海、传感器或状态栏在侧边的机型（例如 iPhone Duo）左右也有安全区。 */
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  /*
+   * 内容离屏幕左右边的距离：平常用各处原来的值，侧边有安全区时改为安全区再留 8 px（--inset-*），
+   * 按钮、文字、卡片不压到刘海、传感器或状态栏下面；底色照样铺到屏幕边。
+   * 贴着屏幕左右边的内容一律用下面这几个，不写固定的 px（半折的覆盖规则也一样）：
+   * gutter 是标题色块（20 px，大屏 32 px），gutter-*-panel 是面板与卡片（16 px）。
+   */
+  --inset-left: calc(var(--safe-left) + 8px);
+  --inset-right: calc(var(--safe-right) + 8px);
+  --gutter-left: max(20px, var(--inset-left));
+  --gutter-right: max(20px, var(--inset-right));
+  --gutter-left-wide: max(32px, var(--inset-left));
+  --gutter-right-wide: max(32px, var(--inset-right));
+  --gutter-left-panel: max(16px, var(--inset-left));
+  --gutter-right-panel: max(16px, var(--inset-right));
 
   /*
    * 页面底部要给浮动的东西让出的高度：标签栏（底边 10 + 高约 73）再留一点空，

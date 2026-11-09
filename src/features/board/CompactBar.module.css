@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   z-index: 5;
-  padding: calc(var(--safe-top) + 12px) 20px 10px;
+  padding: calc(var(--safe-top) + 12px) var(--gutter-right) 10px var(--gutter-left);
   color: var(--on-line);
 }
 

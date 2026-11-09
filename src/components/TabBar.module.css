@@ -1,12 +1,13 @@
 .bar {
   position: fixed;
-  left: 50%;
+  /* 在左右安全区之间居中（横放时状态栏、刘海在一侧）。 */
+  left: calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
   bottom: calc(var(--safe-bottom) + 10px);
   transform: translateX(-50%);
   z-index: 20;
   display: flex;
   gap: 2px;
-  width: min(calc(100% - 28px), 420px);
+  width: min(calc(100% - var(--safe-left) - var(--safe-right) - 28px), 420px);
   padding: 6px;
   border-radius: var(--radius-group);
   /* 半透明材料：内容从下面滚过时仍能看清标签。 */
@@ -22,8 +23,8 @@
 
 /* 书本式半折：标签栏整条放在左边一屏，不压在折痕上。 */
 html[data-fold="book"] .bar {
-  left: calc(var(--fold-first) / 2);
-  width: min(calc(var(--fold-first) - 28px), 420px);
+  left: calc(var(--safe-left) + (var(--fold-first) - var(--safe-left)) / 2);
+  width: min(calc(var(--fold-first) - var(--safe-left) - 28px), 420px);
 }
 
 @media (prefers-reduced-transparency: reduce) {

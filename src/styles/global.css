@@ -161,7 +161,7 @@ a {
 /*
  * 弹窗、底部面板与手机布局的内容区不画滚动条（滚轮、触控、键盘照样能滚）：
  * 常显滚动条（Windows、macOS 设成「始终显示」）会占一条宽度，把圆角卡片的右侧顶成直角。
- * 平板与桌面布局的长页面、看板各列要靠滚动条看出还有内容，不用它。
+ * 用鼠标的平板与桌面布局，长页面、看板各列要靠滚动条看出还有内容，不用它。
  */
 .no-scrollbar {
   scrollbar-width: none;
@@ -169,6 +169,22 @@ a {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/*
+ * 只能用手指操作的设备一律不画滚动条，不管是哪一档布局：iOS（包括从主屏打开的 App）滚动时会在各个
+ * 可滚动的块边上显示一根细条，中屏（折叠屏内屏、iPad）的看板各列、长页面也会出现。
+ * 触屏靠手指拖动，内容露出半截就看得出还能滚，不需要它。
+ * 用 any-hover：接了触控板或鼠标的 iPad、安卓平板能悬停，滚动条照常显示，看得出各栏能滚。
+ */
+@media (any-hover: none) and (any-pointer: coarse) {
+  * {
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* 只给读屏朗读、不显示的文字。 */

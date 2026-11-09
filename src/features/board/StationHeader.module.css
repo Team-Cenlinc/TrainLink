@@ -2,7 +2,7 @@
 .header {
   position: absolute;
   inset: 0;
-  padding: calc(var(--safe-top) + 12px) 20px 0;
+  padding: calc(var(--safe-top) + 12px) var(--gutter-right) 0 var(--gutter-left);
   background: var(--line);
   color: var(--on-line);
   /* 在色块上按下就能拖动面板，不让浏览器把它当成页面滚动。 */
@@ -123,7 +123,8 @@
   display: flex;
   gap: 2px;
   height: 8px;
-  margin: 16px -20px 0;
+  /* 铺到屏幕两边：抵掉色块的左右内边距（有安全区时不止 20 px）。 */
+  margin: 16px calc(-1 * var(--gutter-right)) 0 calc(-1 * var(--gutter-left));
 }
 
 .band span {
@@ -149,7 +150,9 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  margin: 0 -20px;
+  /* 平常往两边伸 20 px；有侧边安全区时只伸到安全区边上，站名不进安全区。 */
+  margin: 0 calc(var(--safe-right) - var(--gutter-right)) 0
+    calc(var(--safe-left) - var(--gutter-left));
   padding: 0;
   list-style: none;
 }

@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: calc(var(--safe-top) + 24px) 16px 24px;
+  padding: calc(var(--safe-top) + 24px) 16px 24px var(--gutter-left-panel);
   background: var(--surface);
   border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }

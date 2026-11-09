@@ -4,14 +4,15 @@
  */
 .bar {
   position: fixed;
-  left: 50%;
+  /* 同标签栏：在左右安全区之间居中。 */
+  left: calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
   bottom: calc(var(--safe-bottom) + 91px);
   transform: translateX(-50%);
   z-index: 20;
   display: flex;
   align-items: center;
   gap: 12px;
-  width: min(calc(100% - 28px), 420px);
+  width: min(calc(100% - var(--safe-left) - var(--safe-right) - 28px), 420px);
   min-height: 56px;
   padding: 8px 10px 8px 16px;
   border-radius: var(--radius-group);
@@ -29,7 +30,7 @@
 @media (min-width: 1280px) {
   .bar {
     left: auto;
-    right: 24px;
+    right: max(24px, var(--inset-right));
     bottom: 24px;
     transform: none;
     width: 360px;
@@ -42,11 +43,11 @@
 
 /* 书本式半折：跟标签栏一起放在左边一屏。放在桌面规则之后，覆盖它的定位。 */
 html[data-fold="book"] .bar {
-  left: calc(var(--fold-first) / 2);
+  left: calc(var(--safe-left) + (var(--fold-first) - var(--safe-left)) / 2);
   right: auto;
   bottom: calc(var(--safe-bottom) + 91px);
   transform: translateX(-50%);
-  width: min(calc(var(--fold-first) - 28px), 420px);
+  width: min(calc(var(--fold-first) - var(--safe-left) - 28px), 420px);
 }
 
 html[data-fold="book"] .bar:active {
