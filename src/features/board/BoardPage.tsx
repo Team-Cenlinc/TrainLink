@@ -59,18 +59,29 @@ export function BoardPage() {
   );
 
   // 换乘站上选中的线路（运营方:线路码）；记下是哪个车站选的，换了本站就自动回到默认线路。
+  // 线路与运营方联动：选中哪条线，站牌就看那条线所属的那一家；切换运营方时线路也换成那一家的。
   const home = useHomeStation();
   const homeKey = `${home.operatorCode}:${home.stationCode}`;
   const [lineChoice, setLineChoice] = useState<{ station: string; line: string }>();
   const chosenLine = lineChoice?.station === homeKey ? lineChoice.line : undefined;
-  const chooseLine = useCallback(
-    (line: string) => setLineChoice({ station: homeKey, line }),
-    [homeKey],
-  );
   // 枢纽上选中看哪一家的站牌，按枢纽记住（换了本站再回来还是那一家）；没选过时是本站那一家。
   const [operatorChoice, setOperatorChoice] = useState<Record<string, string>>({});
+  const chooseLine = useCallback(
+    (line: string) => {
+      setLineChoice({ station: homeKey, line });
+      const operator = line.split(":")[0];
+      if (operator) setOperatorChoice((choice) => ({ ...choice, [homeKey]: operator }));
+    },
+    [homeKey],
+  );
+  // 切换运营方时，选过的另一家的线路不再留着：前后站条与列车位置换成这一家的线路。
   const chooseOperator = useCallback(
-    (operator: string) => setOperatorChoice((choice) => ({ ...choice, [homeKey]: operator })),
+    (operator: string) => {
+      setOperatorChoice((choice) => ({ ...choice, [homeKey]: operator }));
+      setLineChoice((choice) =>
+        choice?.station === homeKey && !choice.line.startsWith(`${operator}:`) ? undefined : choice,
+      );
+    },
     [homeKey],
   );
 

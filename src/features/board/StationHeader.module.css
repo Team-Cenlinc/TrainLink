@@ -157,6 +157,116 @@
   list-style: none;
 }
 
+/* 换乘站：每条线一页，横向滑动、一次停一页。和前后站条一样只伸到安全区边上。 */
+.pages {
+  display: flex;
+  margin: 0 calc(var(--safe-right) - var(--gutter-right)) 0
+    calc(var(--safe-left) - var(--gutter-left));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  /* 横向交给滚动，纵向仍是拖面板（色块上是 touch-action: none）。 */
+  touch-action: pan-x;
+}
+
+.page {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.page .strip {
+  margin: 0;
+}
+
+/*
+ * 换乘站的线路按钮（取代单线车站的线路名那一行）：同运营方按钮的样子，搬到色块上——
+ * 没选中的是淡淡的底加色牌，选中的是站名同色的实底，并展开线路名。
+ * 一行排不下时横向滑动；和线路条一样伸到安全区边上，第一个按钮与站名左对齐。
+ * 滚动容器会裁掉超出的部分：上下各留 6 px（外边距抵掉），焦点框和扩大的点按区域才不被裁。
+ */
+.lineChips {
+  display: flex;
+  gap: 6px;
+  margin: -6px calc(var(--safe-right) - var(--gutter-right)) 8px
+    calc(var(--safe-left) - var(--gutter-left));
+  padding: 6px calc(var(--gutter-right) - var(--safe-right)) 6px
+    calc(var(--gutter-left) - var(--safe-left));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+
+.lineChip {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 5px;
+  border-radius: var(--radius-control-inner);
+  background: color-mix(in srgb, var(--on-line) 14%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    padding 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 按钮 32 px 高、只有色牌时不到 40 px 宽：点按区域上下扩到 44 px，左右扩到缝的一半。 */
+.lineChip::after {
+  content: "";
+  position: absolute;
+  inset: -6px -3px;
+}
+
+.lineChip:active {
+  transform: scale(0.96);
+}
+
+.selectedChip {
+  padding-right: 10px;
+  background: var(--on-line);
+  color: var(--line);
+}
+
+/* 线路名的宽度从 0 展开到全宽（grid 0fr → 1fr 可以过渡，auto 宽度不行）。 */
+.chipName {
+  display: grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.chipName > span {
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 0;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    padding 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.selectedChip .chipName {
+  grid-template-columns: 1fr;
+}
+
+.selectedChip .chipName > span {
+  padding-left: 6px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lineChip,
+  .chipName,
+  .chipName > span {
+    transition: none;
+  }
+}
+
 .strip li {
   position: relative;
   display: flex;

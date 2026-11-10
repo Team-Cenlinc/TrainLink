@@ -1,4 +1,11 @@
-import type { CSSProperties, PointerEvent, Ref } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type CSSProperties,
+  type PointerEvent,
+  type Ref,
+} from "react";
 import { motion, useTransform, type MotionValue } from "motion/react";
 import ForkIcon from "@material-symbols/svg-400/outlined/fork_right.svg?react";
 import InfoIcon from "@material-symbols/svg-400/outlined/info.svg?react";
@@ -22,6 +29,12 @@ interface StationHeaderProps {
   lines: RailStationLine[];
   /** 下拉后显示的前后站；没有站序数据时为空。 */
   strip: StripStop[];
+  /** 换乘站每条能画的线各一条前后站条；不止一条时横向滑动切换。 */
+  strips: LineStripPage[];
+  /** 选中的线路（运营方:线路码），前后站条与色带都显示它。 */
+  currentLine?: string;
+  /** 滑到或点了另一条线。 */
+  onChooseLine: (line: string) => void;
   mapUrl?: string;
   /** 服务器当前时刻，例如 22:18；和发车行的时刻同一时区。 */
   clock: string;
@@ -67,6 +80,9 @@ export function StationHeader({
   stationCode,
   lines,
   strip,
+  strips,
+  currentLine,
+  onChooseLine,
   mapUrl,
   clock,
   onInfo,
@@ -84,6 +100,8 @@ export function StationHeader({
   useTopColor(station ? color : undefined);
   const style = { "--line": color, "--on-line": onLineColor(color) } as CSSProperties;
   const position = station?.position;
+  // 不止一条线能画前后站条时，下拉后的线路名换成一排线路按钮，前后站条也能横向滑动切换。
+  const swipeable = strips.length > 1;
 
   const titleOpacity = useTransform(up, (p) => 1 - clamp01(p / 0.6));
   const titleY = useTransform(up, (p) => p * -28);
@@ -96,6 +114,9 @@ export function StationHeader({
   // 完全淡出后的工具栏与地图链接设为 inert（见 useShown），与上面的不透明度区间一致。
   const toolbarShown = useShown(up, (p) => p < 0.45);
   const mapShown = useShown(down, (p) => p > 0.35);
+  // 换乘站的线路按钮与可横向滚动的前后站条也一样：面板盖着时不能用 Tab 键聚焦进去。
+  const chipsShown = useShown(down, (p) => p > 0.05);
+  const stripsShown = useShown(down, (p) => p > 0.2);
 
   return (
     <header className={styles.header} style={style} onPointerDown={onDragStart}>
@@ -157,10 +178,21 @@ export function StationHeader({
             {lines[0].lineName}
           </motion.p>
         )}
-        {strip.length > 0 && (
-          <motion.div style={stripReveal}>
-            <LineStrip stops={strip} />
-          </motion.div>
+        {swipeable ? (
+          <>
+            <motion.div style={lineNameReveal} inert={!chipsShown}>
+              <LineChips strips={strips} current={currentLine} onChoose={onChooseLine} />
+            </motion.div>
+            <motion.div style={stripReveal} inert={!stripsShown}>
+              <LineStrips strips={strips} current={currentLine} onChoose={onChooseLine} />
+            </motion.div>
+          </>
+        ) : (
+          strip.length > 0 && (
+            <motion.div style={stripReveal}>
+              <LineStrip stops={strip} />
+            </motion.div>
+          )
         )}
         {mapUrl && position && (
           <motion.div className={styles.mapRow} style={mapReveal} inert={!mapShown}>
@@ -218,6 +250,147 @@ export function StationTags({
         </span>
       ))}
       {showStationCodes && <span className={`${styles.tag} ${styles.code}`}>{stationCode}</span>}
+    </div>
+  );
+}
+
+export interface LineStripPage {
+  /** 运营方:线路码。 */
+  key: string;
+  line: RailStationLine;
+  stops: StripStop[];
+}
+
+/**
+ * 换乘站的线路按钮：一眼看出「这几条线能点」。没选中的只留色牌，选中的才展开写线路名，
+ * 线路多也排得下（同运营方按钮的样子）；还放不下时这一排横向滑动，选中的那个自动滚进视野。
+ */
+function LineChips({
+  strips,
+  current,
+  onChoose,
+}: {
+  strips: LineStripPage[];
+  current?: string;
+  onChoose: (line: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  // 只横向滚这一排，不用 scrollIntoView：它会连带滚动外面的面板。展开有 0.2 秒过渡，等它展开完再量、再滚。
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const row = ref.current;
+      const chip = row?.querySelector<HTMLElement>("[aria-pressed=true]");
+      if (!row || !chip) return;
+      // 滚到按钮离这一排的边缘留出内边距（与站名对齐的那段），第一个、最后一个正好滚到头。
+      const { paddingLeft, paddingRight } = getComputedStyle(row);
+      const box = row.getBoundingClientRect();
+      const { left, right } = chip.getBoundingClientRect();
+      const start = box.left + parseFloat(paddingLeft);
+      const end = box.right - parseFloat(paddingRight);
+      const by = left < start ? left - start : Math.max(0, right - end);
+      if (by) row.scrollBy({ left: by, behavior: "smooth" });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [current]);
+
+  return (
+    <div
+      ref={ref}
+      className={`${styles.lineChips} no-scrollbar`}
+      role="group"
+      aria-label="前后车站显示哪条线"
+    >
+      {strips.map(({ key, line }) => {
+        const selected = key === current;
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`${styles.lineChip} ${selected ? styles.selectedChip : ""}`}
+            aria-pressed={selected}
+            // 名字里带上看得见的线路码：语音控制说「点 MT」也能点到。
+            aria-label={`${line.lineCode} ${line.lineName}`}
+            onClick={() => onChoose(key)}
+          >
+            <ServiceBadge lineCode={line.lineCode} lineColor={line.color} size="s" />
+            <span className={styles.chipName} aria-hidden>
+              <span>{line.lineName}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * 换乘站的前后站条：每条线一页，横向滑动切换（浏览器自己的滚动与吸附，惯性和回弹都是系统的）。
+ * 色块上下拖动仍然拖面板：这一块只接管横向手势（touch-action: pan-x）。
+ *
+ * 只有用户自己滑（触摸、滚轮、方向键）停稳后才换选中的线路，站牌随之换成那一家。
+ * 外面换了线路（线路按钮、运营方按钮、线路视图）时直接换到那一页：程序触发的滚动不算选择，
+ * 不会在晚到的滚动停下时把刚选的线又改回去；也不用平滑滚动，免得被重新吸附打断、停在半路。
+ */
+function LineStrips({
+  strips,
+  current,
+  onChoose,
+}: {
+  strips: LineStripPage[];
+  current?: string;
+  onChoose: (line: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const index = Math.max(
+    0,
+    strips.findIndex((s) => s.key === current),
+  );
+  const settle = useRef<number | undefined>(undefined);
+  /** 这次滚动是用户自己滑的。 */
+  const byUser = useRef(false);
+  const latest = useRef({ strips, current, onChoose });
+  latest.current = { strips, current, onChoose };
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el?.clientWidth || Math.round(el.scrollLeft / el.clientWidth) === index) return;
+    byUser.current = false;
+    el.scrollTo({ left: index * el.clientWidth });
+  }, [index]);
+
+  useEffect(() => () => window.clearTimeout(settle.current), []);
+
+  const onUser = () => {
+    byUser.current = true;
+  };
+  const onScroll = () => {
+    window.clearTimeout(settle.current);
+    if (!byUser.current) return;
+    settle.current = window.setTimeout(() => {
+      const el = ref.current;
+      const { strips, current, onChoose } = latest.current;
+      if (!el?.clientWidth) return;
+      byUser.current = false;
+      const page = strips[Math.round(el.scrollLeft / el.clientWidth)];
+      if (page && page.key !== current) onChoose(page.key);
+    }, 120);
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={`${styles.pages} no-scrollbar`}
+      onScroll={onScroll}
+      onPointerDown={onUser}
+      onWheel={onUser}
+      onKeyDown={onUser}
+      aria-label="各线路的前后车站"
+    >
+      {strips.map((page) => (
+        <section key={page.key} className={styles.page} aria-label={page.line.lineName}>
+          <LineStrip stops={page.stops} />
+        </section>
+      ))}
     </div>
   );
 }

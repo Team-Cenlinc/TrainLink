@@ -22,7 +22,6 @@ import type { BoardData } from "./useBoardData.ts";
 import { measureDetents, type Detents } from "./detents.ts";
 import { useSheetDetents } from "./useSheetDetents.ts";
 import styles from "./CompactBoard.module.css";
-import { lineKey } from "@/lib/gtfs.ts";
 
 export type BoardView = "station" | "line";
 
@@ -160,6 +159,9 @@ export function CompactBoard({
         stationCode={home.stationCode}
         lines={lines}
         strip={data.strip}
+        strips={data.strips}
+        currentLine={data.primaryKey}
+        onChooseLine={onChooseLine}
         mapUrl={data.mapUrl}
         clock={formatClock(data.now, timeZone)}
         onInfo={onInfo}
@@ -249,7 +251,7 @@ export function CompactBoard({
             {view === "line" && (
               <LineSwitcher
                 lines={data.orderedLines}
-                value={primaryLine && lineKey(primaryLine.operatorCode, primaryLine.lineCode)}
+                value={data.primaryKey}
                 onChange={onChooseLine}
               />
             )}

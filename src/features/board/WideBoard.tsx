@@ -16,7 +16,6 @@ import { StationName, StationTags } from "./StationHeader.tsx";
 import type { PanelOpener } from "./BoardPage.tsx";
 import type { BoardData } from "./useBoardData.ts";
 import styles from "./WideBoard.module.css";
-import { lineKey } from "@/lib/gtfs.ts";
 
 interface WideBoardProps {
   data: BoardData;
@@ -122,7 +121,7 @@ export function WideBoard({
             </h2>
             <LineSwitcher
               lines={data.orderedLines}
-              value={primaryLine && lineKey(primaryLine.operatorCode, primaryLine.lineCode)}
+              value={data.primaryKey}
               onChange={onChooseLine}
             />
             {lineLayout && (

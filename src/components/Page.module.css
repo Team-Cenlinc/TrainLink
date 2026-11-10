@@ -176,8 +176,12 @@
     font-size: clamp(36px, 4vw, 52px);
   }
 
+  /*
+   * 底部同手机：768–1279 还有浮动标签栏，最后一项（例如「结束乘车」）要能滚到它上面；
+   * 左右与标题块对齐，有侧边安全区时也让开。
+   */
   .panel {
-    padding: 24px 32px 48px;
+    padding: 24px var(--gutter-right-wide) var(--bottom-chrome) var(--gutter-left-wide);
   }
 }
 

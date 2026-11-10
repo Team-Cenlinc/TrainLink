@@ -5,7 +5,7 @@ import { hubLines, hubOf } from "@/lib/hubs.ts";
 import { lineShape } from "@/lib/lineShape.ts";
 import { useHomeStation } from "@/lib/homeStation.ts";
 import { useBoards, useCarLoads, useCatalog, useGtfs, useNow, useTrains } from "@/lib/queries.ts";
-import { sourceTimeZone, type RailBoard } from "@/lib/railApi.ts";
+import { sourceTimeZone, type RailBoard, type RailStation } from "@/lib/railApi.ts";
 import { useShownOperators } from "@/lib/settings.ts";
 import {
   blueMapUrl,
@@ -68,8 +68,7 @@ export function useBoardData(
     parts.find((p) => p.station === station) ??
     parts[0];
   /** 某家运营方在这个枢纽里的成员站；不是枢纽时就是本站。 */
-  const memberOf = (operatorCode: string) =>
-    parts.find((p) => p.operatorCode === operatorCode)?.station ?? station;
+  const memberOf = (operatorCode: string) => memberOfIn(parts, operatorCode) ?? station;
   // 每家一份站牌，一起读取（见 lib/queries.ts 的 useBoards）；还没有 catalog 时先读本站。
   const boardStations = useMemo(
     () =>
@@ -90,23 +89,42 @@ export function useBoardData(
   const linePatterns = gtfs.data?.linePatterns;
   // 有站序数据（GTFS 里有车次）的线路才能画列车位置；停运检修的线路没有。
   // 全线视图只列设置里显示的运营方的线路；本站的线路全被隐藏时照常全列，免得线路视图空着。
-  const drawable = lines.filter((l) => linePatterns?.has(lineKey(l.operatorCode, l.lineCode)));
-  const shownLines = drawable.filter((l) => shown.byCode(home.serverId, l.operatorCode));
-  const orderedLines = shownLines.length > 0 ? shownLines : drawable;
+  const orderedLines = useMemo(() => {
+    const drawable = lines.filter((l) => linePatterns?.has(lineKey(l.operatorCode, l.lineCode)));
+    const shownLines = drawable.filter((l) => shown.byCode(home.serverId, l.operatorCode));
+    return shownLines.length > 0 ? shownLines : drawable;
+  }, [lines, linePatterns, shown, home.serverId]);
+  // 没选线路时用正在看的那一家的线路：枢纽上切换运营方，标题里的前后站条跟着换。
   const primaryLine =
     orderedLines.find((l) => lineKey(l.operatorCode, l.lineCode) === preferredLine) ??
+    orderedLines.find((l) => l.operatorCode === part?.operatorCode) ??
     orderedLines[0] ??
     lines[0];
+  /** 选中线路的运营方:线路码。 */
+  const primaryKey = primaryLine && lineKey(primaryLine.operatorCode, primaryLine.lineCode);
   // 线路从它所属运营方的成员站画起（枢纽里两家的站码不保证相同）。
   const lineStation = primaryLine ? memberOf(primaryLine.operatorCode) : station;
   // 线路形状：本站所在的那一支画成主干，其余支线接在后面（见 lib/lineShape.ts）。
   const shape = useMemo(() => {
-    const patterns =
-      primaryLine && linePatterns?.get(lineKey(primaryLine.operatorCode, primaryLine.lineCode));
+    const patterns = primaryKey ? linePatterns?.get(primaryKey) : undefined;
     return patterns && lineStation ? lineShape(patterns, lineStation.code) : undefined;
-  }, [primaryLine, linePatterns, lineStation]);
-  const strip =
-    lineStation && primaryLine ? neighbourStops(catalog.data, shape, lineStation, primaryLine) : [];
+  }, [primaryKey, linePatterns, lineStation]);
+  // 每条能画的线各一条前后站条：换乘站的标题里横向滑动切换（见 StationHeader 的 LineStrips）。
+  const strips = useMemo(
+    () =>
+      orderedLines.flatMap((line) => {
+        const member = memberOfIn(parts, line.operatorCode) ?? station;
+        const patterns = linePatterns?.get(lineKey(line.operatorCode, line.lineCode));
+        if (!member || !patterns) return [];
+        const stops = neighbourStops(catalog.data, lineShape(patterns, member.code), member, line);
+        return stops.length
+          ? [{ key: lineKey(line.operatorCode, line.lineCode), line, stops }]
+          : [];
+      }),
+    [orderedLines, parts, station, linePatterns, catalog.data],
+  );
+  // 选中线路的那一条（单线车站只有这一条）；没有站序数据的线路不在 strips 里，前后站条为空。
+  const strip = strips.find((s) => s.key === primaryKey)?.stops ?? [];
   // 经车站组换乘的线路。枢纽里另一家的线路已经算本站的线路，不再列进来；
   // 那一家在设置里被隐藏时也不列（隐藏只影响显示，见 v07）。
   const transfers = parts
@@ -192,8 +210,11 @@ export function useBoardData(
     memberOf,
     lines,
     primaryLine,
+    primaryKey,
     orderedLines,
     strip,
+    /** 每条能画的线的前后站条（顺序同 orderedLines）。 */
+    strips,
     transfers,
     nearest,
     mapUrl: part ? blueMapUrl(part.station) : station ? blueMapUrl(station) : undefined,
@@ -209,3 +230,8 @@ export function useBoardData(
 }
 
 export type BoardData = ReturnType<typeof useBoardData>;
+
+/** 枢纽里某家运营方的成员站。 */
+function memberOfIn(parts: { operatorCode: string; station: RailStation }[], operatorCode: string) {
+  return parts.find((p) => p.operatorCode === operatorCode)?.station;
+}
